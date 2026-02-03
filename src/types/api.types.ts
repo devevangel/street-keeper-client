@@ -209,3 +209,45 @@ export interface GpxAnalysisResponse {
     list: AggregatedStreet[];
   };
 }
+
+// ============================================
+// Map Types (Home page map view)
+// Mirrors backend src/types/map.types.ts
+// ============================================
+
+/** Stats for a single street, shown in the map info icon popup */
+export interface MapStreetStats {
+  runCount: number;
+  completionCount: number;
+  firstRunDate: string | null;
+  lastRunDate: string | null;
+  totalLengthMeters: number;
+  currentPercentage: number;
+  everCompleted: boolean;
+}
+
+/** Single street for map rendering with geometry and stats */
+export interface MapStreet {
+  osmId: string;
+  name: string;
+  highwayType: string;
+  lengthMeters: number;
+  percentage: number;
+  status: "completed" | "partial";
+  geometry: {
+    type: "LineString";
+    coordinates: [number, number][];
+  };
+  stats: MapStreetStats;
+}
+
+/** Response for GET /api/v1/map/streets */
+export interface MapStreetsResponse {
+  success: true;
+  streets: MapStreet[];
+  center: { lat: number; lng: number };
+  radiusMeters: number;
+  totalStreets: number;
+  completedCount: number;
+  partialCount: number;
+}

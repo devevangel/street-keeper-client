@@ -11,26 +11,29 @@ This document is the single source of truth for coding patterns, conventions, an
 3. [File Naming Conventions](#file-naming-conventions)
 4. [TypeScript Patterns](#typescript-patterns)
 5. [Architecture Layers](#architecture-layers)
-6. [Component Patterns](#component-patterns)
-7. [Service Layer Patterns](#service-layer-patterns)
-8. [Type Definitions](#type-definitions)
-9. [Constants & Configuration](#constants--configuration)
-10. [Error Handling](#error-handling)
-11. [Import/Export Conventions](#importexport-conventions)
-12. [Code Documentation](#code-documentation)
-13. [Environment Variables](#environment-variables)
+6. [Routing](#routing)
+7. [Auth Context](#auth-context)
+8. [Component Patterns](#component-patterns)
+9. [Service Layer Patterns](#service-layer-patterns)
+10. [Type Definitions](#type-definitions)
+11. [Constants & Configuration](#constants--configuration)
+12. [Error Handling](#error-handling)
+13. [Import/Export Conventions](#importexport-conventions)
+14. [Code Documentation](#code-documentation)
+15. [Environment Variables](#environment-variables)
+16. [Leaflet / Map Patterns](#leaflet--map-patterns)
 
 ---
 
 ## Tech Stack
 
-| Technology | Purpose | Version |
-|------------|---------|---------|
-| **React** | UI library | 19.x |
-| **TypeScript** | Language | 5.x |
-| **Vite** | Build tool | 7.x |
-| **Tailwind CSS** | Styling | 4.x |
-| **React Router** | Routing | (when added) |
+| Technology       | Purpose    | Version |
+| ---------------- | ---------- | ------- |
+| **React**        | UI library | 19.x    |
+| **TypeScript**   | Language   | 5.x     |
+| **Vite**         | Build tool | 7.x     |
+| **Tailwind CSS** | Styling    | 4.x     |
+| **React Router** | Routing    | 6.x     |
 
 ### Key Configuration
 
@@ -46,34 +49,40 @@ This document is the single source of truth for coding patterns, conventions, an
 ```
 frontend/src/
 ├── components/
-│   └── common/           # Base UI components (design system)
-│       ├── Button.tsx
-│       ├── Card.tsx
-│       ├── Input.tsx
-│       ├── Select.tsx
-│       ├── Textarea.tsx
-│       ├── Modal.tsx
-│       ├── ThemeToggle.tsx
-│       └── index.ts      # Barrel export
+│   ├── common/           # Base UI components (design system)
+│   ├── layout/           # AppLayout, TabNav
+│   ├── map/              # MapView, LocationMarker, StreetLayer, StreetPolyline, LocationPrompt, MapStats, StreetList, StreetCard
+│   └── routing/         # ProtectedRoute
 ├── config/
 │   └── constants.ts      # API URL, ROUTES, ERROR_CODES
+├── contexts/
+│   └── AuthContext.tsx   # Auth state provider
 ├── docs/                 # Documentation
 │   ├── CODING_PATTERNS.md
 │   ├── COMPONENT_GUIDE.md
-│   └── DESIGN_TOKENS.md
+│   ├── DESIGN_TOKENS.md
+│   ├── AUTH_FLOW.md
+│   └── HOME_PAGE.md
 ├── hooks/                # Custom React hooks
+│   ├── useGeolocation.ts
+│   ├── useMapStreets.ts
 │   └── index.ts
-├── lib/                  # Utilities and singletons
-│   ├── theme.ts          # Theme toggle utility
-│   └── api-client.ts     # API client (when added)
+├── lib/
+│   ├── theme.ts
+│   └── api-client.ts
 ├── pages/                # Page components (route targets)
+│   ├── LoginPage.tsx
+│   ├── AuthCallbackPage.tsx
+│   ├── HomePage.tsx
+│   ├── RoutesPage.tsx
+│   ├── CampaignPage.tsx
 │   └── index.ts
-├── services/             # API service modules
-│   └── index.ts
+├── services/
+│   └── *.service.ts
 ├── styles/
-│   └── tokens.css        # Design tokens
-├── types/                # TypeScript types
-│   └── index.ts
+│   └── tokens.css
+├── types/
+│   └── api.types.ts
 ├── App.tsx
 ├── index.css
 └── main.tsx
@@ -81,17 +90,21 @@ frontend/src/
 
 ### Directory Purposes
 
-| Directory | Purpose | Contains |
-|-----------|---------|----------|
-| `components/common/` | Design system | Button, Card, Input, Modal, etc. |
-| `config/` | Static configuration | Constants, API base URL, route paths |
-| `docs/` | Documentation | Coding patterns, component guide, tokens |
-| `hooks/` | Custom React hooks | useRoutes, useAuth, etc. |
-| `lib/` | Shared utilities | Theme, API client singleton |
-| `pages/` | Route-level components | LoginPage, RoutesPage, etc. |
-| `services/` | API calls | auth.service, routes.service, etc. |
-| `styles/` | Global styles | tokens.css |
-| `types/` | TypeScript interfaces | API response types, domain types |
+| Directory             | Purpose                | Contains                                                                                               |
+| --------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| `components/common/`  | Design system          | Button, Card, Input, Modal, etc.                                                                       |
+| `config/`             | Static configuration   | Constants, API base URL, route paths                                                                   |
+| `docs/`               | Documentation          | Coding patterns, component guide, tokens                                                               |
+| `hooks/`              | Custom React hooks     | useRoutes, useAuth, etc.                                                                               |
+| `lib/`                | Shared utilities       | Theme, API client singleton                                                                            |
+| `components/layout/`  | App shell              | AppLayout, TabNav                                                                                      |
+| `components/map/`     | Home map view          | MapView, LocationMarker, StreetLayer, StreetPolyline, LocationPrompt, MapStats, StreetList, StreetCard |
+| `components/routing/` | Route guards           | ProtectedRoute                                                                                         |
+| `contexts/`           | React context          | AuthContext                                                                                            |
+| `pages/`              | Route-level components | LoginPage, HomePage, RoutesPage, etc.                                                                  |
+| `services/`           | API calls              | auth.service, map.service, routes.service, etc.                                                        |
+| `styles/`             | Global styles          | tokens.css                                                                                             |
+| `types/`              | TypeScript interfaces  | API response types, domain types                                                                       |
 
 ---
 
@@ -99,14 +112,14 @@ frontend/src/
 
 ### Pattern: `[feature].[layer].ts` or `[Name].tsx`
 
-| Layer | Pattern | Example |
-|-------|---------|---------|
-| Services | `*.service.ts` | `auth.service.ts`, `routes.service.ts` |
-| Types | `*.types.ts` or in `types/` | `api.types.ts` |
-| Components | `PascalCase.tsx` | `Button.tsx`, `ThemeToggle.tsx` |
-| Pages | `PascalCase.tsx` | `LoginPage.tsx`, `RoutesPage.tsx` |
-| Hooks | `use*.ts` | `useRoutes.ts`, `useAuth.ts` |
-| Config | Descriptive | `constants.ts` |
+| Layer      | Pattern                     | Example                                |
+| ---------- | --------------------------- | -------------------------------------- |
+| Services   | `*.service.ts`              | `auth.service.ts`, `routes.service.ts` |
+| Types      | `*.types.ts` or in `types/` | `api.types.ts`                         |
+| Components | `PascalCase.tsx`            | `Button.tsx`, `ThemeToggle.tsx`        |
+| Pages      | `PascalCase.tsx`            | `LoginPage.tsx`, `RoutesPage.tsx`      |
+| Hooks      | `use*.ts`                   | `useRoutes.ts`, `useAuth.ts`           |
+| Config     | Descriptive                 | `constants.ts`                         |
 
 ### Rules
 
@@ -211,12 +224,95 @@ Backend API
 
 ### Layer Responsibilities
 
-| Layer | Can Call | Cannot Call |
-|-------|----------|-------------|
-| Pages | Hooks, components | Services directly (prefer hooks) |
-| Hooks | Services, other hooks | API client raw fetch |
-| Services | API client | Hooks, components |
-| API Client | Backend API | Services (called by services) |
+| Layer      | Can Call              | Cannot Call                      |
+| ---------- | --------------------- | -------------------------------- |
+| Pages      | Hooks, components     | Services directly (prefer hooks) |
+| Hooks      | Services, other hooks | API client raw fetch             |
+| Services   | API client            | Hooks, components                |
+| API Client | Backend API           | Services (called by services)    |
+
+---
+
+## Routing
+
+The app uses React Router v6. Routes are defined in `App.tsx`.
+
+### Route Structure
+
+- **Public**: `/login`, `/auth/callback` (no auth required)
+- **Protected**: Wrapped in `ProtectedRoute`; uses `AppLayout` with `TabNav` and `<Outlet />`
+  - `/` (index) → HomePage
+  - `/routes` → RoutesPage
+  - `/campaign` → CampaignPage
+- **Catch-all**: `*` → `<Navigate to="/" replace />`
+
+### Route Paths
+
+Use `ROUTES` from `config/constants.ts` for path strings so they stay in sync:
+
+```tsx
+import { ROUTES } from "../config/constants";
+
+<Route path={ROUTES.LOGIN} element={<LoginPage />} />
+<Link to={ROUTES.HOME}>Home</Link>
+<Navigate to={ROUTES.LOGIN} replace />
+```
+
+### Nested Routes
+
+Protected routes use a layout route that renders `<Outlet />` for child content:
+
+```tsx
+<Route
+  element={
+    <ProtectedRoute>
+      <AppLayout />
+    </ProtectedRoute>
+  }
+>
+  <Route index element={<HomePage />} />
+  <Route path="routes" element={<RoutesPage />} />
+</Route>
+```
+
+---
+
+## Auth Context
+
+Authentication state is provided by `AuthProvider` and consumed via `useAuth()`.
+
+### Usage
+
+Wrap the app in `AuthProvider` (in `App.tsx`). Use `useAuth()` inside any descendant:
+
+```tsx
+import { useAuth } from "../contexts/AuthContext";
+
+function MyComponent() {
+  const { user, isAuthenticated, isLoading, login, logout, setUser } =
+    useAuth();
+
+  if (isLoading) return <p>Loading...</p>;
+  if (!isAuthenticated) return <button onClick={login}>Log in</button>;
+
+  return <p>Hello, {user?.name}</p>;
+}
+```
+
+### API
+
+| Property          | Type                     | Description                          |
+| ----------------- | ------------------------ | ------------------------------------ |
+| `user`            | `AuthUser \| null`       | Current user or null                 |
+| `isLoading`       | `boolean`                | True while checking auth on mount    |
+| `isAuthenticated` | `boolean`                | True when `user !== null`            |
+| `login()`         | `() => void`             | Redirects to Strava OAuth            |
+| `logout()`        | `() => void`             | Clears auth and redirects            |
+| `setUser(user)`   | `(user \| null) => void` | Set user (e.g. after OAuth callback) |
+
+### Initialization
+
+On mount, `AuthProvider` tries in order: (1) restore dev user ID from localStorage and set user; (2) call `GET /auth/me`; (3) on failure, restore user from localStorage if present. See [AUTH_FLOW.md](./AUTH_FLOW.md) for details.
 
 ---
 
@@ -253,15 +349,15 @@ export function ComponentName({ ... }: ComponentNameProps) {
 
 Use Tailwind classes that map to design tokens:
 
-| Tailwind Class | Token | Usage |
-|----------------|-------|--------|
-| `bg-bg` | `--color-bg` | Page background |
-| `bg-surface` | `--color-surface` | Cards, inputs, modals |
-| `border-border` | `--color-border` | All borders |
-| `text-text` | `--color-text` | Primary text |
-| `text-text-muted` | `--color-text-muted` | Secondary text |
-| `text-danger` | `--color-danger` | Errors |
-| `text-success` | `--color-success` | Success messages |
+| Tailwind Class    | Token                | Usage                 |
+| ----------------- | -------------------- | --------------------- |
+| `bg-bg`           | `--color-bg`         | Page background       |
+| `bg-surface`      | `--color-surface`    | Cards, inputs, modals |
+| `border-border`   | `--color-border`     | All borders           |
+| `text-text`       | `--color-text`       | Primary text          |
+| `text-text-muted` | `--color-text-muted` | Secondary text        |
+| `text-danger`     | `--color-danger`     | Errors                |
+| `text-success`    | `--color-success`    | Success messages      |
 
 ### Props and Accessibility
 
@@ -342,11 +438,11 @@ export interface AuthUser {
 
 ### Type Categories
 
-| Category | Purpose | Example |
-|----------|---------|---------|
+| Category           | Purpose                 | Example                                |
+| ------------------ | ----------------------- | -------------------------------------- |
 | API Response Types | Match backend responses | `AuthSuccessResponse`, `RouteListItem` |
-| Request Types | Form data, payloads | `CreateRouteRequest` |
-| Internal Types | Component props, hooks | `ButtonProps`, `UseRoutesReturn` |
+| Request Types      | Form data, payloads     | `CreateRouteRequest`                   |
+| Internal Types     | Component props, hooks  | `ButtonProps`, `UseRoutesReturn`       |
 
 ---
 
@@ -497,14 +593,15 @@ Only variables prefixed with `VITE_` are exposed to the client.
 
 ### Required / Optional
 
-| Variable | Required | Description | Default |
-|----------|----------|-------------|---------|
-| `VITE_API_BASE_URL` | No | Backend API base | `http://localhost:8000/api/v1` |
+| Variable            | Required | Description      | Default                        |
+| ------------------- | -------- | ---------------- | ------------------------------ |
+| `VITE_API_BASE_URL` | No       | Backend API base | `http://localhost:8000/api/v1` |
 
 ### Usage
 
 ```typescript
-const baseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
+const baseUrl =
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
 ```
 
 For type safety, add to `vite-env.d.ts`:
@@ -514,6 +611,37 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string;
 }
 ```
+
+---
+
+## Leaflet / Map Patterns
+
+The Home page uses **Leaflet** via **react-leaflet** for the interactive map. Tiles are from OpenStreetMap (no API key).
+
+### Coordinate systems
+
+- **GeoJSON** (backend and API): coordinates are `[longitude, latitude]` (e.g. `[-1.08, 50.78]`).
+- **Leaflet**: expects `[latitude, longitude]` (e.g. `[50.78, -1.08]`).
+
+When drawing polylines from API data, convert before passing to Leaflet:
+
+```typescript
+// GeoJSON [lng, lat] to Leaflet [lat, lng]
+const leafletCoords = geometry.coordinates.map(
+  ([lng, lat]) => [lat, lng] as LatLngTuple
+);
+```
+
+See `StreetPolyline.tsx` for the conversion helper.
+
+### Map container height
+
+Leaflet requires the map container to have an explicit height. Use a wrapper div with a fixed height (e.g. `h-[400px]`) or flex/grid so the map can size correctly. Do not rely on content to determine height.
+
+### Component structure
+
+- **MapView** wraps `MapContainer`, `TileLayer`, `LocationMarker`, and `StreetLayer`. Use MapView on the page; do not nest MapContainers.
+- **LocationMarker** and **StreetLayer** (and **StreetPolyline**) must be rendered as children of `MapContainer` so they receive the map context.
 
 ---
 
@@ -541,6 +669,6 @@ interface ImportMetaEnv {
 
 ## Version History
 
-| Date | Version | Changes |
-|------|---------|---------|
-| 2026-01 | 1.0.0 | Initial frontend coding patterns (adapted from backend) |
+| Date    | Version | Changes                                                 |
+| ------- | ------- | ------------------------------------------------------- |
+| 2026-01 | 1.0.0   | Initial frontend coding patterns (adapted from backend) |

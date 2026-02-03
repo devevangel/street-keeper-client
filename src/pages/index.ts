@@ -3,4 +3,8 @@
  * Barrel export for pages
  */
 
-export {}
+export { LoginPage } from "./LoginPage";
+export { AuthCallbackPage } from "./AuthCallbackPage";
+export { HomePage } from "./HomePage";
+export { RoutesPage } from "./RoutesPage";
+export { CampaignPage } from "./CampaignPage";

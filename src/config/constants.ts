@@ -7,11 +7,14 @@ export const API = {
   BASE_URL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1",
 } as const;
 
+/** App route paths. Used by React Router and navigation. */
 export const ROUTES = {
   HOME: "/",
   LOGIN: "/login",
+  AUTH_CALLBACK: "/auth/callback",
   ROUTES_LIST: "/routes",
   ROUTE_DETAIL: "/routes/:id",
+  CAMPAIGN: "/campaign",
   ACTIVITIES: "/activities",
   GPX_UPLOAD: "/gpx",
 } as const;
@@ -42,4 +45,6 @@ export const ERROR_CODES = {
   NOT_FOUND: "NOT_FOUND",
   INTERNAL_ERROR: "INTERNAL_ERROR",
   NETWORK_ERROR: "NETWORK_ERROR",
+  MAP_INVALID_COORDINATES: "MAP_INVALID_COORDINATES",
+  MAP_RADIUS_TOO_LARGE: "MAP_RADIUS_TOO_LARGE",
 } as const;

@@ -14,23 +14,37 @@ This guide describes the base UI components in `src/components/common/`, how to 
 6. [Textarea](#textarea)
 7. [Modal](#modal)
 8. [ThemeToggle](#themetoggle)
-9. [Accessibility Summary](#accessibility-summary)
+9. [Layout Components](#layout-components)
+10. [Routing Components](#routing-components)
+11. [Map Components](#map-components)
+12. [Accessibility Summary](#accessibility-summary)
 
 ---
 
 ## Overview
 
-| Component | Purpose |
-|-----------|---------|
-| **Button** | Primary actions (submit, cancel, confirm) |
-| **Card** | Content containers (lists, details, forms) |
-| **Input** | Single-line text |
-| **Select** | Dropdown choice |
-| **Textarea** | Multi-line text |
-| **Modal** | Dialogs (confirm, forms) |
-| **ThemeToggle** | Switch light/dark theme |
+| Component          | Purpose                                               |
+| ------------------ | ----------------------------------------------------- |
+| **Button**         | Primary actions (submit, cancel, confirm)             |
+| **Card**           | Content containers (lists, details, forms)            |
+| **Input**          | Single-line text                                      |
+| **Select**         | Dropdown choice                                       |
+| **Textarea**       | Multi-line text                                       |
+| **Modal**          | Dialogs (confirm, forms)                              |
+| **ThemeToggle**    | Switch light/dark theme                               |
+| **AppLayout**      | Main shell: header, TabNav, Outlet                    |
+| **TabNav**         | Tabs: Home, Routes, Campaign                          |
+| **ProtectedRoute** | Auth guard; redirects to login when not authenticated |
+| **LocationPrompt** | Geolocation permission UI (loading/error/retry)       |
+| **MapStats**       | Summary: total streets, completed, partial            |
+| **MapView**        | Interactive Leaflet map (location + street polylines) |
+| **LocationMarker** | User position circle on map                           |
+| **StreetPolyline** | Single street line on map (green/yellow)              |
+| **StreetLayer**    | Renders all street polylines on map                   |
+| **StreetList**     | List of streets with expandable stats                 |
+| **StreetCard**     | Single street row with status dot and stats           |
 
-All components accept a `className` prop for layout or style overrides. Styling is token-based: `bg-surface`, `border-border`, `text-text`, `text-danger`, etc.
+All components accept a `className` prop where applicable. Styling is token-based: `bg-surface`, `border-border`, `text-text`, `text-danger`, etc.
 
 ---
 
@@ -40,15 +54,15 @@ Primary interactive element for user actions.
 
 ### Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|--------------|
-| `variant` | `"primary"` \| `"secondary"` \| `"danger"` \| `"success"` | `"primary"` | Visual style |
-| `size` | `"sm"` \| `"md"` \| `"lg"` | `"md"` | Padding and font size |
-| `type` | `"button"` \| `"submit"` \| `"reset"` | `"button"` | Native button type |
-| `disabled` | `boolean` | - | Disabled state |
-| `children` | `ReactNode` | - | Label content |
-| `className` | `string` | `""` | Extra classes |
-| ... | `ButtonHTMLAttributes` | - | Any native button props |
+| Prop        | Type                                                      | Default     | Description             |
+| ----------- | --------------------------------------------------------- | ----------- | ----------------------- |
+| `variant`   | `"primary"` \| `"secondary"` \| `"danger"` \| `"success"` | `"primary"` | Visual style            |
+| `size`      | `"sm"` \| `"md"` \| `"lg"`                                | `"md"`      | Padding and font size   |
+| `type`      | `"button"` \| `"submit"` \| `"reset"`                     | `"button"`  | Native button type      |
+| `disabled`  | `boolean`                                                 | -           | Disabled state          |
+| `children`  | `ReactNode`                                               | -           | Label content           |
+| `className` | `string`                                                  | `""`        | Extra classes           |
+| ...         | `ButtonHTMLAttributes`                                    | -           | Any native button props |
 
 ### Usage
 
@@ -75,12 +89,12 @@ Container for grouped content. Uses `bg-surface` and `border-border`.
 
 ### Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|--------------|
-| `padding` | `"none"` \| `"sm"` \| `"md"` \| `"large"` | `"md"` | Inner padding |
-| `children` | `ReactNode` | - | Content |
-| `className` | `string` | `""` | Extra classes |
-| ... | `HTMLAttributes<HTMLDivElement>` | - | Any native div props |
+| Prop        | Type                                      | Default | Description          |
+| ----------- | ----------------------------------------- | ------- | -------------------- |
+| `padding`   | `"none"` \| `"sm"` \| `"md"` \| `"large"` | `"md"`  | Inner padding        |
+| `children`  | `ReactNode`                               | -       | Content              |
+| `className` | `string`                                  | `""`    | Extra classes        |
+| ...         | `HTMLAttributes<HTMLDivElement>`          | -       | Any native div props |
 
 ### Usage
 
@@ -105,14 +119,14 @@ Single-line text input with optional label and error message.
 
 ### Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|--------------|
-| `label` | `string` | - | Accessible label |
-| `error` | `string` | - | Error message (sets `aria-invalid`, `aria-describedby`) |
-| `required` | `boolean` | - | Required field (shows * and sets attribute) |
-| `id` | `string` | (generated) | Id for label and input (optional) |
-| `className` | `string` | `""` | Extra classes on input |
-| ... | `InputHTMLAttributes` | - | Native input props |
+| Prop        | Type                  | Default     | Description                                             |
+| ----------- | --------------------- | ----------- | ------------------------------------------------------- |
+| `label`     | `string`              | -           | Accessible label                                        |
+| `error`     | `string`              | -           | Error message (sets `aria-invalid`, `aria-describedby`) |
+| `required`  | `boolean`             | -           | Required field (shows \* and sets attribute)            |
+| `id`        | `string`              | (generated) | Id for label and input (optional)                       |
+| `className` | `string`              | `""`        | Extra classes on input                                  |
+| ...         | `InputHTMLAttributes` | -           | Native input props                                      |
 
 ### Usage
 
@@ -150,15 +164,15 @@ Native `<select>` with optional label and error.
 
 ### Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|--------------|
-| `label` | `string` | - | Accessible label |
-| `error` | `string` | - | Error message |
-| `options` | `{ value: string; label: string }[]` | - | Options list |
-| `required` | `boolean` | - | Required field |
-| `id` | `string` | (generated) | Id for label and select |
-| `className` | `string` | `""` | Extra classes on select |
-| ... | `SelectHTMLAttributes` | - | Native select props |
+| Prop        | Type                                 | Default     | Description             |
+| ----------- | ------------------------------------ | ----------- | ----------------------- |
+| `label`     | `string`                             | -           | Accessible label        |
+| `error`     | `string`                             | -           | Error message           |
+| `options`   | `{ value: string; label: string }[]` | -           | Options list            |
+| `required`  | `boolean`                            | -           | Required field          |
+| `id`        | `string`                             | (generated) | Id for label and select |
+| `className` | `string`                             | `""`        | Extra classes on select |
+| ...         | `SelectHTMLAttributes`               | -           | Native select props     |
 
 ### Usage
 
@@ -175,7 +189,7 @@ import { Select } from "../components/common";
   value={radius}
   onChange={(e) => setRadius(e.target.value)}
   required
-/>
+/>;
 ```
 
 ### Accessibility
@@ -190,15 +204,15 @@ Multi-line text input with optional label and error.
 
 ### Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|--------------|
-| `label` | `string` | - | Accessible label |
-| `error` | `string` | - | Error message |
-| `rows` | `number` | `3` | Default rows |
-| `required` | `boolean` | - | Required field |
-| `id` | `string` | (generated) | Id for label and textarea |
-| `className` | `string` | `""` | Extra classes |
-| ... | `TextareaHTMLAttributes` | - | Native textarea props |
+| Prop        | Type                     | Default     | Description               |
+| ----------- | ------------------------ | ----------- | ------------------------- |
+| `label`     | `string`                 | -           | Accessible label          |
+| `error`     | `string`                 | -           | Error message             |
+| `rows`      | `number`                 | `3`         | Default rows              |
+| `required`  | `boolean`                | -           | Required field            |
+| `id`        | `string`                 | (generated) | Id for label and textarea |
+| `className` | `string`                 | `""`        | Extra classes             |
+| ...         | `TextareaHTMLAttributes` | -           | Native textarea props     |
 
 ### Usage
 
@@ -210,7 +224,7 @@ import { Textarea } from "../components/common";
   value={notes}
   onChange={(e) => setNotes(e.target.value)}
   rows={5}
-/>
+/>;
 ```
 
 ### Accessibility
@@ -225,13 +239,13 @@ Dialog overlay with title and close behavior.
 
 ### Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|--------------|
-| `isOpen` | `boolean` | - | When false, nothing is rendered |
-| `onClose` | `() => void` | - | Called on Escape or overlay click |
-| `title` | `string` | - | Dialog title (used for `aria-labelledby`) |
-| `size` | `"sm"` \| `"md"` \| `"large"` | `"md"` | Max width of content box |
-| `children` | `ReactNode` | - | Body content |
+| Prop       | Type                          | Default | Description                               |
+| ---------- | ----------------------------- | ------- | ----------------------------------------- |
+| `isOpen`   | `boolean`                     | -       | When false, nothing is rendered           |
+| `onClose`  | `() => void`                  | -       | Called on Escape or overlay click         |
+| `title`    | `string`                      | -       | Dialog title (used for `aria-labelledby`) |
+| `size`     | `"sm"` \| `"md"` \| `"large"` | `"md"`  | Max width of content box                  |
+| `children` | `ReactNode`                   | -       | Body content                              |
 
 ### Usage
 
@@ -278,7 +292,7 @@ import { ThemeToggle } from "../components/common";
 
 <header>
   <ThemeToggle />
-</header>
+</header>;
 ```
 
 ### Accessibility
@@ -288,16 +302,206 @@ import { ThemeToggle } from "../components/common";
 
 ---
 
+## Layout Components
+
+### AppLayout
+
+Main layout for authenticated app: header (app name, user, theme toggle, logout), TabNav, and `<Outlet />` for nested route content.
+
+**Usage:** Wrap protected routes in a route that renders `<AppLayout />`; children render in the Outlet.
+
+```tsx
+<Route
+  element={
+    <ProtectedRoute>
+      <AppLayout />
+    </ProtectedRoute>
+  }
+>
+  <Route index element={<HomePage />} />
+  <Route path="routes" element={<RoutesPage />} />
+</Route>
+```
+
+Uses `useAuth()` for `user` and `logout`. Renders `ThemeToggle` and logout `Button` from common.
+
+### TabNav
+
+Horizontal tab navigation: Home, Routes, Campaign. Uses React Router `NavLink`; active tab has bottom border (`border-accent`).
+
+**Usage:** Rendered inside AppLayout; no props.
+
+```tsx
+<header>...</header>
+<TabNav />
+<main><Outlet /></main>
+```
+
+Accessibility: `<nav aria-label="Main navigation">`, list of links.
+
+---
+
+## Routing Components
+
+### ProtectedRoute
+
+Wraps children; redirects to `/login` when not authenticated. Shows "Loading..." while auth is being checked.
+
+**Props:** `children: ReactNode`
+
+**Usage:** Wrap the layout that contains protected pages.
+
+```tsx
+<Route
+  element={
+    <ProtectedRoute>
+      <AppLayout />
+    </ProtectedRoute>
+  }
+>
+  <Route index element={<HomePage />} />
+</Route>
+```
+
+Uses `useAuth()` for `isAuthenticated` and `isLoading`. Passes `state={{ from: location }}` to Navigate so login can redirect back after auth.
+
+---
+
+## Map Components
+
+Used on the Home page to show streets the user has run (completed = green, partial = yellow). The map uses Leaflet with OpenStreetMap tiles; polylines and the location marker are drawn on top.
+
+### MapView
+
+Interactive map container. Renders OpenStreetMap tiles, the user's location marker, and street polylines (green = completed, yellow = partial). Requires a wrapper with explicit height (e.g. `h-[400px]`).
+
+**Props:**
+
+| Prop        | Type                                   | Description                                          |
+| ----------- | -------------------------------------- | ---------------------------------------------------- |
+| `position`  | `{ lat: number; lng: number } \| null` | User's current position; map centers here when set   |
+| `streets`   | `MapStreet[]`                          | Streets from GET /map/streets to draw as polylines   |
+| `className` | `string`                               | Optional; default `h-[400px] w-full` for wrapper div |
+
+**Usage:** On HomePage above MapStats.
+
+```tsx
+<MapView position={position} streets={streets} />
+```
+
+**Accessibility:** Map is decorative/supplementary; primary street info is in the list below. Popups on marker and polylines provide text labels.
+
+### LocationMarker
+
+User's current position on the map as a circle marker with popup "Your location". Used inside `MapContainer`; returns null when position is null.
+
+**Props:** `position: { lat: number; lng: number } | null`
+
+**Usage:** Rendered inside MapView; do not use outside `MapContainer`.
+
+### StreetPolyline
+
+Renders one street's geometry as a colored polyline. Green = completed, yellow = partial. Popup shows street name, percentage, and run count.
+
+**Props:** `street: MapStreet`
+
+**Usage:** Usually via StreetLayer; must be inside `MapContainer`. Coordinates are converted from GeoJSON `[lng, lat]` to Leaflet `[lat, lng]` internally.
+
+### StreetLayer
+
+Renders all street polylines. Maps over `streets` and renders one `StreetPolyline` per street. Returns null when `streets` is empty (map still shows user location).
+
+**Props:** `streets: MapStreet[]`
+
+**Usage:** Rendered inside MapView.
+
+### LocationPrompt
+
+Shows "Requesting your location..." while waiting for geolocation, or an error Card with "Try again" when permission is denied or unavailable.
+
+**Props:**
+
+| Prop        | Type             | Description                              |
+| ----------- | ---------------- | ---------------------------------------- |
+| `isLoading` | `boolean`        | True while waiting for permission/result |
+| `error`     | `string \| null` | Error message if denied or unavailable   |
+| `onRetry`   | `() => void`     | Called when user clicks "Try again"      |
+
+**Usage:** Render when geolocation is needed (e.g. before fetching map streets).
+
+```tsx
+const { position, error, isLoading, requestPermission } = useGeolocation();
+if (isLoading || error) {
+  return (
+    <LocationPrompt
+      isLoading={isLoading}
+      error={error}
+      onRetry={requestPermission}
+    />
+  );
+}
+```
+
+### MapStats
+
+Summary line: total streets in area, completed count (green), partial count (yellow).
+
+**Props:** `totalStreets: number`, `completedCount: number`, `partialCount: number`
+
+**Usage:** Above the street list on HomePage.
+
+```tsx
+<MapStats
+  totalStreets={data.totalStreets}
+  completedCount={data.completedCount}
+  partialCount={data.partialCount}
+/>
+```
+
+### StreetList
+
+Renders a list of StreetCard components. One street can be expanded at a time to show stats.
+
+**Props:**
+
+| Prop             | Type                      | Description                       |
+| ---------------- | ------------------------- | --------------------------------- |
+| `streets`        | `MapStreet[]`             | Streets from GET /map/streets     |
+| `expandedOsmId`  | `string \| null`          | OSM ID of expanded street         |
+| `onToggleExpand` | `(osmId: string) => void` | Called when user toggles a street |
+
+**Usage:** On HomePage after fetching map data.
+
+```tsx
+<StreetList
+  streets={streets}
+  expandedOsmId={expandedOsmId}
+  onToggleExpand={(id) => setExpandedOsmId((x) => (x === id ? null : id))}
+/>
+```
+
+### StreetCard
+
+Single street row: status dot (green = completed, yellow = partial), name, percentage, run count. Click to expand/collapse stats (type, length, run count, completion count, first/last run dates).
+
+**Props:** `street: MapStreet`, `isExpanded: boolean`, `onToggle: () => void`
+
+**Usage:** Usually via StreetList; can be used standalone for a single street.
+
+Accessibility: `aria-expanded`, `aria-controls`, `aria-labelledby`, `role="region"` on stats section.
+
+---
+
 ## Accessibility Summary
 
-| Requirement | How it’s met |
-|-------------|----------------|
+| Requirement        | How it’s met                                                          |
+| ------------------ | --------------------------------------------------------------------- |
 | **Color contrast** | Tokens chosen for WCAG AA; verify in DESIGN_TOKENS / contrast checker |
-| **Focus** | Global `:focus-visible` outline (3px, offset 2px) in `index.css` |
-| **Keyboard** | Buttons and form controls are focusable; Modal closes on Escape |
-| **Labels** | Input, Select, Textarea support `label` and `htmlFor`/`id` |
-| **Errors** | `aria-invalid`, `aria-describedby`, and `role="alert"` on error text |
-| **Dialogs** | Modal uses `role="dialog"`, `aria-modal`, `aria-labelledby` |
-| **Reduced motion** | Handled in tokens.css via `prefers-reduced-motion` |
+| **Focus**          | Global `:focus-visible` outline (3px, offset 2px) in `index.css`      |
+| **Keyboard**       | Buttons and form controls are focusable; Modal closes on Escape       |
+| **Labels**         | Input, Select, Textarea support `label` and `htmlFor`/`id`            |
+| **Errors**         | `aria-invalid`, `aria-describedby`, and `role="alert"` on error text  |
+| **Dialogs**        | Modal uses `role="dialog"`, `aria-modal`, `aria-labelledby`           |
+| **Reduced motion** | Handled in tokens.css via `prefers-reduced-motion`                    |
 
 When adding new components, keep using token-based classes and the same label/error/ARIA patterns as Input and Select.

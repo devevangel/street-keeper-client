@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./styles/tokens.css";
+@import "leaflet/dist/leaflet.css";
 
 /* Tailwind v4: Map CSS variables to theme utilities */
 @theme {
@@ -45,4 +46,69 @@ body {
 
 :focus:not(:focus-visible) {
   outline: none;
+}
+
+/* User location marker: Google Maps–style blue dot (solid center, white ring, soft halo) + pulse */
+.street-keeper-user-marker-wrapper {
+  background: none !important;
+  border: none !important;
+}
+
+.street-keeper-user-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+@keyframes street-keeper-location-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.2;
+  }
+}
+
+/* Soft blue halo (outer) – pulsates so users see it’s their live location */
+.street-keeper-user-marker__halo {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(66, 133, 244, 0.35);
+  animation: street-keeper-location-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .street-keeper-user-marker__halo {
+    animation: none;
+  }
+}
+
+/* White ring around the dot */
+.street-keeper-user-marker__ring {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+/* Solid blue dot (center) – same blue as Google Maps */
+.street-keeper-user-marker__dot {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #4285f4;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }

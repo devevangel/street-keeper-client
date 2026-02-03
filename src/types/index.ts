@@ -23,4 +23,7 @@ export type {
   ActivityDetailResponse,
   AggregatedStreet,
   GpxAnalysisResponse,
+  MapStreetStats,
+  MapStreet,
+  MapStreetsResponse,
 } from "./api.types";
