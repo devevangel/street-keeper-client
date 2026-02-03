@@ -51,13 +51,15 @@ frontend/src/
 ├── components/
 │   ├── common/           # Base UI components (design system)
 │   ├── layout/           # AppLayout, TabNav
+│   ├── docs/             # In-app docs viewer: DocsLayout, DocsSidebar, MarkdownRenderer, MermaidDiagram
 │   ├── map/              # MapView, LocationMarker, StreetLayer, StreetPolyline, LocationPrompt, MapStats, StreetList, StreetCard
 │   └── routing/         # ProtectedRoute
 ├── config/
 │   └── constants.ts      # API URL, ROUTES, ERROR_CODES
 ├── contexts/
 │   └── AuthContext.tsx   # Auth state provider
-├── docs/                 # Documentation
+├── docs/                 # Documentation (markdown + index for in-app viewer)
+│   ├── index.ts          # Exports DOCS array and getDocBySlug (raw .md imports)
 │   ├── CODING_PATTERNS.md
 │   ├── COMPONENT_GUIDE.md
 │   ├── DESIGN_TOKENS.md
@@ -76,6 +78,7 @@ frontend/src/
 │   ├── HomePage.tsx
 │   ├── RoutesPage.tsx
 │   ├── CampaignPage.tsx
+│   ├── DocsPage.tsx
 │   └── index.ts
 ├── services/
 │   └── *.service.ts
@@ -98,6 +101,7 @@ frontend/src/
 | `hooks/`              | Custom React hooks     | useRoutes, useAuth, etc.                                                                               |
 | `lib/`                | Shared utilities       | Theme, API client singleton                                                                            |
 | `components/layout/`  | App shell              | AppLayout, TabNav                                                                                      |
+| `components/docs/`    | In-app docs viewer     | DocsLayout, DocsSidebar, MarkdownRenderer, MermaidDiagram                                              |
 | `components/map/`     | Home map view          | MapView, LocationMarker, StreetLayer, StreetPolyline, LocationPrompt, MapStats, StreetList, StreetCard |
 | `components/routing/` | Route guards           | ProtectedRoute                                                                                         |
 | `contexts/`           | React context          | AuthContext                                                                                            |
@@ -239,7 +243,8 @@ The app uses React Router v6. Routes are defined in `App.tsx`.
 
 ### Route Structure
 
-- **Public**: `/login`, `/auth/callback` (no auth required)
+- **Public**: `/login`, `/auth/callback`, `/docs` (no auth required)
+- **Docs**: `/docs` and `/docs/:slug` use `DocsLayout` and `DocsPage` (in-app markdown viewer)
 - **Protected**: Wrapped in `ProtectedRoute`; uses `AppLayout` with `TabNav` and `<Outlet />`
   - `/` (index) → HomePage
   - `/routes` → RoutesPage
@@ -642,6 +647,12 @@ Leaflet requires the map container to have an explicit height. Use a wrapper div
 
 - **MapView** wraps `MapContainer`, `TileLayer`, `LocationMarker`, and `StreetLayer`. Use MapView on the page; do not nest MapContainers.
 - **LocationMarker** and **StreetLayer** (and **StreetPolyline**) must be rendered as children of `MapContainer` so they receive the map context.
+
+---
+
+## Docs viewer
+
+The in-app docs viewer at `/docs` renders markdown from `src/docs/` using **react-markdown**, **remark-gfm**, and **rehype-highlight**. Markdown is imported as raw strings via `?raw` (see `docs/index.ts`). **Mermaid** code blocks are rendered by `MermaidDiagram`. Use `ROUTES.DOCS` and `ROUTES.DOCS_PAGE` for links. Add new docs by adding a file under `docs/` and an entry to the `DOCS` array in `docs/index.ts`.
 
 ---
 

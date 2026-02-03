@@ -14,7 +14,9 @@ import {
   HomePage,
   RoutesPage,
   CampaignPage,
+  DocsPage,
 } from "./pages";
+import { DocsLayout } from "./components/docs";
 import { ROUTES } from "./config/constants";
 
 function App() {
@@ -24,6 +26,10 @@ function App() {
         <Routes>
           <Route path={ROUTES.LOGIN} element={<LoginPage />} />
           <Route path={ROUTES.AUTH_CALLBACK} element={<AuthCallbackPage />} />
+          <Route path={ROUTES.DOCS} element={<DocsLayout />}>
+            <Route index element={<DocsPage />} />
+            <Route path=":slug" element={<DocsPage />} />
+          </Route>
           <Route
             element={
               <ProtectedRoute>

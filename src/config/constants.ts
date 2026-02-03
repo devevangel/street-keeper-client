@@ -17,6 +17,8 @@ export const ROUTES = {
   CAMPAIGN: "/campaign",
   ACTIVITIES: "/activities",
   GPX_UPLOAD: "/gpx",
+  DOCS: "/docs",
+  DOCS_PAGE: "/docs/:slug",
 } as const;
 
 /**

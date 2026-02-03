@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./styles/tokens.css";
 @import "leaflet/dist/leaflet.css";
+@import "highlight.js/styles/github.css";
 
 /* Tailwind v4: Map CSS variables to theme utilities */
 @theme {
@@ -111,4 +112,26 @@ body {
   background: #4285f4;
   border: 2px solid #fff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Docs viewer: code blocks and prose (highlight.js + markdown) */
+.docs-prose pre code.hljs {
+  padding: 0;
+  background: transparent;
+  border: none;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.docs-prose .hljs {
+  padding: 1rem;
+  border-radius: 0;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.dark .docs-prose .hljs,
+[data-theme="dark"] .docs-prose .hljs {
+  background: var(--color-surface);
+  color: var(--color-text);
 }

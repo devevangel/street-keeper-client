@@ -5,9 +5,11 @@
  */
 
 import { Outlet } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { Button, ThemeToggle } from "../common";
 import { TabNav } from "./TabNav";
+import { ROUTES } from "../../config/constants";
 
 export function AppLayout() {
   const { user, logout } = useAuth();
@@ -17,6 +19,12 @@ export function AppLayout() {
       <header className="flex items-center justify-between border-b-2 border-border bg-surface px-4 py-3">
         <h1 className="text-xl font-bold">Street Keeper</h1>
         <div className="flex items-center gap-3">
+          <Link
+            to={ROUTES.DOCS}
+            className="text-sm text-text-muted underline hover:text-text"
+          >
+            Docs
+          </Link>
           {user?.profilePic ? (
             <img
               src={user.profilePic}

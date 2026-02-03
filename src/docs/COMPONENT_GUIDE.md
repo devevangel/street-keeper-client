@@ -17,32 +17,37 @@ This guide describes the base UI components in `src/components/common/`, how to 
 9. [Layout Components](#layout-components)
 10. [Routing Components](#routing-components)
 11. [Map Components](#map-components)
-12. [Accessibility Summary](#accessibility-summary)
+12. [Docs Viewer Components](#docs-viewer-components)
+13. [Accessibility Summary](#accessibility-summary)
 
 ---
 
 ## Overview
 
-| Component          | Purpose                                               |
-| ------------------ | ----------------------------------------------------- |
-| **Button**         | Primary actions (submit, cancel, confirm)             |
-| **Card**           | Content containers (lists, details, forms)            |
-| **Input**          | Single-line text                                      |
-| **Select**         | Dropdown choice                                       |
-| **Textarea**       | Multi-line text                                       |
-| **Modal**          | Dialogs (confirm, forms)                              |
-| **ThemeToggle**    | Switch light/dark theme                               |
-| **AppLayout**      | Main shell: header, TabNav, Outlet                    |
-| **TabNav**         | Tabs: Home, Routes, Campaign                          |
-| **ProtectedRoute** | Auth guard; redirects to login when not authenticated |
-| **LocationPrompt** | Geolocation permission UI (loading/error/retry)       |
-| **MapStats**       | Summary: total streets, completed, partial            |
-| **MapView**        | Interactive Leaflet map (location + street polylines) |
-| **LocationMarker** | User position circle on map                           |
-| **StreetPolyline** | Single street line on map (green/yellow)              |
-| **StreetLayer**    | Renders all street polylines on map                   |
-| **StreetList**     | List of streets with expandable stats                 |
-| **StreetCard**     | Single street row with status dot and stats           |
+| Component            | Purpose                                                 |
+| -------------------- | ------------------------------------------------------- |
+| **Button**           | Primary actions (submit, cancel, confirm)               |
+| **Card**             | Content containers (lists, details, forms)              |
+| **Input**            | Single-line text                                        |
+| **Select**           | Dropdown choice                                         |
+| **Textarea**         | Multi-line text                                         |
+| **Modal**            | Dialogs (confirm, forms)                                |
+| **ThemeToggle**      | Switch light/dark theme                                 |
+| **AppLayout**        | Main shell: header, TabNav, Outlet                      |
+| **TabNav**           | Tabs: Home, Routes, Campaign                            |
+| **ProtectedRoute**   | Auth guard; redirects to login when not authenticated   |
+| **LocationPrompt**   | Geolocation permission UI (loading/error/retry)         |
+| **MapStats**         | Summary: total streets, completed, partial              |
+| **MapView**          | Interactive Leaflet map (location + street polylines)   |
+| **LocationMarker**   | User position circle on map                             |
+| **StreetPolyline**   | Single street line on map (green/yellow)                |
+| **StreetLayer**      | Renders all street polylines on map                     |
+| **StreetList**       | List of streets with expandable stats                   |
+| **StreetCard**       | Single street row with status dot and stats             |
+| **DocsLayout**       | Layout for in-app docs: header, back link, theme toggle |
+| **DocsSidebar**      | Sidebar nav for doc pages (active state)                |
+| **MarkdownRenderer** | Renders markdown with syntax highlighting and mermaid   |
+| **MermaidDiagram**   | Renders mermaid diagram code blocks                     |
 
 All components accept a `className` prop where applicable. Styling is token-based: `bg-surface`, `border-border`, `text-text`, `text-danger`, etc.
 
@@ -489,6 +494,42 @@ Single street row: status dot (green = completed, yellow = partial), name, perce
 **Usage:** Usually via StreetList; can be used standalone for a single street.
 
 Accessibility: `aria-expanded`, `aria-controls`, `aria-labelledby`, `role="region"` on stats section.
+
+---
+
+## Docs Viewer Components
+
+Used for the in-app documentation viewer at `/docs`. Renders markdown from `src/docs/` with syntax highlighting and mermaid diagrams.
+
+### DocsLayout
+
+Layout for the docs section: header with "Street Keeper Docs" title, "Back to app" link, and ThemeToggle. Renders `<Outlet />` for the doc content. No TabNav.
+
+**Usage:** Wrap docs routes in the router.
+
+### DocsSidebar
+
+Sidebar navigation listing all doc pages. Uses `NavLink` for active state. Optional `isOpen` and `onNavigate` for mobile (collapsible sidebar).
+
+**Props:** `isOpen?: boolean`, `onNavigate?: () => void`
+
+**Usage:** Rendered inside DocsPage; links to `/docs` (first doc) and `/docs/:slug`.
+
+### MarkdownRenderer
+
+Renders raw markdown with **remark-gfm** (tables, etc.), **rehype-highlight** (syntax highlighting), and custom components for headings (with anchor IDs), code blocks (mermaid vs highlighted code), tables, and links.
+
+**Props:** `content: string` (raw markdown)
+
+**Usage:** Pass doc content from DocsPage.
+
+### MermaidDiagram
+
+Renders mermaid diagram source using mermaid.js. Handles dark/light theme. Shows loading state and error message on failure.
+
+**Props:** `chart: string` (mermaid code), `id?: string`
+
+**Usage:** Used inside MarkdownRenderer for ` ```mermaid ` code blocks.
 
 ---
 
