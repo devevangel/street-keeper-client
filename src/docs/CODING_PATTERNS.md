@@ -76,7 +76,7 @@ frontend/src/
 │   ├── LoginPage.tsx
 │   ├── AuthCallbackPage.tsx
 │   ├── HomePage.tsx
-│   ├── RoutesPage.tsx
+│   ├── ProjectsPage.tsx
 │   ├── CampaignPage.tsx
 │   ├── DocsPage.tsx
 │   └── index.ts
@@ -98,15 +98,15 @@ frontend/src/
 | `components/common/`  | Design system          | Button, Card, Input, Modal, etc.                                                                       |
 | `config/`             | Static configuration   | Constants, API base URL, route paths                                                                   |
 | `docs/`               | Documentation          | Coding patterns, component guide, tokens                                                               |
-| `hooks/`              | Custom React hooks     | useRoutes, useAuth, etc.                                                                               |
+| `hooks/`              | Custom React hooks     | useProjects, useAuth, etc.                                                                             |
 | `lib/`                | Shared utilities       | Theme, API client singleton                                                                            |
 | `components/layout/`  | App shell              | AppLayout, TabNav                                                                                      |
 | `components/docs/`    | In-app docs viewer     | DocsLayout, DocsSidebar, MarkdownRenderer, MermaidDiagram                                              |
 | `components/map/`     | Home map view          | MapView, LocationMarker, StreetLayer, StreetPolyline, LocationPrompt, MapStats, StreetList, StreetCard |
 | `components/routing/` | Route guards           | ProtectedRoute                                                                                         |
 | `contexts/`           | React context          | AuthContext                                                                                            |
-| `pages/`              | Route-level components | LoginPage, HomePage, RoutesPage, etc.                                                                  |
-| `services/`           | API calls              | auth.service, map.service, routes.service, etc.                                                        |
+| `pages/`              | Route-level components | LoginPage, HomePage, ProjectsPage, etc.                                                                |
+| `services/`           | API calls              | auth.service, map.service, projects.service, etc.                                                      |
 | `styles/`             | Global styles          | tokens.css                                                                                             |
 | `types/`              | TypeScript interfaces  | API response types, domain types                                                                       |
 
@@ -116,14 +116,14 @@ frontend/src/
 
 ### Pattern: `[feature].[layer].ts` or `[Name].tsx`
 
-| Layer      | Pattern                     | Example                                |
-| ---------- | --------------------------- | -------------------------------------- |
-| Services   | `*.service.ts`              | `auth.service.ts`, `routes.service.ts` |
-| Types      | `*.types.ts` or in `types/` | `api.types.ts`                         |
-| Components | `PascalCase.tsx`            | `Button.tsx`, `ThemeToggle.tsx`        |
-| Pages      | `PascalCase.tsx`            | `LoginPage.tsx`, `RoutesPage.tsx`      |
-| Hooks      | `use*.ts`                   | `useRoutes.ts`, `useAuth.ts`           |
-| Config     | Descriptive                 | `constants.ts`                         |
+| Layer      | Pattern                     | Example                                  |
+| ---------- | --------------------------- | ---------------------------------------- |
+| Services   | `*.service.ts`              | `auth.service.ts`, `projects.service.ts` |
+| Types      | `*.types.ts` or in `types/` | `api.types.ts`                           |
+| Components | `PascalCase.tsx`            | `Button.tsx`, `ThemeToggle.tsx`          |
+| Pages      | `PascalCase.tsx`            | `LoginPage.tsx`, `ProjectsPage.tsx`      |
+| Hooks      | `use*.ts`                   | `useProjects.ts`, `useAuth.ts`           |
+| Config     | Descriptive                 | `constants.ts`                           |
 
 ### Rules
 
@@ -214,10 +214,10 @@ export const ROUTES = {
 Pages (route targets)
     │
     ▼
-Hooks (useRoutes, useAuth, etc.)
+Hooks (useProjects, useAuth, etc.)
     │
     ▼
-Services (auth.service, routes.service, etc.)
+Services (auth.service, projects.service, etc.)
     │
     ▼
 API Client (lib/api-client.ts)
@@ -247,7 +247,7 @@ The app uses React Router v6. Routes are defined in `App.tsx`.
 - **Docs**: `/docs` and `/docs/:slug` use `DocsLayout` and `DocsPage` (in-app markdown viewer)
 - **Protected**: Wrapped in `ProtectedRoute`; uses `AppLayout` with `TabNav` and `<Outlet />`
   - `/` (index) → HomePage
-  - `/routes` → RoutesPage
+  - `/projects` → ProjectsPage
   - `/campaign` → CampaignPage
 - **Catch-all**: `*` → `<Navigate to="/" replace />`
 
@@ -443,11 +443,11 @@ export interface AuthUser {
 
 ### Type Categories
 
-| Category           | Purpose                 | Example                                |
-| ------------------ | ----------------------- | -------------------------------------- |
-| API Response Types | Match backend responses | `AuthSuccessResponse`, `RouteListItem` |
-| Request Types      | Form data, payloads     | `CreateRouteRequest`                   |
-| Internal Types     | Component props, hooks  | `ButtonProps`, `UseRoutesReturn`       |
+| Category           | Purpose                 | Example                                  |
+| ------------------ | ----------------------- | ---------------------------------------- |
+| API Response Types | Match backend responses | `AuthSuccessResponse`, `ProjectListItem` |
+| Request Types      | Form data, payloads     | `CreateProjectRequest`                   |
+| Internal Types     | Component props, hooks  | `ButtonProps`, `UseProjectsReturn`       |
 
 ---
 
@@ -468,13 +468,14 @@ export const API = {
 export const ROUTES = {
   HOME: "/",
   LOGIN: "/login",
-  ROUTES_LIST: "/routes",
-  ROUTE_DETAIL: "/routes/:id",
+  PROJECTS_LIST: "/projects",
+  PROJECT_DETAIL: "/projects/:id",
+  PROJECT_MAP: "/projects/:id/map",
 } as const;
 
 export const ERROR_CODES = {
   AUTH_REQUIRED: "AUTH_REQUIRED",
-  ROUTE_NOT_FOUND: "ROUTE_NOT_FOUND",
+  PROJECT_NOT_FOUND: "PROJECT_NOT_FOUND",
   // Mirror backend codes used by frontend
 } as const;
 ```
@@ -499,8 +500,8 @@ interface ApiErrorResponse {
 
 ```typescript
 try {
-  const data = await routesService.getAll();
-  setRoutes(data.routes);
+  const data = await projectsService.getAll();
+  setProjects(data.projects);
 } catch (error) {
   if (error instanceof ApiError) {
     if (error.code === "AUTH_REQUIRED") {

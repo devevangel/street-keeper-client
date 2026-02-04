@@ -34,7 +34,7 @@ export interface AuthSuccessResponse {
 }
 
 // ============================================
-// Route Types
+// Project Types
 // ============================================
 
 export interface SnapshotStreet {
@@ -48,7 +48,7 @@ export interface SnapshotStreet {
   isNew?: boolean;
 }
 
-export interface RouteListItem {
+export interface ProjectListItem {
   id: string;
   name: string;
   centerLat: number;
@@ -64,7 +64,7 @@ export interface RouteListItem {
   updatedAt: string;
 }
 
-export interface RouteDetail extends RouteListItem {
+export interface ProjectDetail extends ProjectListItem {
   streets: SnapshotStreet[];
   snapshotDate: string;
   inProgressCount: number;
@@ -74,7 +74,7 @@ export interface RouteDetail extends RouteListItem {
   newStreetsDetected?: number;
 }
 
-export interface RoutePreview {
+export interface ProjectPreview {
   centerLat: number;
   centerLng: number;
   radiusMeters: number;
@@ -86,7 +86,7 @@ export interface RoutePreview {
   warnings: string[];
 }
 
-export interface CreateRouteRequest {
+export interface CreateProjectRequest {
   name: string;
   centerLat: number;
   centerLng: number;
@@ -95,21 +95,69 @@ export interface CreateRouteRequest {
   cacheKey?: string;
 }
 
-export interface RoutesListResponse {
+export interface ProjectsListResponse {
   success: true;
-  routes: RouteListItem[];
+  projects: ProjectListItem[];
   total: number;
 }
 
-export interface RouteDetailResponse {
+export interface ProjectDetailResponse {
   success: true;
-  route: RouteDetail;
+  project: ProjectDetail;
   warning?: string;
 }
 
-export interface RoutePreviewResponse {
+export interface ProjectPreviewResponse {
   success: true;
-  preview: RoutePreview;
+  preview: ProjectPreview;
+}
+
+/** Single street for project map (geometry + status for colouring) */
+export interface ProjectMapStreet {
+  osmId: string;
+  name: string;
+  highwayType: string;
+  lengthMeters: number;
+  percentage: number;
+  status: "completed" | "partial" | "not_started";
+  geometry: {
+    type: "LineString";
+    coordinates: [number, number][];
+  };
+}
+
+/** Circle boundary for project map centering */
+export interface ProjectMapBoundary {
+  type: "circle";
+  center: { lat: number; lng: number };
+  radiusMeters: number;
+}
+
+/** Stats for project map view */
+export interface ProjectMapStats {
+  totalStreets: number;
+  completedStreets: number;
+  partialStreets: number;
+  notRunStreets: number;
+  completionPercentage: number;
+}
+
+export interface ProjectMapData {
+  id: string;
+  name: string;
+  centerLat: number;
+  centerLng: number;
+  radiusMeters: number;
+  progress: number;
+  boundary: ProjectMapBoundary;
+  stats: ProjectMapStats;
+  streets: ProjectMapStreet[];
+  geometryCacheHit: boolean;
+}
+
+export interface ProjectMapResponse {
+  success: true;
+  map: ProjectMapData;
 }
 
 // ============================================
@@ -126,7 +174,7 @@ export interface ActivityListItem {
   activityType: string;
   isProcessed: boolean;
   createdAt: string;
-  routesAffected?: number;
+  projectsAffected?: number;
   streetsCompleted?: number;
   streetsImproved?: number;
 }
@@ -150,9 +198,9 @@ export interface GpxPoint {
 export interface ActivityDetail extends ActivityListItem {
   coordinates: GpxPoint[];
   processedAt: string | null;
-  routeImpacts: Array<{
-    routeId: string;
-    routeName: string;
+  projectImpacts: Array<{
+    projectId: string;
+    projectName: string;
     streetsCompleted: number;
     streetsImproved: number;
     impactDetails: ActivityImpact | null;

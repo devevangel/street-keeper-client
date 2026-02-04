@@ -4,7 +4,13 @@
  * Public routes: /login, /auth/callback. Protected routes use AppLayout and TabNav.
  */
 
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  Outlet,
+} from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/routing";
 import { AppLayout } from "./components/layout";
@@ -12,7 +18,10 @@ import {
   LoginPage,
   AuthCallbackPage,
   HomePage,
-  RoutesPage,
+  ProjectsPage,
+  ProjectDetailPage,
+  ProjectCreatePage,
+  ProjectMapPage,
   CampaignPage,
   DocsPage,
 } from "./pages";
@@ -38,7 +47,12 @@ function App() {
             }
           >
             <Route index element={<HomePage />} />
-            <Route path="routes" element={<RoutesPage />} />
+            <Route path="projects" element={<Outlet />}>
+              <Route index element={<ProjectsPage />} />
+              <Route path="new" element={<ProjectCreatePage />} />
+              <Route path=":id/map" element={<ProjectMapPage />} />
+              <Route path=":id" element={<ProjectDetailPage />} />
+            </Route>
             <Route path="campaign" element={<CampaignPage />} />
           </Route>
           <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />

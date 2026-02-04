@@ -111,7 +111,7 @@ Routes that require authentication are wrapped in `ProtectedRoute`:
   }
 >
   <Route index element={<HomePage />} />
-  <Route path="routes" element={<RoutesPage />} />
+  <Route path="projects" element={<ProjectsPage />} />
 </Route>
 ```
 

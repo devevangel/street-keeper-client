@@ -34,7 +34,7 @@ This guide describes the base UI components in `src/components/common/`, how to 
 | **Modal**            | Dialogs (confirm, forms)                                |
 | **ThemeToggle**      | Switch light/dark theme                                 |
 | **AppLayout**        | Main shell: header, TabNav, Outlet                      |
-| **TabNav**           | Tabs: Home, Routes, Campaign                            |
+| **TabNav**           | Tabs: Home, Projects, Campaign                          |
 | **ProtectedRoute**   | Auth guard; redirects to login when not authenticated   |
 | **LocationPrompt**   | Geolocation permission UI (loading/error/retry)         |
 | **MapStats**         | Summary: total streets, completed, partial              |
@@ -107,7 +107,7 @@ Container for grouped content. Uses `bg-surface` and `border-border`.
 import { Card } from "../components/common";
 
 <Card>
-  <h2>Route details</h2>
+  <h2>Project details</h2>
   <p>...</p>
 </Card>
 
@@ -139,7 +139,7 @@ Single-line text input with optional label and error message.
 import { Input } from "../components/common";
 
 <Input
-  label="Route name"
+  label="Project name"
   value={name}
   onChange={(e) => setName(e.target.value)}
   required
@@ -324,7 +324,7 @@ Main layout for authenticated app: header (app name, user, theme toggle, logout)
   }
 >
   <Route index element={<HomePage />} />
-  <Route path="routes" element={<RoutesPage />} />
+  <Route path="projects" element={<ProjectsPage />} />
 </Route>
 ```
 
@@ -332,7 +332,7 @@ Uses `useAuth()` for `user` and `logout`. Renders `ThemeToggle` and logout `Butt
 
 ### TabNav
 
-Horizontal tab navigation: Home, Routes, Campaign. Uses React Router `NavLink`; active tab has bottom border (`border-accent`).
+Horizontal tab navigation: Home, Projects, Campaign. Uses React Router `NavLink`; active tab has bottom border (`border-accent`).
 
 **Usage:** Rendered inside AppLayout; no props.
 
