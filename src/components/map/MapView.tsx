@@ -8,6 +8,7 @@ import { MapContainer, TileLayer } from "react-leaflet";
 import type { LatLngTuple } from "leaflet";
 import type { MapStreet } from "../../types/api.types";
 import { LocationMarker } from "./LocationMarker";
+import { MapLegend } from "./MapLegend";
 import { StreetLayer } from "./StreetLayer";
 
 /** Default center when position is not yet available (e.g. UK). */
@@ -39,7 +40,7 @@ export function MapView({
   const zoom = position ? ZOOM_USER : ZOOM_DEFAULT;
 
   return (
-    <div className={className}>
+    <div className={`relative ${className}`}>
       <MapContainer
         center={center}
         zoom={zoom}
@@ -55,6 +56,7 @@ export function MapView({
         <LocationMarker position={position} />
         <StreetLayer streets={streets} />
       </MapContainer>
+      <MapLegend />
     </div>
   );
 }

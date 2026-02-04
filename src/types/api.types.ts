@@ -244,7 +244,10 @@ export interface MapStreet {
 /** Response for GET /api/v1/map/streets */
 export interface MapStreetsResponse {
   success: true;
+  /** Aggregated logical streets (for list) */
   streets: MapStreet[];
+  /** Segment-level streets (for map polylines) */
+  segments: MapStreet[];
   center: { lat: number; lng: number };
   radiusMeters: number;
   totalStreets: number;

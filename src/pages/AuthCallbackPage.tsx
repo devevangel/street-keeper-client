@@ -1,7 +1,7 @@
 /**
  * AuthCallbackPage
- * Handles redirect from Strava OAuth. Exchanges code for user, sets auth state, navigates home.
- * Shows error and retry link if exchange fails.
+ * Handles redirect from backend after Strava OAuth. Backend redirects here with userId.
+ * Sets auth state (and x-user-id header), fetches user, then navigates home.
  */
 
 import { useEffect, useState } from "react";
@@ -10,6 +10,13 @@ import { useAuth } from "../contexts/AuthContext";
 import { authService } from "../services/auth.service";
 import { Button, Card } from "../components/common";
 import { ROUTES } from "../config/constants";
+
+const ERROR_MESSAGES: Record<string, string> = {
+  access_denied: "You denied access to Street Keeper.",
+  missing_code: "Missing authorization. Please try logging in again.",
+  invalid_code: "Invalid or expired login. Please try again.",
+  auth_failed: "Login failed. Please try again.",
+};
 
 export function AuthCallbackPage() {
   const { setUser } = useAuth();
@@ -20,28 +27,29 @@ export function AuthCallbackPage() {
   );
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-  const code = searchParams.get("code");
+  const userId = searchParams.get("userId");
   const errorParam = searchParams.get("error");
 
   useEffect(() => {
-    if (errorParam === "access_denied") {
+    if (errorParam) {
       setStatus("error");
-      setErrorMessage("You denied access to Street Keeper.");
+      setErrorMessage(
+        ERROR_MESSAGES[errorParam] ?? "Something went wrong. Please try again."
+      );
       return;
     }
 
-    if (!code) {
+    if (!userId) {
       setStatus("error");
-      setErrorMessage(
-        "Missing authorization code. Please try logging in again."
-      );
+      setErrorMessage("Missing user. Please try logging in again.");
       return;
     }
 
     let cancelled = false;
 
+    authService.setDevUserId(userId);
     authService
-      .getCallbackResponse(code)
+      .getCurrentUser()
       .then((res) => {
         if (!cancelled && res.user) {
           setUser(res.user);
@@ -59,7 +67,7 @@ export function AuthCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [code, errorParam, setUser, navigate]);
+  }, [userId, errorParam, setUser, navigate]);
 
   if (status === "loading") {
     return (

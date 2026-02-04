@@ -12,11 +12,16 @@ import type { MapStreet } from "../../types/api.types";
 const COLOR_COMPLETED = "#16a34a";
 const COLOR_PARTIAL = "#ca8a04";
 
-/** Default stroke width in pixels. */
-const WEIGHT = 4;
+/** Stroke width: completed stands out more. */
+const WEIGHT_COMPLETED = 5;
+const WEIGHT_PARTIAL = 3;
 
-/** Opacity for the stroke. */
-const OPACITY = 0.9;
+/** Opacity: completed solid, partial slightly transparent. */
+const OPACITY_COMPLETED = 1;
+const OPACITY_PARTIAL = 0.7;
+
+/** Dash pattern for in-progress streets (dash length, gap length in px). */
+const DASH_PARTIAL = "8, 6";
 
 interface StreetPolylineProps {
   /** Street data including geometry (GeoJSON LineString) and status. */
@@ -33,20 +38,21 @@ function geoJsonToLeaflet(coordinates: [number, number][]): LatLngTuple[] {
 
 export function StreetPolyline({ street }: StreetPolylineProps) {
   const positions = geoJsonToLeaflet(street.geometry.coordinates);
-  const color = street.status === "completed" ? COLOR_COMPLETED : COLOR_PARTIAL;
+  const isCompleted = street.status === "completed";
 
   const pathOptions = {
-    color,
-    weight: WEIGHT,
-    opacity: OPACITY,
+    color: isCompleted ? COLOR_COMPLETED : COLOR_PARTIAL,
+    weight: isCompleted ? WEIGHT_COMPLETED : WEIGHT_PARTIAL,
+    opacity: isCompleted ? OPACITY_COMPLETED : OPACITY_PARTIAL,
+    dashArray: isCompleted ? undefined : DASH_PARTIAL,
   };
 
   return (
     <Polyline positions={positions} pathOptions={pathOptions}>
       <Popup>
-        <div className="min-w-[140px] text-left">
-          <p className="font-bold text-text">{street.name}</p>
-          <p className="text-sm text-text-muted">
+        <div className="min-w-[140px] text-left text-neutral-800">
+          <p className="font-bold text-neutral-900">{street.name}</p>
+          <p className="text-sm text-neutral-600">
             {street.percentage.toFixed(0)}% · {street.stats.runCount} run
             {street.stats.runCount !== 1 ? "s" : ""}
           </p>

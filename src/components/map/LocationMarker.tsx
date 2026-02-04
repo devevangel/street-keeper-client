@@ -37,7 +37,7 @@ export function LocationMarker({ position }: LocationMarkerProps) {
   return (
     <Marker position={center} icon={userIcon}>
       <Popup>
-        <span>Your location</span>
+        <span className="text-neutral-900 font-medium">Your location</span>
       </Popup>
     </Marker>
   );
