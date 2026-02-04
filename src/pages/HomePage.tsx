@@ -133,24 +133,32 @@ export function HomePage() {
         partialCount={data?.partialCount ?? 0}
       />
 
-      {streets.length === 0 ? (
-        <Card>
-          <p className="mb-2 text-text-muted">
-            No streets with progress in this area yet.
-          </p>
-          <p className="text-sm text-text-muted">
-            Click &quot;Sync from Strava&quot; above to import your recent runs.
-          </p>
-        </Card>
-      ) : (
-        <StreetList
-          streets={streets}
-          expandedOsmId={expandedOsmId}
-          onToggleExpand={(osmId) =>
-            setExpandedOsmId((id) => (id === osmId ? null : osmId))
-          }
-        />
-      )}
+      <section aria-label="Streets in this area">
+        <h2 className="mb-2 text-sm font-semibold text-text-muted">
+          Streets in this area
+        </h2>
+        {streets.length === 0 ? (
+          <Card>
+            <p className="mb-2 text-text-muted">
+              No streets with progress in this area yet.
+            </p>
+            <p className="text-sm text-text-muted">
+              Click &quot;Sync from Strava&quot; above to import your recent
+              runs.
+            </p>
+          </Card>
+        ) : (
+          <div className="max-h-[min(40vh,400px)] min-h-[120px] overflow-y-auto rounded border-2 border-border p-2">
+            <StreetList
+              streets={streets}
+              expandedOsmId={expandedOsmId}
+              onToggleExpand={(osmId) =>
+                setExpandedOsmId((id) => (id === osmId ? null : osmId))
+              }
+            />
+          </div>
+        )}
+      </section>
     </div>
   );
 }
