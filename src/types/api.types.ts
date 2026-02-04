@@ -224,6 +224,12 @@ export interface MapStreetStats {
   totalLengthMeters: number;
   currentPercentage: number;
   everCompleted: boolean;
+  /** Length-weighted completion ratio (0–1), connectors count at CONNECTOR_WEIGHT */
+  weightedCompletionRatio: number;
+  /** Number of OSM segments that make up this street */
+  segmentCount: number;
+  /** Number of segments classified as connectors (length <= CONNECTOR_MAX_LENGTH_METERS) */
+  connectorCount: number;
 }
 
 /** Single street for map rendering with geometry and stats */

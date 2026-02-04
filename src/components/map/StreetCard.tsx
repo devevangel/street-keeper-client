@@ -49,6 +49,9 @@ export function StreetCard({ street, isExpanded, onToggle }: StreetCardProps) {
         >
           <p>Type: {street.highwayType}</p>
           <p>Length: {Math.round(street.lengthMeters)} m</p>
+          <p title="Number of sections this street is drawn as on the map (e.g. split by intersections)">
+            Parts on map: {street.stats.segmentCount}
+          </p>
           <p>Run count: {street.stats.runCount}</p>
           <p>Completed (full run): {street.stats.completionCount} time(s)</p>
           {street.stats.firstRunDate && (
