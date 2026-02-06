@@ -1,7 +1,11 @@
 /**
  * StreetPolyline Component
  * Renders a single street's geometry on the map as a colored polyline.
- * Green = completed (ever reached ~90%), yellow = partial. Includes a popup with name, percentage, run count.
+ *
+ * - Completed: single green solid line (full street).
+ * - Partial with coveredGeometry: full street as grey dashed (underneath),
+ *   covered portion as yellow solid (on top) so the user sees what's left to run.
+ * - Partial without coveredGeometry (legacy): single yellow dashed line.
  */
 
 import { Polyline, Popup } from "react-leaflet";
@@ -11,6 +15,8 @@ import type { MapStreet } from "../../types/api.types";
 /** Polyline colors: match design tokens (success/warning) for consistency. */
 const COLOR_COMPLETED = "#16a34a";
 const COLOR_PARTIAL = "#ca8a04";
+/** Uncovered portion of partial streets (full street extent not yet run). */
+const COLOR_UNCOVERED = "#9ca3af";
 
 /** Stroke width: completed stands out more. */
 const WEIGHT_COMPLETED = 5;
@@ -22,6 +28,8 @@ const OPACITY_PARTIAL = 0.7;
 
 /** Dash pattern for in-progress streets (dash length, gap length in px). */
 const DASH_PARTIAL = "8, 6";
+/** Lighter dash for uncovered portion. */
+const DASH_UNCOVERED = "4, 8";
 
 interface StreetPolylineProps {
   /** Street data including geometry (GeoJSON LineString) and status. */
@@ -36,27 +44,83 @@ function geoJsonToLeaflet(coordinates: [number, number][]): LatLngTuple[] {
   return coordinates.map(([lng, lat]) => [lat, lng] as LatLngTuple);
 }
 
+const PopupContent = ({ street }: { street: MapStreet }) => (
+  <div className="min-w-[140px] text-left text-neutral-800">
+    <p className="font-bold text-neutral-900">{street.name}</p>
+    <p className="text-sm text-neutral-600">
+      {street.percentage.toFixed(0)}% · {street.stats.runCount} run
+      {street.stats.runCount !== 1 ? "s" : ""}
+    </p>
+  </div>
+);
+
 export function StreetPolyline({ street }: StreetPolylineProps) {
-  const positions = geoJsonToLeaflet(street.geometry.coordinates);
+  const fullPositions = geoJsonToLeaflet(street.geometry.coordinates);
   const isCompleted = street.status === "completed";
 
-  const pathOptions = {
-    color: isCompleted ? COLOR_COMPLETED : COLOR_PARTIAL,
-    weight: isCompleted ? WEIGHT_COMPLETED : WEIGHT_PARTIAL,
-    opacity: isCompleted ? OPACITY_COMPLETED : OPACITY_PARTIAL,
-    dashArray: isCompleted ? undefined : DASH_PARTIAL,
-  };
+  if (isCompleted) {
+    return (
+      <Polyline
+        positions={fullPositions}
+        pathOptions={{
+          color: COLOR_COMPLETED,
+          weight: WEIGHT_COMPLETED,
+          opacity: OPACITY_COMPLETED,
+        }}
+      >
+        <Popup>
+          <PopupContent street={street} />
+        </Popup>
+      </Polyline>
+    );
+  }
+
+  const hasCoveredGeometry =
+    street.coveredGeometry?.coordinates?.length;
+
+  if (hasCoveredGeometry && street.coveredGeometry) {
+    const coveredPositions = geoJsonToLeaflet(
+      street.coveredGeometry.coordinates
+    );
+    return (
+      <>
+        <Polyline
+          positions={fullPositions}
+          pathOptions={{
+            color: COLOR_UNCOVERED,
+            weight: 2,
+            opacity: 0.5,
+            dashArray: DASH_UNCOVERED,
+          }}
+        />
+        <Polyline
+          positions={coveredPositions}
+          pathOptions={{
+            color: COLOR_PARTIAL,
+            weight: WEIGHT_PARTIAL,
+            opacity: OPACITY_PARTIAL,
+          }}
+        >
+          <Popup>
+            <PopupContent street={street} />
+          </Popup>
+        </Polyline>
+      </>
+    );
+  }
 
   return (
-    <Polyline positions={positions} pathOptions={pathOptions}>
+    <Polyline
+      positions={fullPositions}
+      pathOptions={{
+        color: COLOR_PARTIAL,
+        weight: WEIGHT_PARTIAL,
+        opacity: OPACITY_PARTIAL,
+        dashArray: DASH_PARTIAL,
+      }}
+    >
       <Popup>
-        <div className="min-w-[140px] text-left text-neutral-800">
-          <p className="font-bold text-neutral-900">{street.name}</p>
-          <p className="text-sm text-neutral-600">
-            {street.percentage.toFixed(0)}% · {street.stats.runCount} run
-            {street.stats.runCount !== 1 ? "s" : ""}
-          </p>
-        </div>
+        <PopupContent street={street} />
       </Popup>
     </Polyline>
   );

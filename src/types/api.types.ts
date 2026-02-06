@@ -258,6 +258,27 @@ export interface GpxAnalysisResponse {
   };
 }
 
+/** Raw response from POST /engine-v2/analyze (normalized to GpxAnalysisResponse by gpx.service when VITE_GPX_ENGINE=v2). */
+export interface EngineV2AnalyzeResponse {
+  success: boolean;
+  run: {
+    name: string | null;
+    date: string;
+    totalPoints: number;
+    matchedPoints: number;
+    matchConfidence: number;
+    distanceMeters: number;
+  };
+  streets: Array<{
+    name: string;
+    wayIds: string[];
+    edgesTotal: number;
+    edgesCompleted: number;
+    isComplete: boolean;
+    completionPercent: number;
+  }>;
+}
+
 // ============================================
 // Map Types (Home page map view)
 // Mirrors backend src/types/map.types.ts
@@ -288,10 +309,18 @@ export interface MapStreet {
   lengthMeters: number;
   percentage: number;
   status: "completed" | "partial";
+  /** Full street geometry (GeoJSON LineString) */
   geometry: {
     type: "LineString";
     coordinates: [number, number][];
   };
+  /** Covered portion only (for partial streets; full street drawn in grey otherwise) */
+  coveredGeometry?: {
+    type: "LineString";
+    coordinates: [number, number][];
+  };
+  /** Coverage interval [start%, end%] when partial */
+  coverageInterval?: [number, number];
   stats: MapStreetStats;
 }
 

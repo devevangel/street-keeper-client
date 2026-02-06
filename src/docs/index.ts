@@ -8,6 +8,7 @@ import componentGuide from "./COMPONENT_GUIDE.md?raw";
 import designTokens from "./DESIGN_TOKENS.md?raw";
 import authFlow from "./AUTH_FLOW.md?raw";
 import homePage from "./HOME_PAGE.md?raw";
+import engineIntegration from "./ENGINE_INTEGRATION.md?raw";
 
 export interface DocEntry {
   slug: string;
@@ -25,6 +26,7 @@ export const DOCS: DocEntry[] = [
   { slug: "design-tokens", title: "Design Tokens", content: designTokens },
   { slug: "auth-flow", title: "Auth Flow", content: authFlow },
   { slug: "home-page", title: "Home Page", content: homePage },
+  { slug: "engine-integration", title: "Engine Integration", content: engineIntegration },
 ];
 
 export function getDocBySlug(slug: string): DocEntry | undefined {

@@ -7,6 +7,9 @@ export const API = {
   BASE_URL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1",
 } as const;
 
+/** GPX analysis engine: "v1" (runs/analyze-gpx) or "v2" (engine-v2/analyze). Default v1. */
+export const GPX_ENGINE = (import.meta.env.VITE_GPX_ENGINE ?? "v1") as "v1" | "v2";
+
 /** App route paths. Used by React Router and navigation. */
 export const ROUTES = {
   HOME: "/",

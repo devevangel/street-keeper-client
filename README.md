@@ -2,6 +2,10 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Environment
+
+- **VITE_GPX_ENGINE** – `v1` (default) or `v2`. When `v2`: GPX analysis uses `POST /engine-v2/analyze` (callers must pass `userId` to `gpxService.analyze(file, userId)`), and the home map uses `GET /engine-v2/map/streets` (UserEdge progress) instead of `GET /map/streets`.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh

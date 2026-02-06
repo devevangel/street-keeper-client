@@ -1,16 +1,22 @@
 /**
  * Map Service
  * Fetches street progress with geometry for the home page map view.
- * Uses GET /api/v1/map/streets (see backend docs/MAP_FEATURE.md).
+ * When VITE_GPX_ENGINE=v2, uses GET /engine-v2/map/streets (UserEdge progress).
+ * Otherwise uses GET /api/v1/map/streets (see backend docs/MAP_FEATURE.md).
  */
 
 import { apiClient } from "../lib/api-client";
+import { GPX_ENGINE } from "../config/constants";
 import type { MapStreetsResponse } from "../types/api.types";
+
+const MAP_STREETS_ENDPOINT =
+  GPX_ENGINE === "v2" ? "/engine-v2/map/streets" : "/map/streets";
 
 export const mapService = {
   /**
    * Get streets the user has run on in the given area.
    * Requires authentication (x-user-id or session).
+   * Uses v2 endpoint when VITE_GPX_ENGINE=v2 (UserEdge-based progress).
    *
    * @param lat - Center latitude (-90 to 90)
    * @param lng - Center longitude (-180 to 180)
@@ -29,6 +35,6 @@ export const mapService = {
     if (radiusMeters != null) {
       params.radius = String(radiusMeters);
     }
-    return apiClient.get<MapStreetsResponse>("/map/streets", params);
+    return apiClient.get<MapStreetsResponse>(MAP_STREETS_ENDPOINT, params);
   },
 };
