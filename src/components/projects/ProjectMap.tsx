@@ -1,17 +1,10 @@
 /**
  * ProjectMap
  * Map of project streets coloured by status: completed (green), partial (yellow), not started (grey).
- * Optional base map toggle. Popup on street click with name and percentage.
+ * Simplified to match home page MapView pattern.
  */
 
-import { useEffect, useMemo } from "react";
-import {
-  MapContainer,
-  TileLayer,
-  Polyline,
-  Popup,
-  useMap,
-} from "react-leaflet";
+import { MapContainer, TileLayer, Polyline, Popup } from "react-leaflet";
 import type { LatLngTuple } from "leaflet";
 import type { ProjectMapData, ProjectMapStreet } from "../../types/api.types";
 
@@ -27,41 +20,6 @@ const DASH_NOT_RUN = "4, 8";
 
 function geoJsonToLeaflet(coords: [number, number][]): LatLngTuple[] {
   return coords.map(([lng, lat]) => [lat, lng] as LatLngTuple);
-}
-
-/** Computes bounds from all street coordinates for fitBounds */
-function getBoundsFromStreets(
-  streets: ProjectMapStreet[]
-): [LatLngTuple, LatLngTuple] | null {
-  let minLat = Infinity,
-    maxLat = -Infinity,
-    minLng = Infinity,
-    maxLng = -Infinity;
-  let hasAny = false;
-  for (const street of streets) {
-    for (const [lng, lat] of street.geometry.coordinates) {
-      hasAny = true;
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
-      if (lng < minLng) minLng = lng;
-      if (lng > maxLng) maxLng = lng;
-    }
-  }
-  if (!hasAny) return null;
-  const padding = 0.001;
-  return [
-    [minLat - padding, minLng - padding],
-    [maxLat + padding, maxLng + padding],
-  ];
-}
-
-function FitBounds({ streets }: { streets: ProjectMapStreet[] }) {
-  const map = useMap();
-  const bounds = useMemo(() => getBoundsFromStreets(streets), [streets]);
-  useEffect(() => {
-    if (bounds) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 17 });
-  }, [map, bounds]);
-  return null;
 }
 
 function ProjectStreetPolyline({ street }: { street: ProjectMapStreet }) {
@@ -112,19 +70,15 @@ function ProjectStreetLayer({ streets }: { streets: ProjectMapStreet[] }) {
 export interface ProjectMapProps {
   /** Map data from GET /projects/:id/map */
   mapData: ProjectMapData;
-  /** Whether to show the base tile layer (OpenStreetMap) */
-  showBaseMap: boolean;
   /** Optional class for wrapper (e.g. height) */
   className?: string;
 }
 
-const DEFAULT_CENTER: LatLngTuple = [50, -1];
 const DEFAULT_ZOOM = 14;
 
 export function ProjectMap({
   mapData,
-  showBaseMap,
-  className = "h-[70vh] min-h-[400px] w-full",
+  className = "h-[65vh] min-h-[400px] w-full",
 }: ProjectMapProps) {
   const center: LatLngTuple = [
     mapData.boundary.center.lat,
@@ -140,14 +94,11 @@ export function ProjectMap({
         className="h-full w-full"
         scrollWheelZoom
       >
-        {showBaseMap && (
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            maxZoom={19}
-          />
-        )}
-        <FitBounds streets={mapData.streets} />
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
+        />
         <ProjectStreetLayer streets={mapData.streets} />
       </MapContainer>
       <div

@@ -18,7 +18,6 @@ export function ProjectMapPage() {
   const [mapData, setMapData] = useState<ProjectMapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showBaseMap, setShowBaseMap] = useState(true);
 
   const fetchMap = useCallback(async () => {
     if (!id) return;
@@ -83,25 +82,13 @@ export function ProjectMapPage() {
           </Link>
           <h1 className="text-xl font-bold text-text">{mapData.name}</h1>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          type="button"
-          onClick={() => setShowBaseMap((v) => !v)}
-        >
-          {showBaseMap ? "Hide base map" : "Show base map"}
-        </Button>
       </div>
       <p className="mb-3 text-sm text-text-muted">
         {mapData.stats.completedStreets} completed ·{" "}
         {mapData.stats.partialStreets} partial · {mapData.stats.notRunStreets}{" "}
         not run
       </p>
-      <ProjectMap
-        mapData={mapData}
-        showBaseMap={showBaseMap}
-        className="min-h-[500px] flex-1"
-      />
+      <ProjectMap mapData={mapData} className="h-[70vh] min-h-[500px] w-full" />
     </div>
   );
 }
