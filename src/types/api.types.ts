@@ -15,6 +15,25 @@ export interface ApiErrorResponse {
 }
 
 // ============================================
+// Geocoding Types
+// ============================================
+
+export interface GeocodingResult {
+  displayName: string;
+  type: string;
+  lat: number;
+  lng: number;
+  boundingBox: [number, number, number, number];
+  importance: number;
+  placeId: string;
+}
+
+export interface GeocodeResponse {
+  success: true;
+  results: GeocodingResult[];
+}
+
+// ============================================
 // Auth Types
 // ============================================
 
@@ -64,14 +83,48 @@ export interface ProjectListItem {
   updatedAt: string;
 }
 
+export interface NextMilestone {
+  target: number;
+  streetsNeeded: number;
+  currentProgress: number;
+}
+
+export interface StreetsByTypeItem {
+  type: string;
+  total: number;
+  completed: number;
+}
+
 export interface ProjectDetail extends ProjectListItem {
   streets: SnapshotStreet[];
   snapshotDate: string;
   inProgressCount: number;
   notStartedCount: number;
+  distanceCoveredMeters: number;
+  activityCount: number;
+  lastActivityDate: string | null;
+  nextMilestone: NextMilestone | null;
+  streetsByType: StreetsByTypeItem[];
   refreshNeeded: boolean;
   daysSinceRefresh: number;
   newStreetsDetected?: number;
+}
+
+export interface ProjectActivityItem {
+  id: string;
+  activityId: string;
+  activityName: string;
+  date: string;
+  distanceMeters: number;
+  durationSeconds: number;
+  streetsCompleted: number;
+  streetsImproved: number;
+}
+
+export interface ProjectActivitiesResponse {
+  success: true;
+  activities: ProjectActivityItem[];
+  total: number;
 }
 
 export interface ProjectPreview {
@@ -86,11 +139,14 @@ export interface ProjectPreview {
   warnings: string[];
 }
 
+export type BoundaryMode = "centroid" | "strict";
+
 export interface CreateProjectRequest {
   name: string;
   centerLat: number;
   centerLng: number;
   radiusMeters: 500 | 1000 | 2000 | 5000 | 10000;
+  boundaryMode?: BoundaryMode;
   deadline?: string;
   cacheKey?: string;
 }
@@ -158,6 +214,51 @@ export interface ProjectMapData {
 export interface ProjectMapResponse {
   success: true;
   map: ProjectMapData;
+}
+
+export interface ProjectHeatmapData {
+  points: [number, number, number][];
+  bounds: { north: number; south: number; east: number; west: number };
+}
+
+export interface ProjectHeatmapResponse {
+  success: true;
+  heatmap: ProjectHeatmapData;
+}
+
+// ============================================
+// Suggestions (Next Run)
+// ============================================
+
+export interface StreetSuggestion {
+  osmId: string;
+  name: string;
+  lengthMeters: number;
+  currentProgress: number;
+  remainingMeters?: number;
+  distanceFromPoint?: number;
+  reason: string;
+  geometry: Array<{ lat: number; lng: number }>;
+}
+
+export interface SuggestionsResponse {
+  success: true;
+  suggestions: {
+    almostComplete: StreetSuggestion[];
+    nearest: StreetSuggestion[];
+    milestone: {
+      target: number;
+      currentProgress: number;
+      streetsNeeded: number;
+      streets: StreetSuggestion[];
+    } | null;
+    clusters: Array<{
+      centroid: { lat: number; lng: number };
+      streets: StreetSuggestion[];
+      totalLength: number;
+      streetCount: number;
+    }>;
+  };
 }
 
 // ============================================

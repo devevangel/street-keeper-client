@@ -9,6 +9,8 @@ import type {
   ProjectDetailResponse,
   ProjectPreviewResponse,
   ProjectMapResponse,
+  ProjectHeatmapResponse,
+  ProjectActivitiesResponse,
   CreateProjectRequest,
 } from "../types/api.types";
 
@@ -24,13 +26,16 @@ export const projectsService = {
   async preview(
     centerLat: number,
     centerLng: number,
-    radiusMeters: 500 | 1000 | 2000 | 5000 | 10000
+    radiusMeters: 500 | 1000 | 2000 | 5000 | 10000,
+    boundaryMode?: "centroid" | "strict",
   ): Promise<ProjectPreviewResponse> {
-    return apiClient.get<ProjectPreviewResponse>("/projects/preview", {
+    const params: Record<string, string> = {
       lat: centerLat.toString(),
       lng: centerLng.toString(),
       radius: radiusMeters.toString(),
-    });
+    };
+    if (boundaryMode === "strict") params.boundaryMode = "strict";
+    return apiClient.get<ProjectPreviewResponse>("/projects/preview", params);
   },
 
   async create(data: CreateProjectRequest): Promise<ProjectDetailResponse> {
@@ -43,11 +48,23 @@ export const projectsService = {
 
   async refresh(projectId: string): Promise<ProjectDetailResponse> {
     return apiClient.post<ProjectDetailResponse>(
-      `/projects/${projectId}/refresh`
+      `/projects/${projectId}/refresh`,
     );
   },
 
   async getMap(projectId: string): Promise<ProjectMapResponse> {
     return apiClient.get<ProjectMapResponse>(`/projects/${projectId}/map`);
+  },
+
+  async getHeatmap(projectId: string): Promise<ProjectHeatmapResponse> {
+    return apiClient.get<ProjectHeatmapResponse>(
+      `/projects/${projectId}/heatmap`,
+    );
+  },
+
+  async getActivities(projectId: string): Promise<ProjectActivitiesResponse> {
+    return apiClient.get<ProjectActivitiesResponse>(
+      `/projects/${projectId}/activities`,
+    );
   },
 };

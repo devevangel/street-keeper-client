@@ -1,9 +1,9 @@
 /**
  * ProjectCreatePage
- * Create a project: click map to set center, choose radius, preview, name, create.
+ * Create a project: search or pick location, choose radius (500m default), auto-preview, name, create.
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   MapContainer,
@@ -13,27 +13,29 @@ import {
   useMapEvents,
 } from "react-leaflet";
 import type { LatLngTuple } from "leaflet";
-import { Button, Card, Input, Select } from "../components/common";
+import { Button, Card, Input } from "../components/common";
+import { UniversalSearchInput } from "../components/projects";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
 import { useGeolocation } from "../hooks";
 import { ROUTES } from "../config/constants";
 import type { ProjectPreview } from "../types/api.types";
+import type { GeocodingResult } from "../types/api.types";
 
-const RADIUS_OPTIONS = [
-  { value: "500", label: "500 m" },
-  { value: "1000", label: "1 km" },
-  { value: "2000", label: "2 km" },
-  { value: "5000", label: "5 km" },
-  { value: "10000", label: "10 km" },
-] as const;
+const RADIUS_OPTIONS: { value: 500 | 1000 | 2000 | 5000 | 10000; label: string }[] = [
+  { value: 500, label: "500 m" },
+  { value: 1000, label: "1 km" },
+  { value: 2000, label: "2 km" },
+  { value: 5000, label: "5 km" },
+  { value: 10000, label: "10 km" },
+];
 
 type RadiusValue = 500 | 1000 | 2000 | 5000 | 10000;
 
 const DEFAULT_CENTER: LatLngTuple = [50.8, -1.09];
 const DEFAULT_ZOOM = 13;
+const AUTO_PREVIEW_DEBOUNCE_MS = 400;
 
-/** Listens for map clicks and reports lat/lng to parent */
 function MapClickHandler({
   onMapClick,
 }: {
@@ -55,60 +57,78 @@ export function ProjectCreatePage() {
     isLoading: geoLoading,
   } = useGeolocation();
 
-  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(
-    null
-  );
-  const [radius, setRadius] = useState<RadiusValue>(2000);
+  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [radius, setRadius] = useState<RadiusValue>(500);
   const [preview, setPreview] = useState<ProjectPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [includePartialStreets, setIncludePartialStreets] = useState(true);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const previewAbortRef = useRef<AbortController | null>(null);
+
+  const boundaryMode = includePartialStreets ? "centroid" : "strict";
 
   const mapCenter: LatLngTuple = center
     ? [center.lat, center.lng]
     : geoPosition
-    ? [geoPosition.lat, geoPosition.lng]
-    : DEFAULT_CENTER;
+      ? [geoPosition.lat, geoPosition.lng]
+      : DEFAULT_CENTER;
+
+  const hasCenter = center != null || geoPosition != null;
+  const lat = center?.lat ?? geoPosition?.lat;
+  const lng = center?.lng ?? geoPosition?.lng;
 
   const handleUseMyLocation = useCallback(() => {
     requestPermission();
   }, [requestPermission]);
 
-  // When geolocation returns after "Use my location", set center
   useEffect(() => {
     if (geoPosition) setCenter({ lat: geoPosition.lat, lng: geoPosition.lng });
   }, [geoPosition]);
 
-  const applyGeoToCenter = useCallback(() => {
-    if (geoPosition) setCenter({ lat: geoPosition.lat, lng: geoPosition.lng });
-  }, [geoPosition]);
-
-  const handlePreview = useCallback(async () => {
-    const lat = center?.lat ?? geoPosition?.lat;
-    const lng = center?.lng ?? geoPosition?.lng;
-    if (lat == null || lng == null) return;
-    setPreviewLoading(true);
-    setPreviewError(null);
+  const handleSearchSelect = useCallback((result: GeocodingResult) => {
+    setCenter({ lat: result.lat, lng: result.lng });
     setPreview(null);
-    try {
-      const res = await projectsService.preview(lat, lng, radius);
-      setPreview(res.preview);
-    } catch (err) {
-      setPreviewError(
-        err instanceof ApiError ? err.message : "Failed to load preview"
-      );
-    } finally {
+    setPreviewError(null);
+  }, []);
+
+  // Auto-preview when center or radius changes (debounced)
+  useEffect(() => {
+    if (lat == null || lng == null) {
+      setPreview(null);
       setPreviewLoading(false);
+      return;
     }
-  }, [center, geoPosition, radius]);
+    const t = setTimeout(() => {
+      previewAbortRef.current?.abort();
+      previewAbortRef.current = new AbortController();
+      setPreviewLoading(true);
+      setPreviewError(null);
+      projectsService
+        .preview(lat, lng, radius, boundaryMode)
+        .then((res) => {
+          setPreview(res.preview);
+        })
+        .catch((err) => {
+          setPreviewError(
+            err instanceof ApiError ? err.message : "Failed to load preview"
+          );
+          setPreview(null);
+        })
+        .finally(() => {
+          setPreviewLoading(false);
+        });
+    }, AUTO_PREVIEW_DEBOUNCE_MS);
+    return () => {
+      clearTimeout(t);
+      previewAbortRef.current?.abort();
+    };
+  }, [lat, lng, radius, boundaryMode]);
 
   const handleCreate = useCallback(async () => {
-    if (!preview || !name.trim()) return;
-    const lat = center?.lat ?? geoPosition?.lat;
-    const lng = center?.lng ?? geoPosition?.lng;
-    if (lat == null || lng == null) return;
+    if (!preview || !name.trim() || lat == null || lng == null) return;
     setCreateLoading(true);
     setCreateError(null);
     try {
@@ -117,6 +137,7 @@ export function ProjectCreatePage() {
         centerLat: lat,
         centerLng: lng,
         radiusMeters: radius,
+        boundaryMode,
         cacheKey: preview.cacheKey,
       });
       navigate(`/projects/${res.project.id}`);
@@ -126,10 +147,11 @@ export function ProjectCreatePage() {
       );
       setCreateLoading(false);
     }
-  }, [center, geoPosition, preview, name, radius, navigate]);
+  }, [preview, name, lat, lng, radius, navigate]);
 
-  const canPreview = center != null || geoPosition != null;
-  const canCreate = Boolean(preview?.cacheKey && name.trim() && !createLoading);
+  const canCreate = Boolean(
+    hasCenter && preview?.cacheKey && name.trim() && !createLoading
+  );
 
   return (
     <div className="p-4">
@@ -137,15 +159,57 @@ export function ProjectCreatePage() {
         to={ROUTES.PROJECTS_LIST}
         className="text-sm text-text-muted hover:underline"
       >
-        ← Back to projects
+        Back to projects
       </Link>
-      <h2 className="mt-4 text-2xl font-bold text-text">New Project</h2>
+      <h2 className="mt-4 text-2xl font-bold text-text">Create New Project</h2>
       <p className="mt-1 text-sm text-text-muted">
-        Click the map to set the center, choose a radius, then preview and
-        create.
+        Search for a place or use the map. Choose radius, then name and create.
       </p>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 flex flex-col gap-4">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <label htmlFor="geocode-search" className="mb-1 block text-sm font-medium text-text">
+              Where?
+            </label>
+            <UniversalSearchInput
+              placeholder="Search anywhere: address, park, hospital…"
+              onSelect={handleSearchSelect}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={handleUseMyLocation}
+            disabled={geoLoading}
+          >
+            {geoLoading ? "Getting location…" : "Use my location"}
+          </Button>
+        </div>
+
+        <div>
+          <span className="mb-2 block text-sm font-medium text-text">Radius</span>
+          <div className="flex flex-wrap gap-2">
+            {RADIUS_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className="flex cursor-pointer items-center gap-2"
+              >
+                <input
+                  type="radio"
+                  name="radius"
+                  value={opt.value}
+                  checked={radius === opt.value}
+                  onChange={() => setRadius(opt.value)}
+                  className="border-border text-primary focus:ring-primary"
+                />
+                <span className="text-text">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
         <Card padding="none" className="overflow-hidden">
           <div className="h-[320px] w-full">
             <MapContainer
@@ -159,7 +223,7 @@ export function ProjectCreatePage() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
               <MapClickHandler onMapClick={setCenter} />
-              {(center ?? geoPosition) && (
+              {hasCenter && (
                 <>
                   <Marker
                     position={
@@ -185,88 +249,62 @@ export function ProjectCreatePage() {
               )}
             </MapContainer>
           </div>
-          <div className="flex flex-wrap gap-2 border-t-2 border-border p-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={handleUseMyLocation}
-              disabled={geoLoading}
-            >
-              {geoLoading ? "Getting location…" : "Use my location"}
-            </Button>
-            {geoPosition && !center && (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={applyGeoToCenter}
-              >
-                Set center to my location
-              </Button>
-            )}
-          </div>
         </Card>
 
-        <div className="flex flex-col gap-4">
-          <Select
-            label="Radius"
-            options={RADIUS_OPTIONS}
-            value={String(radius)}
-            onChange={(e) => setRadius(Number(e.target.value) as RadiusValue)}
-          />
-          <Button
-            type="button"
-            onClick={handlePreview}
-            disabled={!canPreview || previewLoading}
-          >
-            {previewLoading ? "Loading…" : "Preview streets"}
-          </Button>
-          {previewError && (
-            <p className="text-danger text-sm">{previewError}</p>
-          )}
-
-          {preview && (
-            <Card>
-              <h3 className="mb-2 font-bold text-text">Preview</h3>
+        {hasCenter && (
+          <Card padding="sm">
+            {previewLoading ? (
+              <p className="text-text-muted text-sm">Loading preview…</p>
+            ) : previewError ? (
+              <p className="text-danger text-sm">{previewError}</p>
+            ) : preview ? (
               <p className="text-text">
                 <strong>{preview.totalStreets}</strong> streets ·{" "}
                 <strong>{(preview.totalLengthMeters / 1000).toFixed(1)}</strong>{" "}
-                km total length
+                km total
               </p>
-              {preview.warnings.length > 0 && (
-                <ul className="mt-2 list-inside list-disc text-sm text-text-muted">
-                  {preview.warnings.map((w, i) => (
-                    <li key={i}>{w}</li>
-                  ))}
-                </ul>
-              )}
-            </Card>
-          )}
+            ) : null}
+            {preview?.warnings && preview.warnings.length > 0 && (
+              <ul className="mt-2 list-inside list-disc text-text-muted text-sm">
+                {preview.warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
 
-          {preview && (
-            <>
-              <Input
-                label="Project name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Portsmouth South"
-                required
-                maxLength={100}
-              />
-              {createError && (
-                <p className="text-danger text-sm">{createError}</p>
-              )}
-              <Button
-                type="button"
-                onClick={handleCreate}
-                disabled={!canCreate}
-              >
-                {createLoading ? "Creating…" : "Create project"}
-              </Button>
-            </>
-          )}
-        </div>
+        <Input
+          label="Project name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Portsmouth South"
+          required
+          maxLength={100}
+        />
+
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            checked={includePartialStreets}
+            onChange={(e) => setIncludePartialStreets(e.target.checked)}
+            className="border-border text-primary focus:ring-primary"
+          />
+          <span className="text-text text-sm">
+            Include partial streets (streets that cross the boundary)
+          </span>
+        </label>
+
+        {createError && (
+          <p className="text-danger text-sm">{createError}</p>
+        )}
+        <Button
+          type="button"
+          onClick={handleCreate}
+          disabled={!canCreate}
+        >
+          {createLoading ? "Creating…" : "Create project"}
+        </Button>
       </div>
     </div>
   );

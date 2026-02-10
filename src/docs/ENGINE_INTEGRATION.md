@@ -1,6 +1,6 @@
 # Engine Integration
 
-The frontend can use either the **V1** (Overpass + Mapbox) or **V2** (OSRM edge-based) GPX analysis engine. Switching is done via environment variable; the same UI and types are used for both.
+The frontend can use either the **V1** (Overpass + Mapbox) or **V2** (local matcher + per-edge coverage) GPX analysis engine. Switching is done via environment variable; the same UI and types are used for both.
 
 ## Environment: `VITE_GPX_ENGINE`
 

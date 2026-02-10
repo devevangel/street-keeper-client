@@ -57,13 +57,13 @@ Street Keeper does not draw the map itself. We use other services to know where 
 | **OpenStreetMap (OSM)** | A free, crowd-sourced map of the world. | Our source of truth for "what streets exist" and their shape. |
 | **Overpass API** | A search engine for OSM data. | We ask it: "Give me all streets inside this area" (a box around your run). |
 | **Mapbox Map Matching** | A paid service that corrects GPS tracks. | It "snaps" your messy points onto the road network — like autocorrect for GPS. Used only in Engine V1 when configured. |
-| **OSRM** (Open Source Routing Machine) | A free, self-hostable service. | Also snaps GPS to roads, but returns **OSM node IDs** — the exact dots that make up each street. Used in Engine V2. |
+| **Local map-matcher (V2)** | In-process HMM/Viterbi matcher. | Uses NodeCache + WayCache (from PBF) to snap GPS to the road network and return **OSM node IDs**. No external matching service. Used in Engine V2. |
 
 **Summary:**
 
 - **Overpass** = "What streets are in this area?"
 - **Mapbox** = "Fix my wobbly GPS line and put it on the right roads" (V1, optional).
-- **OSRM** = "Turn my GPS line into a list of map nodes I passed through" (V2).
+- **Local matcher (V2)** = "Turn my GPS line into a list of map nodes I passed through" using local caches (NodeCache, WayCache); no external API.
 
 ---
 
@@ -204,14 +204,14 @@ Engine V2 is **path-first**: we follow your path node by node and record every s
 
 ---
 
-### Step 2: OSRM map matching
+### Step 2: Local map matching (HMM/Viterbi)
 
-**What happens:** We send your GPS points to OSRM. OSRM snaps them to the road network and returns the **exact OSM node IDs** you passed through, in order. So we get a sequence of nodes (e.g. node 123 → 124 → 125 …) instead of raw coordinates.
+**What happens:** We use a **local map-matcher** that does not call any external API. It looks up nodes near each GPS point from **NodeCache**, finds candidate edges from **WayCache**, scores them with an HMM (emission: distance to segment, transition: connectivity), and runs Viterbi to pick the best path. The result is the **exact OSM node IDs** you passed through, in order.
 
 **In:** GPS points.  
-**Out:** A list of OSM node IDs in order, plus a smoothed path (for display). Optional: confidence score (we use it for display only; we still save edges).
+**Out:** A list of OSM node IDs in order, plus a smoothed path (for display) and optional confidence.
 
-**Analogy:** OSRM is like a guide who walks your route and writes down the official "checkpoint" numbers you passed.
+**Analogy:** The local matcher is like a guide who has a local copy of the map and walks your route, writing down the official "checkpoint" numbers you passed — without phoning a server.
 
 ---
 
@@ -236,6 +236,15 @@ Engine V2 is **path-first**: we follow your path node by node and record every s
 
 **In:** Resolved edges + original node order + optional timestamps.  
 **Out:** Two lists: **valid edges** (kept) and **rejected edges** (discarded), plus counts.
+
+---
+
+### Step 4b: Per-edge coverage filter
+
+**What happens:** For each valid edge, we compute how much of the edge length was actually covered by the matched geometry. Edges below a **coverage threshold** (e.g. 80%) are filtered out so we do not count brief touches (e.g. crossing a street) as "run."
+
+**In:** Valid edges + matched geometry + threshold (default 0.80).  
+**Out:** Edges that pass the coverage threshold; the rest are discarded before saving.
 
 ---
 
@@ -268,17 +277,19 @@ flowchart LR
   end
   subgraph steps [Steps]
     Parse2[1. Parse GPX]
-    OSRM[2. OSRM match]
+    LocalMatch[2. Local matcher HMM]
     Resolve[3. Resolve ways]
     Validate[4. Build and validate edges]
+    Coverage[4b. Per-edge coverage filter]
     Save[5. Save to UserEdge]
     Derive[6. Derive street completion]
   end
   GPX2 --> Parse2
-  Parse2 --> OSRM
-  OSRM --> Resolve
+  Parse2 --> LocalMatch
+  LocalMatch --> Resolve
   Resolve --> Validate
-  Validate --> Save
+  Validate --> Coverage
+  Coverage --> Save
   Save --> Derive
 ```
 
@@ -328,8 +339,8 @@ With V2 we only ask "did you run this exact piece (edge)?" So we get a clear yes
 
 | Drawback | Explanation |
 |----------|-------------|
-| Depends on OSRM | You need an OSRM instance (usually self-hosted) for production. |
-| WayCache setup | For best behavior (or offline), you need to seed the WayCache (e.g. from a PBF). |
+| WayCache + NodeCache setup | For production you need to seed WayCache and NodeCache (e.g. from a PBF) for the area you care about. |
+| Per-edge coverage | Edges with low coverage (e.g. brief touch) are discarded; threshold is configurable (default 80%). |
 | Edge validation can reject good data | Very short streets or connectors can be rejected by the "minimum length" or other rules. |
 | Harder to debug | You think in nodes, edges, and ways; logs and data are more granular. |
 
@@ -337,12 +348,12 @@ With V2 we only ask "did you run this exact piece (edge)?" So we get a clear yes
 
 | | V1 | V2 |
 |-|----|----|
-| **Cost** | Free (Overpass) + optional Mapbox (paid). | Free if you self-host OSRM; no Mapbox. |
-| **Accuracy** | ~98% with Mapbox, ~85% without. | Depends on OSRM quality; typically high when the map is good. |
-| **Speed** | Can be slower (Overpass + optional Mapbox per run). | Can be faster once WayCache is warm; OSRM is usually quick. |
-| **Complexity** | Simpler: area → match → percentage. | More complex: nodes → edges → persistence → derivation. |
+| **Cost** | Free (Overpass) + optional Mapbox (paid). | Free: local matcher + PBF seed; no OSRM or Mapbox. |
+| **Accuracy** | ~98% with Mapbox, ~85% without. | Local HMM/Viterbi matcher + per-edge coverage (e.g. 80%) for stable results. |
+| **Speed** | Can be slower (Overpass + optional Mapbox per run). | Can be faster once WayCache and NodeCache are warm; no external matching API. |
+| **Complexity** | Simpler: area → match → percentage. | More complex: nodes → edges → coverage filter → persistence → derivation. |
 | **Persistence** | UserStreetProgress (percentage). | UserEdge (list of edges). |
-| **Offline** | Needs Overpass (and Mapbox if used). | Can run fully offline with PBF-seeded WayCache and local OSRM. |
+| **Offline** | Needs Overpass (and Mapbox if used). | Can run fully offline with PBF-seeded WayCache and NodeCache. |
 
 ---
 

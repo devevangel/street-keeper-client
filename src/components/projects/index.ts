@@ -1,3 +1,13 @@
 export { ProjectCard } from "./ProjectCard";
 export { ProjectStats } from "./ProjectStats";
 export { ProjectMap } from "./ProjectMap";
+export { UniversalSearchInput } from "./UniversalSearchInput";
+export { ProgressTimeline } from "./ProgressTimeline";
+export { CompletionFunnel } from "./CompletionFunnel";
+export { RunImpactChart } from "./RunImpactChart";
+export { StreetTypeBarChart } from "./StreetTypeBarChart";
+export { ProgressHero } from "./ProgressHero";
+export { StatCards } from "./StatCards";
+export { MapThumbnail } from "./MapThumbnail";
+export { ProjectHeatmap } from "./ProjectHeatmap";
+export { SuggestionsPanel } from "./SuggestionsPanel";
