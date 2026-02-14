@@ -19,14 +19,22 @@ export const projectsService = {
     return apiClient.get<ProjectsListResponse>("/projects");
   },
 
-  async getById(projectId: string): Promise<ProjectDetailResponse> {
-    return apiClient.get<ProjectDetailResponse>(`/projects/${projectId}`);
+  async getById(
+    projectId: string,
+    options?: { includeStreets?: boolean },
+  ): Promise<ProjectDetailResponse> {
+    const params =
+      options?.includeStreets === true ? { include: "streets" } : undefined;
+    return apiClient.get<ProjectDetailResponse>(
+      `/projects/${projectId}`,
+      params as Record<string, string> | undefined,
+    );
   },
 
   async preview(
     centerLat: number,
     centerLng: number,
-    radiusMeters: 500 | 1000 | 2000 | 5000 | 10000,
+    radiusMeters: 100 | 200 | 500 | 1000 | 2000 | 5000 | 10000,
     boundaryMode?: "centroid" | "strict",
   ): Promise<ProjectPreviewResponse> {
     const params: Record<string, string> = {
@@ -50,6 +58,15 @@ export const projectsService = {
     return apiClient.post<ProjectDetailResponse>(
       `/projects/${projectId}/refresh`,
     );
+  },
+
+  async resize(
+    projectId: string,
+    radiusMeters: number,
+  ): Promise<ProjectDetailResponse> {
+    return apiClient.patch<ProjectDetailResponse>(`/projects/${projectId}`, {
+      radiusMeters,
+    });
   },
 
   async getMap(projectId: string): Promise<ProjectMapResponse> {

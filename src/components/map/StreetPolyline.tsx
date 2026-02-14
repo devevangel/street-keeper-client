@@ -44,15 +44,20 @@ function geoJsonToLeaflet(coordinates: [number, number][]): LatLngTuple[] {
   return coordinates.map(([lng, lat]) => [lat, lng] as LatLngTuple);
 }
 
-const PopupContent = ({ street }: { street: MapStreet }) => (
-  <div className="min-w-[140px] text-left text-neutral-800">
-    <p className="font-bold text-neutral-900">{street.name}</p>
-    <p className="text-sm text-neutral-600">
-      {street.percentage.toFixed(0)}% · {street.stats.runCount} run
-      {street.stats.runCount !== 1 ? "s" : ""}
-    </p>
-  </div>
-);
+const PopupContent = ({ street }: { street: MapStreet }) => {
+  const statusLabel =
+    street.status === "completed" ? "Completed" : "In progress";
+  return (
+    <div className="min-w-[140px] text-left text-neutral-800">
+      <p className="font-bold text-neutral-900">{street.name}</p>
+      <p className="text-sm text-neutral-600">
+        {street.percentage.toFixed(0)}% · {statusLabel}
+        {street.stats.runCount > 0 &&
+          ` · ${street.stats.runCount} run${street.stats.runCount !== 1 ? "s" : ""}`}
+      </p>
+    </div>
+  );
+};
 
 export function StreetPolyline({ street }: StreetPolylineProps) {
   const fullPositions = geoJsonToLeaflet(street.geometry.coordinates);

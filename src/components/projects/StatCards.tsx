@@ -1,77 +1,58 @@
 /**
  * StatCards (InsightCards)
  * Row of insight cards: Runs, Distance (+ equivalent), Weekly pace, Projected finish.
+ * Pace and projected finish are server-computed to avoid frontend numeric bugs.
  */
 
 import { getDistanceEquivalent } from "../../utils/distanceEquivalent";
-import type { SnapshotStreet } from "../../types/api.types";
 
 export interface StatCardsProps {
   activityCount: number;
   distanceCoveredMeters: number;
-  streets: SnapshotStreet[];
+  /** Server-computed: streets per week (safe math) */
+  streetsPerWeek: number;
+  /** Server-computed: ISO date string or null */
+  projectedFinishDate: string | null;
   completedStreets: number;
   totalStreets: number;
 }
 
-function getPaceAndFinish(
-  streets: SnapshotStreet[],
+function formatPaceAndFinish(
+  streetsPerWeek: number,
+  projectedFinishDate: string | null,
   completedStreets: number,
   totalStreets: number,
-): {
-  paceLabel: string;
-  paceSubtitle: string;
-  finishLabel: string;
-} {
-  const completedDates = streets
-    .filter((s) => s.completed && s.lastRunDate)
-    .map((s) => new Date(s.lastRunDate!).getTime());
-
-  if (completedDates.length < 2) {
-    return {
-      paceLabel: "—",
-      paceSubtitle: "Complete more runs",
-      finishLabel: "Keep running!",
-    };
-  }
-
-  const span = Math.max(...completedDates) - Math.min(...completedDates);
-  const weeks = span / (7 * 24 * 60 * 60 * 1000);
-  const streetsPerWeek = weeks > 0 ? completedDates.length / weeks : 0;
-
+): { paceLabel: string; paceSubtitle: string; finishLabel: string } {
   const paceLabel =
     streetsPerWeek > 0 ? `${streetsPerWeek.toFixed(1)} streets/week` : "—";
   const paceSubtitle = "";
-
   const remaining = totalStreets - completedStreets;
   if (remaining <= 0) {
     return { paceLabel, paceSubtitle, finishLabel: "Done!" };
   }
-
-  const weeksLeft = streetsPerWeek > 0 ? remaining / streetsPerWeek : 0;
-  const finishDate = new Date(Date.now() + weeksLeft * 7 * 24 * 60 * 60 * 1000);
   const finishLabel =
-    weeksLeft > 0
-      ? finishDate.toLocaleDateString(undefined, {
+    projectedFinishDate != null
+      ? new Date(projectedFinishDate).toLocaleDateString(undefined, {
           month: "short",
           year: "numeric",
         })
       : "Keep running!";
-
   return { paceLabel, paceSubtitle, finishLabel };
 }
 
 export function StatCards({
   activityCount,
   distanceCoveredMeters,
-  streets,
+  streetsPerWeek,
+  projectedFinishDate,
   completedStreets,
   totalStreets,
 }: StatCardsProps) {
   const distanceKm = distanceCoveredMeters / 1000;
   const equivalent = getDistanceEquivalent(distanceKm);
-  const { paceLabel, paceSubtitle, finishLabel } = getPaceAndFinish(
-    streets,
+  const { paceLabel, paceSubtitle, finishLabel } = formatPaceAndFinish(
+    streetsPerWeek,
+    projectedFinishDate,
     completedStreets,
     totalStreets,
   );

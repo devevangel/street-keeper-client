@@ -95,9 +95,17 @@ export interface StreetsByTypeItem {
   completed: number;
 }
 
+export interface CompletionBins {
+  completed: number;
+  almostThere: number;
+  inProgress: number;
+  notStarted: number;
+}
+
 export interface ProjectDetail extends ProjectListItem {
   streets: SnapshotStreet[];
   snapshotDate: string;
+  completionBins: CompletionBins;
   inProgressCount: number;
   notStartedCount: number;
   distanceCoveredMeters: number;
@@ -107,6 +115,12 @@ export interface ProjectDetail extends ProjectListItem {
   streetsByType: StreetsByTypeItem[];
   refreshNeeded: boolean;
   daysSinceRefresh: number;
+  /** Server-computed safe pace (streets per week) */
+  streetsPerWeek: number;
+  /** Server-computed projected finish date (ISO) or null */
+  projectedFinishDate: string | null;
+  currentStreak: number;
+  longestStreak: number;
   newStreetsDetected?: number;
 }
 
@@ -145,7 +159,7 @@ export interface CreateProjectRequest {
   name: string;
   centerLat: number;
   centerLng: number;
-  radiusMeters: 500 | 1000 | 2000 | 5000 | 10000;
+  radiusMeters: 100 | 200 | 500 | 1000 | 2000 | 5000 | 10000;
   boundaryMode?: BoundaryMode;
   deadline?: string;
   cacheKey?: string;

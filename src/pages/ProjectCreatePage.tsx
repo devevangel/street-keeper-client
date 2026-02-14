@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   MapContainer,
   TileLayer,
@@ -14,7 +14,7 @@ import {
 } from "react-leaflet";
 import type { LatLngTuple } from "leaflet";
 import { Button, Card, Input } from "../components/common";
-import { UniversalSearchInput } from "../components/projects";
+import { UniversalSearchInput, ProjectCreatedModal } from "../components/projects";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
 import { useGeolocation } from "../hooks";
@@ -22,7 +22,9 @@ import { ROUTES } from "../config/constants";
 import type { ProjectPreview } from "../types/api.types";
 import type { GeocodingResult } from "../types/api.types";
 
-const RADIUS_OPTIONS: { value: 500 | 1000 | 2000 | 5000 | 10000; label: string }[] = [
+const RADIUS_OPTIONS: { value: 100 | 200 | 500 | 1000 | 2000 | 5000 | 10000; label: string }[] = [
+  { value: 100, label: "100 m" },
+  { value: 200, label: "200 m" },
   { value: 500, label: "500 m" },
   { value: 1000, label: "1 km" },
   { value: 2000, label: "2 km" },
@@ -30,7 +32,7 @@ const RADIUS_OPTIONS: { value: 500 | 1000 | 2000 | 5000 | 10000; label: string }
   { value: 10000, label: "10 km" },
 ];
 
-type RadiusValue = 500 | 1000 | 2000 | 5000 | 10000;
+type RadiusValue = 100 | 200 | 500 | 1000 | 2000 | 5000 | 10000;
 
 const DEFAULT_CENTER: LatLngTuple = [50.8, -1.09];
 const DEFAULT_ZOOM = 13;
@@ -50,7 +52,6 @@ function MapClickHandler({
 }
 
 export function ProjectCreatePage() {
-  const navigate = useNavigate();
   const {
     position: geoPosition,
     requestPermission,
@@ -66,6 +67,11 @@ export function ProjectCreatePage() {
   const [includePartialStreets, setIncludePartialStreets] = useState(true);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [successModal, setSuccessModal] = useState<{
+    projectId: string;
+    totalStreets: number;
+    totalLengthMeters: number;
+  } | null>(null);
   const previewAbortRef = useRef<AbortController | null>(null);
 
   const boundaryMode = includePartialStreets ? "centroid" : "strict";
@@ -140,172 +146,211 @@ export function ProjectCreatePage() {
         boundaryMode,
         cacheKey: preview.cacheKey,
       });
-      navigate(`/projects/${res.project.id}`);
+      const project = res?.project;
+      if (project?.id != null) {
+        setSuccessModal({
+          projectId: String(project.id),
+          totalStreets: project.totalStreets ?? 0,
+          totalLengthMeters: project.totalLengthMeters ?? 0,
+        });
+      } else {
+        setCreateError(
+          "Project was created but the response was invalid. Check your projects list."
+        );
+      }
     } catch (err) {
       setCreateError(
         err instanceof ApiError ? err.message : "Failed to create project"
       );
+    } finally {
       setCreateLoading(false);
     }
-  }, [preview, name, lat, lng, radius, navigate]);
+  }, [preview, name, lat, lng, radius, boundaryMode]);
 
   const canCreate = Boolean(
     hasCenter && preview?.cacheKey && name.trim() && !createLoading
   );
 
-  return (
-    <div className="p-4">
+  const formPanel = (
+    <div className="flex flex-col gap-4 p-4 md:p-6">
       <Link
         to={ROUTES.PROJECTS_LIST}
         className="text-sm text-text-muted hover:underline"
       >
         Back to projects
       </Link>
-      <h2 className="mt-4 text-2xl font-bold text-text">Create New Project</h2>
-      <p className="mt-1 text-sm text-text-muted">
-        Search for a place or use the map. Choose radius, then name and create.
-      </p>
+      <h2 className="text-2xl font-bold text-text">Create project</h2>
 
-      <div className="mt-4 flex flex-col gap-4">
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-0 flex-1">
-            <label htmlFor="geocode-search" className="mb-1 block text-sm font-medium text-text">
-              Where?
-            </label>
-            <UniversalSearchInput
-              placeholder="Search anywhere: address, park, hospital…"
-              onSelect={handleSearchSelect}
-            />
-          </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleUseMyLocation}
-            disabled={geoLoading}
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-0 flex-1">
+          <label
+            htmlFor="geocode-search"
+            className="mb-1 block text-sm font-medium text-text"
           >
-            {geoLoading ? "Getting location…" : "Use my location"}
-          </Button>
-        </div>
-
-        <div>
-          <span className="mb-2 block text-sm font-medium text-text">Radius</span>
-          <div className="flex flex-wrap gap-2">
-            {RADIUS_OPTIONS.map((opt) => (
-              <label
-                key={opt.value}
-                className="flex cursor-pointer items-center gap-2"
-              >
-                <input
-                  type="radio"
-                  name="radius"
-                  value={opt.value}
-                  checked={radius === opt.value}
-                  onChange={() => setRadius(opt.value)}
-                  className="border-border text-primary focus:ring-primary"
-                />
-                <span className="text-text">{opt.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <Card padding="none" className="overflow-hidden">
-          <div className="h-[320px] w-full">
-            <MapContainer
-              center={mapCenter}
-              zoom={DEFAULT_ZOOM}
-              className="h-full w-full"
-              scrollWheelZoom
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <MapClickHandler onMapClick={setCenter} />
-              {hasCenter && (
-                <>
-                  <Marker
-                    position={
-                      center
-                        ? [center.lat, center.lng]
-                        : [geoPosition!.lat, geoPosition!.lng]
-                    }
-                  />
-                  <Circle
-                    center={
-                      center
-                        ? [center.lat, center.lng]
-                        : [geoPosition!.lat, geoPosition!.lng]
-                    }
-                    radius={radius}
-                    pathOptions={{
-                      color: "#16a34a",
-                      fillOpacity: 0.1,
-                      weight: 2,
-                    }}
-                  />
-                </>
-              )}
-            </MapContainer>
-          </div>
-        </Card>
-
-        {hasCenter && (
-          <Card padding="sm">
-            {previewLoading ? (
-              <p className="text-text-muted text-sm">Loading preview…</p>
-            ) : previewError ? (
-              <p className="text-danger text-sm">{previewError}</p>
-            ) : preview ? (
-              <p className="text-text">
-                <strong>{preview.totalStreets}</strong> streets ·{" "}
-                <strong>{(preview.totalLengthMeters / 1000).toFixed(1)}</strong>{" "}
-                km total
-              </p>
-            ) : null}
-            {preview?.warnings && preview.warnings.length > 0 && (
-              <ul className="mt-2 list-inside list-disc text-text-muted text-sm">
-                {preview.warnings.map((w, i) => (
-                  <li key={i}>{w}</li>
-                ))}
-              </ul>
-            )}
-          </Card>
-        )}
-
-        <Input
-          label="Project name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Portsmouth South"
-          required
-          maxLength={100}
-        />
-
-        <label className="flex cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            checked={includePartialStreets}
-            onChange={(e) => setIncludePartialStreets(e.target.checked)}
-            className="border-border text-primary focus:ring-primary"
+            Where?
+          </label>
+          <UniversalSearchInput
+            placeholder="Search anywhere: address, park, hospital…"
+            onSelect={handleSearchSelect}
           />
-          <span className="text-text text-sm">
-            Include partial streets (streets that cross the boundary)
-          </span>
-        </label>
-
-        {createError && (
-          <p className="text-danger text-sm">{createError}</p>
-        )}
+        </div>
         <Button
           type="button"
-          onClick={handleCreate}
-          disabled={!canCreate}
+          variant="secondary"
+          size="sm"
+          onClick={handleUseMyLocation}
+          disabled={geoLoading}
+          className="min-h-[44px]"
         >
-          {createLoading ? "Creating…" : "Create project"}
+          {geoLoading ? "Getting location…" : "Use my location"}
         </Button>
       </div>
+
+      <div>
+        <span className="mb-2 block text-sm font-medium text-text">Radius</span>
+        <div
+          className="flex flex-wrap gap-2"
+          role="radiogroup"
+          aria-label="Project radius"
+        >
+          {RADIUS_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={radius === opt.value}
+              onClick={() => setRadius(opt.value)}
+              className={`min-h-[44px] min-w-[44px] rounded-full border-2 px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary ${
+                radius === opt.value
+                  ? "border-primary bg-primary text-surface"
+                  : "border-border bg-surface text-text hover:border-primary/70"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {hasCenter && (
+        <Card padding="sm">
+          {previewLoading ? (
+            <p className="text-text-muted text-sm">Loading preview…</p>
+          ) : previewError ? (
+            <p className="text-danger text-sm">{previewError}</p>
+          ) : preview ? (
+            <p className="text-text">
+              <strong>{preview.totalStreets}</strong> streets ·{" "}
+              <strong>{(preview.totalLengthMeters / 1000).toFixed(1)}</strong> km
+              total
+            </p>
+          ) : null}
+          {preview?.warnings && preview.warnings.length > 0 && (
+            <ul className="mt-2 list-inside list-disc text-text-muted text-sm">
+              {preview.warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
+
+      <Input
+        label="Project name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="e.g. Portsmouth South"
+        required
+        maxLength={100}
+      />
+
+      <label className="flex min-h-[44px] cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          checked={includePartialStreets}
+          onChange={(e) => setIncludePartialStreets(e.target.checked)}
+          className="h-5 w-5 border-border text-primary focus:ring-primary"
+        />
+        <span className="text-text text-sm">
+          Include streets that cross your area
+        </span>
+      </label>
+
+      {createError && (
+        <p className="text-danger text-sm">{createError}</p>
+      )}
+      <Button
+        type="button"
+        onClick={handleCreate}
+        disabled={!canCreate}
+        className="min-h-[48px] w-full"
+      >
+        {createLoading ? "Creating…" : "Create project"}
+      </Button>
     </div>
+  );
+
+  const mapSection = (
+    <div className="h-full min-h-[50vh] w-full md:min-h-0">
+      <MapContainer
+        center={mapCenter}
+        zoom={DEFAULT_ZOOM}
+        className="h-full w-full"
+        scrollWheelZoom
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <MapClickHandler onMapClick={setCenter} />
+        {hasCenter && (
+          <>
+            <Marker
+              position={
+                center
+                  ? [center.lat, center.lng]
+                  : [geoPosition!.lat, geoPosition!.lng]
+              }
+            />
+            <Circle
+              center={
+                center
+                  ? [center.lat, center.lng]
+                  : [geoPosition!.lat, geoPosition!.lng]
+              }
+              radius={radius}
+              pathOptions={{
+                color: "#16a34a",
+                fillOpacity: 0.1,
+                weight: 2,
+              }}
+            />
+          </>
+        )}
+      </MapContainer>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="flex h-full flex-col md:flex-row">
+        {/* Desktop: map left, form right. Mobile: map top, form below */}
+        <div className="order-2 flex-1 md:order-1 md:min-h-[calc(100vh-120px)]">
+          {mapSection}
+        </div>
+        <aside className="order-1 w-full border-border bg-surface md:order-2 md:h-auto md:min-h-[calc(100vh-120px)] md:w-[380px] md:overflow-y-auto md:border-l-2">
+          {formPanel}
+        </aside>
+      </div>
+      {successModal && (
+        <ProjectCreatedModal
+          isOpen={true}
+          onClose={() => setSuccessModal(null)}
+          projectId={successModal.projectId}
+          totalStreets={successModal.totalStreets}
+          totalLengthMeters={successModal.totalLengthMeters}
+        />
+      )}
+    </>
   );
 }

@@ -54,7 +54,10 @@ function App() {
               <Route path="new" element={<ProjectCreatePage />} />
               <Route path=":id/map" element={<ProjectMapPage />} />
               <Route path=":id/heatmap" element={<ProjectHeatmapPage />} />
-              <Route path=":id/suggestions" element={<ProjectSuggestionsMapPage />} />
+              <Route
+                path=":id/suggestions"
+                element={<ProjectSuggestionsMapPage />}
+              />
               <Route path=":id" element={<ProjectDetailPage />} />
             </Route>
             <Route path="campaign" element={<CampaignPage />} />

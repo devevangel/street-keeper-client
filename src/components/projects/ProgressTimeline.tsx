@@ -83,12 +83,12 @@ export function ProgressTimeline({
   const data = buildChartData(streets);
   const projectedFinish = getProjectedFinish(streets, totalStreets);
 
-  if (data.length === 0) {
+  if (data.length < 3) {
     return (
       <div
         className={`flex min-h-[200px] items-center justify-center text-sm text-text-muted ${className}`}
       >
-        Complete more runs to see your progress trend
+        Keep running to see your progress trend
       </div>
     );
   }

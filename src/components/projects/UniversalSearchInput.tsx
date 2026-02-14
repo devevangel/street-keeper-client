@@ -77,14 +77,28 @@ export function UniversalSearchInput({
     [onSelect]
   );
 
+  const handleGoClick = () => {
+    if (results.length > 0) {
+      handleSelect(results[0]);
+    } else {
+      containerRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+    }
+  };
+
   return (
     <div ref={containerRef} className={`relative ${className}`}>
-      <div className="relative">
+      <div className="relative flex">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && results.length > 0) {
+              e.preventDefault();
+              handleSelect(results[0]);
+            }
+          }}
           placeholder={placeholder}
           disabled={disabled}
           autoComplete="off"
@@ -93,11 +107,20 @@ export function UniversalSearchInput({
           aria-controls="geocode-results"
           aria-autocomplete="list"
           id="geocode-search"
-          className="w-full border-2 border-border bg-surface px-3 py-2 pr-8 text-text placeholder:text-text-muted focus:border-primary focus:outline-none disabled:opacity-50"
+          className="min-h-[44px] w-full flex-1 border-2 border-border bg-surface px-3 py-2 pr-12 text-text placeholder:text-text-muted focus:border-accent focus:outline-none disabled:opacity-50"
         />
+        <button
+          type="button"
+          onClick={handleGoClick}
+          disabled={disabled}
+          aria-label={results.length > 0 ? "Go to first result" : "Search"}
+          className="absolute right-0 top-0 flex h-full min-w-[44px] shrink-0 items-center justify-center border-l border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-border hover:text-text focus:border-accent focus:text-text focus:outline-none disabled:opacity-50"
+        >
+          {results.length > 0 ? "Go" : "Search"}
+        </button>
         {loading && (
           <span
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-sm"
+            className="absolute right-14 top-1/2 -translate-y-1/2 text-text-muted text-sm"
             aria-hidden
           >
             …
@@ -113,7 +136,7 @@ export function UniversalSearchInput({
         <ul
           id="geocode-results"
           role="listbox"
-          className="absolute top-full left-0 right-0 z-10 mt-1 max-h-60 overflow-auto border-2 border-border bg-surface shadow-lg"
+          className="absolute top-full left-0 right-0 z-[1000] mt-1 max-h-60 overflow-auto border-2 border-border bg-surface shadow-lg"
         >
           {results.map((r) => (
             <li

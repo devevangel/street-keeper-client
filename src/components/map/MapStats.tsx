@@ -1,7 +1,7 @@
 /**
  * MapStats Component
- * Summary stats for the home page map: total streets, completed count, partial count.
- * Uses design tokens for consistent styling.
+ * Hero-style stats for the home page: completion %, length with progress,
+ * summary counts, and a small completed vs in-progress bar.
  */
 
 interface MapStatsProps {
@@ -11,24 +11,78 @@ interface MapStatsProps {
   completedCount: number;
   /** Streets with status partial (yellow) */
   partialCount: number;
+  /** Total length in meters of segments with progress (optional, computed from segments) */
+  totalLengthMeters?: number;
 }
 
 export function MapStats({
   totalStreets,
   completedCount,
   partialCount,
+  totalLengthMeters = 0,
 }: MapStatsProps) {
+  const completionPercent =
+    totalStreets > 0
+      ? Math.round((completedCount / totalStreets) * 100)
+      : 0;
+  const totalKm = totalLengthMeters / 1000;
+
   return (
     <div
-      className="flex flex-wrap gap-4 border-b-2 border-border pb-4"
+      className="space-y-3 border-b-2 border-border pb-4"
       aria-label="Street summary"
     >
-      <p className="text-text-muted">
-        <span className="font-bold text-text">{totalStreets}</span> streets in
-        this area
-      </p>
-      <p className="font-bold text-success">{completedCount} completed</p>
-      <p className="font-bold text-warning">{partialCount} in progress</p>
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+        <div>
+          <p className="text-2xl font-bold text-text tabular-nums">
+            {completionPercent}%
+          </p>
+          <p className="text-sm text-text-muted">
+            of streets in this area completed
+          </p>
+        </div>
+        {totalKm > 0 && (
+          <div>
+            <p className="text-2xl font-bold text-text tabular-nums">
+              {totalKm.toFixed(1)} km
+            </p>
+            <p className="text-sm text-text-muted">
+              of streets with progress
+            </p>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-4 text-sm">
+        <span className="text-text-muted">
+          <span className="font-bold text-text">{totalStreets}</span> streets in
+          this area
+        </span>
+        <span className="font-bold text-success">{completedCount} completed</span>
+        <span className="font-bold text-warning">{partialCount} in progress</span>
+      </div>
+      {totalStreets > 0 && (
+        <div
+          className="flex h-2 overflow-hidden rounded bg-border"
+          role="progressbar"
+          aria-valuenow={completedCount}
+          aria-valuemin={0}
+          aria-valuemax={totalStreets}
+          aria-label={`${completedCount} of ${totalStreets} streets completed`}
+        >
+          <div
+            className="bg-success transition-all"
+            style={{
+              width: `${completionPercent}%`,
+            }}
+          />
+          <div
+            className="bg-warning transition-all"
+            style={{
+              width: `${totalStreets > 0 ? Math.round((partialCount / totalStreets) * 100) : 0}%`,
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
