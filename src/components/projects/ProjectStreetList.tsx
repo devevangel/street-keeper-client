@@ -103,7 +103,7 @@ export function ProjectStreetList({
         placeholder="Search by name…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text placeholder:text-text-muted focus:border-primary focus:outline-none"
+        className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text placeholder:text-text-muted focus:outline-none focus:ring-0 focus:ring-offset-0"
         aria-label="Search streets"
       />
       <div

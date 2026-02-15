@@ -84,9 +84,9 @@ export function ProjectMapPage() {
         </div>
       </div>
       <p className="mb-3 text-sm text-text-muted">
-        {mapData.stats.completedStreets} completed ·{" "}
-        {mapData.stats.partialStreets} partial · {mapData.stats.notRunStreets}{" "}
-        not run
+        {mapData.stats.completedStreetNames ?? mapData.stats.completedStreets}{" "}
+        completed · {mapData.stats.partialStreets} partial ·{" "}
+        {mapData.stats.notRunStreets} not run
       </p>
       <ProjectMap mapData={mapData} className="h-[70vh] min-h-[500px] w-full" />
     </div>

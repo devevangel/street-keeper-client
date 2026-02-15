@@ -49,6 +49,13 @@ body {
   outline: none;
 }
 
+/* Inputs: no outer focus ring so border stays clean when clicked */
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
+
 /* Map controls: use theme tokens so zoom/attribution match site (light/dark) */
 .leaflet-map-theme.leaflet-container .leaflet-control-zoom {
   border: var(--border-width) solid var(--color-border) !important;

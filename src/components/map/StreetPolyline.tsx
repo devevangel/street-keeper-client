@@ -34,6 +34,8 @@ const DASH_UNCOVERED = "4, 8";
 interface StreetPolylineProps {
   /** Street data including geometry (GeoJSON LineString) and status. */
   street: MapStreet;
+  /** When true, draw thicker and brighter (suggestion highlight). */
+  highlight?: boolean;
 }
 
 /**
@@ -59,9 +61,29 @@ const PopupContent = ({ street }: { street: MapStreet }) => {
   );
 };
 
-export function StreetPolyline({ street }: StreetPolylineProps) {
+const WEIGHT_HIGHLIGHT = 8;
+const COLOR_HIGHLIGHT = "#10b981";
+
+export function StreetPolyline({ street, highlight = false }: StreetPolylineProps) {
   const fullPositions = geoJsonToLeaflet(street.geometry.coordinates);
   const isCompleted = street.status === "completed";
+
+  if (highlight) {
+    return (
+      <Polyline
+        positions={fullPositions}
+        pathOptions={{
+          color: COLOR_HIGHLIGHT,
+          weight: WEIGHT_HIGHLIGHT,
+          opacity: 1,
+        }}
+      >
+        <Popup>
+          <PopupContent street={street} />
+        </Popup>
+      </Polyline>
+    );
+  }
 
   if (isCompleted) {
     return (

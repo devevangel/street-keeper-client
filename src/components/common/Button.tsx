@@ -13,10 +13,10 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles = {
-  primary: "bg-accent text-surface border-border hover:opacity-90",
-  secondary: "bg-surface text-text border-border hover:bg-border/10",
-  danger: "bg-danger text-surface border-border hover:opacity-90",
-  success: "bg-success text-surface border-border hover:opacity-90",
+  primary: "bg-accent text-surface border-border",
+  secondary: "bg-surface text-text border-border hover:bg-border/10 hover:opacity-90",
+  danger: "bg-danger text-surface border-border",
+  success: "bg-success text-surface border-border",
 } as const;
 
 const sizeStyles = {
@@ -39,7 +39,7 @@ export function Button({
       type={type}
       disabled={disabled}
       className={[
-        "border-2 font-bold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed",
+        "cursor-pointer border-2 font-bold transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed",
         variantStyles[variant],
         sizeStyles[size],
         className,

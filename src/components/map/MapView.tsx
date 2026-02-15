@@ -5,8 +5,9 @@
  */
 
 import { useEffect, useRef } from "react";
-import { MapContainer, TileLayer, useMap, ZoomControl } from "react-leaflet";
+import { MapContainer, TileLayer, useMap, ZoomControl, Marker, Popup } from "react-leaflet";
 import type { LatLngTuple } from "leaflet";
+import L from "leaflet";
 import type { MapStreet } from "../../types/api.types";
 import { LocationMarker } from "./LocationMarker";
 import { MapLegend } from "./MapLegend";
@@ -67,6 +68,26 @@ function distanceMeters(
   return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
+/** When highlightFocus.bbox is set, fit map to that bounds (e.g. "Show on map"). */
+function FitBoundsToHighlight({
+  bbox,
+}: {
+  bbox: [number, number, number, number];
+}) {
+  const map = useMap();
+  useEffect(() => {
+    const [minLat, minLng, maxLat, maxLng] = bbox;
+    map.fitBounds(
+      [
+        [minLat, minLng],
+        [maxLat, maxLng],
+      ] as LatLngTuple[],
+      { padding: [20, 20], maxZoom: 18 }
+    );
+  }, [map, bbox[0], bbox[1], bbox[2], bbox[3]]);
+  return null;
+}
+
 /** Syncs the map view only when jumping to a new place (search / "use my location"). Does not run when user pans or zooms. */
 function MapCenterSync({
   center,
@@ -97,6 +118,12 @@ function MapCenterSync({
   return null;
 }
 
+export interface MapViewHighlightFocus {
+  bbox: [number, number, number, number];
+  streetIds?: number[];
+  startPoint?: { lat: number; lng: number };
+}
+
 export interface MapViewProps {
   /** Map center (from search or user location). Used for viewport and data. */
   mapCenter: { lat: number; lng: number } | null;
@@ -108,7 +135,16 @@ export interface MapViewProps {
   className?: string;
   /** Called when the user pans the map (debounced). Use to load streets for the new center. */
   onViewportChange?: (center: { lat: number; lng: number }) => void;
+  /** When set, fit bounds to bbox, highlight these street IDs, and show start marker. */
+  highlightFocus?: MapViewHighlightFocus | null;
 }
+
+const defaultIcon = L.divIcon({
+  className: "start-marker",
+  html: '<div style="width:14px;height:14px;background:#10b981;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
 
 export function MapView({
   mapCenter,
@@ -116,6 +152,7 @@ export function MapView({
   streets,
   className = "h-[65vh] min-h-[400px] w-full",
   onViewportChange,
+  highlightFocus,
 }: MapViewProps) {
   const center: LatLngTuple = mapCenter
     ? [mapCenter.lat, mapCenter.lng]
@@ -123,6 +160,8 @@ export function MapView({
       ? [userLocation.lat, userLocation.lng]
       : DEFAULT_CENTER;
   const zoom = mapCenter || userLocation ? ZOOM_USER : ZOOM_DEFAULT;
+  const highlightOsmIds =
+    highlightFocus?.streetIds?.map(String) ?? [];
 
   return (
     <div className={`relative ${className}`}>
@@ -143,9 +182,20 @@ export function MapView({
         {onViewportChange && (
           <MapViewportHandler onViewportChange={onViewportChange} />
         )}
+        {highlightFocus?.bbox && (
+          <FitBoundsToHighlight bbox={highlightFocus.bbox} />
+        )}
         <ZoomControl position="bottomright" />
         <LocationMarker position={userLocation} />
-        <StreetLayer streets={streets} />
+        <StreetLayer streets={streets} highlightOsmIds={highlightOsmIds} />
+        {highlightFocus?.startPoint && (
+          <Marker
+            position={[highlightFocus.startPoint.lat, highlightFocus.startPoint.lng]}
+            icon={defaultIcon}
+          >
+            <Popup>Start here</Popup>
+          </Marker>
+        )}
       </MapContainer>
       <MapLegend />
     </div>

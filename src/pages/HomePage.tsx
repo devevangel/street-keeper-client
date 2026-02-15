@@ -1,31 +1,38 @@
 /**
  * HomePage
- * Map view: user location or search result, streets with progress, hero stats, and top streets.
- * Accumulates segments on pan (GTA-style); only fetches when center moves > MIN_FETCH_DISTANCE_M.
+ * Decision engine: hero, one suggestion, chunked progress, map with highlight.
+ * Fetches homepage payload (hero, streak, suggestion, milestone); map loads streets separately.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Card } from "../components/common";
 import {
+  DynamicHero,
+  ProgressRing,
+  SuggestionCard,
+  StreakBlock,
+  TodaysHighlight,
+} from "../components/homepage";
+import {
   LocationPrompt,
-  MapStats,
   MapView,
+  type MapViewHighlightFocus,
 } from "../components/map";
 import { UniversalSearchInput } from "../components/projects/UniversalSearchInput";
-import { useGeolocation, useMapStreets } from "../hooks";
+import { useAnalytics } from "../contexts/AnalyticsContext";
+import { useGeolocation, useHomepageData, useMapStreets } from "../hooks";
 import { activitiesService } from "../services/activities.service";
+import { invalidateHomepageCache } from "../services/homepage.service";
 import type { GeocodingResult, MapStreet } from "../types/api.types";
 
 const DEFAULT_RADIUS = 1000;
-const TOP_STREETS_COUNT = 5;
 const MIN_FETCH_DISTANCE_M = 200;
 
-/** Approximate distance in meters between two WGS84 points (Haversine). */
 function haversineDistance(
   a: { lat: number; lng: number },
-  b: { lat: number; lng: number }
+  b: { lat: number; lng: number },
 ): number {
-  const R = 6371000; // Earth radius in m
+  const R = 6371000;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
   const x =
@@ -43,20 +50,32 @@ export function HomePage() {
     isLoading: locationLoading,
     requestPermission,
   } = useGeolocation({ watch: true });
+  const { track } = useAnalytics();
 
   const [mapCenter, setMapCenter] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
-  /** Center used for API fetch; only updated when mapCenter moves > MIN_FETCH_DISTANCE_M or on search/location. */
   const [fetchCenter, setFetchCenter] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
-  /** Accumulated segments (GTA-style); keyed by osmId. */
   const [allSegments, setAllSegments] = useState<Map<string, MapStreet>>(
-    new Map()
+    new Map(),
   );
+  const [highlightFocus, setHighlightFocus] =
+    useState<MapViewHighlightFocus | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+
+  const {
+    data: homepage,
+    isLoading: homepageLoading,
+    refetch: refetchHomepage,
+  } = useHomepageData({
+    lat: mapCenter?.lat,
+    lng: mapCenter?.lng,
+    radius: DEFAULT_RADIUS,
+  });
 
   useEffect(() => {
     if (position) {
@@ -66,16 +85,26 @@ export function HomePage() {
     }
   }, [position?.lat, position?.lng]);
 
-  const {
-    data,
-    isLoading: fetchLoading,
-    error: fetchError,
-    refetch,
-  } = useMapStreets(
+  const { data, error: fetchError, refetch } = useMapStreets(
     fetchCenter?.lat ?? null,
     fetchCenter?.lng ?? null,
-    DEFAULT_RADIUS
+    DEFAULT_RADIUS,
   );
+
+  useEffect(() => {
+    if (homepage) {
+      track("homepage_viewed", {
+        stateKey: homepage.hero.stateKey,
+        hasSuggestion: !!homepage.primarySuggestion,
+        hasStreak: homepage.streak.currentWeeks > 0,
+      });
+    }
+  }, [
+    homepage?.hero.stateKey,
+    homepage?.primarySuggestion,
+    homepage?.streak.currentWeeks,
+    track,
+  ]);
 
   useEffect(() => {
     if (!data?.segments.length) return;
@@ -90,14 +119,17 @@ export function HomePage() {
 
   const handleViewportChange = useCallback(
     (center: { lat: number; lng: number }) => {
-      setMapCenter(center);
+      // Only update fetchCenter when panning past threshold (for loading new streets).
+      // Do not update mapCenter here — that would re-render the page and feed the
+      // panned center back into MapView, causing MapCenterSync to run and the map to twitch.
       setFetchCenter((prev) => {
         if (!prev) return center;
-        if (haversineDistance(prev, center) > MIN_FETCH_DISTANCE_M) return center;
+        if (haversineDistance(prev, center) > MIN_FETCH_DISTANCE_M)
+          return center;
         return prev;
       });
     },
-    []
+    [],
   );
 
   const handleSearchSelect = useCallback((result: GeocodingResult) => {
@@ -108,13 +140,23 @@ export function HomePage() {
 
   const handleUseMyLocation = useCallback(() => {
     if (position) {
-      const center = { lat: position.lat, lng: position.lng };
-      setMapCenter(center);
-      setFetchCenter(center);
+      setMapCenter({ lat: position.lat, lng: position.lng });
+      setFetchCenter({ lat: position.lat, lng: position.lng });
     } else {
       requestPermission();
     }
   }, [position, requestPermission]);
+
+  const handleShowOnMap = useCallback(() => {
+    if (homepage?.primarySuggestion?.focus) {
+      setHighlightFocus({
+        bbox: homepage.primarySuggestion.focus.bbox,
+        streetIds: homepage.primarySuggestion.focus.streetIds,
+        startPoint: homepage.primarySuggestion.focus.startPoint,
+      });
+      mapRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [homepage?.primarySuggestion?.focus]);
 
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{
@@ -122,15 +164,16 @@ export function HomePage() {
     error?: string;
   } | null>(null);
 
-  const handleSync = async () => {
+  const handleSync = useCallback(async () => {
+    track("sync_clicked", {});
     setSyncing(true);
     setSyncResult(null);
     try {
       const result = await activitiesService.syncFromStrava();
-      setSyncResult({
-        synced: result.synced + result.processed,
-      });
+      setSyncResult({ synced: result.synced + result.processed });
+      invalidateHomepageCache();
       refetch();
+      refetchHomepage();
     } catch (err) {
       setSyncResult({
         synced: 0,
@@ -139,7 +182,7 @@ export function HomePage() {
     } finally {
       setSyncing(false);
     }
-  };
+  }, [track, refetch, refetchHomepage]);
 
   useEffect(() => {
     requestPermission();
@@ -163,34 +206,11 @@ export function HomePage() {
           error={locationError}
           onRetry={requestPermission}
         />
-        <p className="text-sm text-text-muted">
-          Or search for an area below to see streets you&apos;ve run there.
-        </p>
+        <p className="text-sm text-text-muted">Or search for an area below.</p>
         <UniversalSearchInput
-          placeholder="Search area: city, address, place…"
+          placeholder="Search area…"
           onSelect={handleSearchSelect}
         />
-      </div>
-    );
-  }
-
-  if (fetchLoading && !data) {
-    return (
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="min-w-[200px] flex-1">
-            <UniversalSearchInput
-              placeholder="Search area: city, address, place…"
-              onSelect={handleSearchSelect}
-            />
-          </div>
-          <Button variant="secondary" size="sm" onClick={handleUseMyLocation}>
-            Use my location
-          </Button>
-        </div>
-        <div className="py-8" role="status" aria-label="Loading streets">
-          <p className="text-text-muted">Loading streets…</p>
-        </div>
       </div>
     );
   }
@@ -206,42 +226,51 @@ export function HomePage() {
     );
   }
 
-  const segmentsForView = data?.segments ?? [];
-  const streets = data?.streets ?? [];
   const accumulatedSegments = Array.from(allSegments.values());
-  const totalLengthMeters = segmentsForView.reduce(
-    (sum, s) => sum + s.lengthMeters,
-    0
-  );
-  const topStreets = streets
-    .slice()
-    .sort((a, b) => b.percentage - a.percentage)
-    .slice(0, TOP_STREETS_COUNT);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-[200px] flex-1">
-          <UniversalSearchInput
-            placeholder="Search area: city, address, place…"
-            onSelect={handleSearchSelect}
-          />
+          <UniversalSearchInput onSelect={handleSearchSelect} />
         </div>
         <Button
           variant="secondary"
           size="sm"
           onClick={handleUseMyLocation}
-          className="shrink-0"
+          className="h-8 min-h-8 shrink-0"
         >
           Use my location
         </Button>
       </div>
-      <MapView
-        mapCenter={mapCenter}
-        userLocation={position}
-        streets={accumulatedSegments}
-        onViewportChange={handleViewportChange}
+
+      <DynamicHero hero={homepage?.hero} isLoading={homepageLoading} />
+      <SuggestionCard
+        suggestion={homepage?.primarySuggestion}
+        isLoading={homepageLoading}
+        onShowOnMap={handleShowOnMap}
+        onTrack={(action: "show_on_map" | "view_milestones") =>
+            track("primary_action_clicked", { action })}
       />
+      <ProgressRing
+        milestone={homepage?.nextMilestone}
+        isLoading={homepageLoading}
+      />
+      <TodaysHighlight
+        highlights={homepage?.recentHighlights}
+        lastRun={homepage?.lastRun}
+      />
+
+      <div ref={mapRef}>
+        <MapView
+          mapCenter={mapCenter}
+          userLocation={position}
+          streets={accumulatedSegments}
+          onViewportChange={handleViewportChange}
+          highlightFocus={highlightFocus}
+        />
+      </div>
+
       <div className="flex flex-wrap items-center gap-4">
         <Button
           variant="secondary"
@@ -249,76 +278,25 @@ export function HomePage() {
           onClick={handleSync}
           disabled={syncing}
         >
-          {syncing ? "Syncing..." : "Sync from Strava"}
+          {syncing ? "Syncing…" : "Sync from Strava"}
         </Button>
         {syncResult && (
-          <span
-            className={
-              syncResult.error
-                ? "text-red-500"
-                : "text-green-600 dark:text-green-400"
-            }
-          >
+          <span className={syncResult.error ? "text-red-500" : "text-success"}>
             {syncResult.error ??
               (syncResult.synced > 0
-                ? `Synced ${syncResult.synced} activit${
-                    syncResult.synced !== 1 ? "ies" : "y"
-                  }`
-                : "No new activities to sync")}
+                ? `Synced ${syncResult.synced} activit${syncResult.synced !== 1 ? "ies" : "y"}`
+                : "No new activities")}
           </span>
         )}
       </div>
-      <MapStats
-        totalStreets={data?.totalStreets ?? 0}
-        completedCount={data?.completedCount ?? 0}
-        partialCount={data?.partialCount ?? 0}
-        totalLengthMeters={totalLengthMeters}
-      />
+      <StreakBlock streak={homepage?.streak} />
 
-      {streets.length === 0 ? (
-        <Card className="border-primary/30 bg-primary/5">
-          <p className="mb-2 text-text">
-            {!mapCenter
-              ? "Search an area or use your location to see streets you've run."
-              : "No streets with progress in this area yet."}
-          </p>
-          <p className="text-sm text-text-muted">
-            {!mapCenter
-              ? "Choose a place above or click \"Use my location\"."
-              : "Sync from Strava to import your runs, or search another area."}
-          </p>
-        </Card>
-      ) : (
-        <section aria-label="Top streets in this area">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">
-            Top streets in this area
-          </h2>
-          <ul className="list-none space-y-1 rounded border-2 border-border bg-surface p-2">
-            {topStreets.map((street) => (
-              <li
-                key={street.osmId}
-                className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm"
-              >
-                <span className="font-medium text-text">
-                  {street.name || "Unnamed"}
-                </span>
-                <span className="text-text-muted">
-                  {street.percentage}% ·{" "}
-                  {street.status === "completed" ? (
-                    <span className="text-success">Completed</span>
-                  ) : (
-                    <span className="text-warning">In progress</span>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {streets.length > TOP_STREETS_COUNT && (
-            <p className="mt-1 text-sm text-text-muted">
-              and {streets.length - TOP_STREETS_COUNT} more in this area
-            </p>
-          )}
-        </section>
+      {!data?.streets?.length && (
+        <p className="text-text-muted text-sm">
+          {!mapCenter
+            ? "Search an area or use your location."
+            : "No streets with progress here yet. Sync from Strava."}
+        </p>
       )}
     </div>
   );

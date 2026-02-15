@@ -12,6 +12,7 @@ import {
   Outlet,
 } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { AnalyticsProvider } from "./contexts/AnalyticsContext";
 import { ProtectedRoute } from "./components/routing";
 import { AppLayout } from "./components/layout";
 import {
@@ -33,6 +34,7 @@ import { ROUTES } from "./config/constants";
 function App() {
   return (
     <AuthProvider>
+      <AnalyticsProvider>
       <BrowserRouter>
         <Routes>
           <Route path={ROUTES.LOGIN} element={<LoginPage />} />
@@ -65,6 +67,7 @@ function App() {
           <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
         </Routes>
       </BrowserRouter>
+      </AnalyticsProvider>
     </AuthProvider>
   );
 }

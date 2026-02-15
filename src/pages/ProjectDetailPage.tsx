@@ -235,6 +235,8 @@ export function ProjectDetailPage() {
           nextMilestone={project.nextMilestone}
           completedStreets={project.completedStreets}
           totalStreets={project.totalStreets}
+          completedStreetNames={project.completedStreetNames}
+          totalStreetNames={project.totalStreetNames}
           currentStreak={project.currentStreak}
           longestStreak={project.longestStreak}
         />
@@ -252,8 +254,8 @@ export function ProjectDetailPage() {
           distanceCoveredMeters={project.distanceCoveredMeters}
           streetsPerWeek={project.streetsPerWeek ?? 0}
           projectedFinishDate={project.projectedFinishDate ?? null}
-          completedStreets={project.completedStreets}
-          totalStreets={project.totalStreets}
+          completedStreets={project.completedStreetNames ?? project.completedStreets}
+          totalStreets={project.totalStreetNames ?? project.totalStreets}
         />
       </div>
 
@@ -343,7 +345,7 @@ export function ProjectDetailPage() {
                 Change
               </button>
             </span>
-            <span>{project.totalStreets} streets</span>
+            <span>{project.totalStreetNames ?? project.totalStreets} streets</span>
             <span>
               {(project.totalLengthMeters / 1000).toFixed(1)} km total
             </span>

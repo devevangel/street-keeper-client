@@ -106,6 +106,9 @@ export interface ProjectDetail extends ProjectListItem {
   streets: SnapshotStreet[];
   snapshotDate: string;
   completionBins: CompletionBins;
+  /** Distinct street names (for "X of Y streets completed" – matches list/map). */
+  totalStreetNames: number;
+  completedStreetNames: number;
   inProgressCount: number;
   notStartedCount: number;
   distanceCoveredMeters: number;
@@ -203,13 +206,15 @@ export interface ProjectMapBoundary {
   radiusMeters: number;
 }
 
-/** Stats for project map view */
+/** Stats for project map view; use *StreetNames for display consistency with list. */
 export interface ProjectMapStats {
   totalStreets: number;
   completedStreets: number;
   partialStreets: number;
   notRunStreets: number;
   completionPercentage: number;
+  totalStreetNames: number;
+  completedStreetNames: number;
 }
 
 export interface ProjectMapData {

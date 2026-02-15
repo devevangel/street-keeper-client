@@ -10,6 +10,7 @@ import {
   TileLayer,
   Marker,
   Circle,
+  useMap,
   useMapEvents,
 } from "react-leaflet";
 import type { LatLngTuple } from "leaflet";
@@ -48,6 +49,20 @@ function MapClickHandler({
       onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
     },
   });
+  return null;
+}
+
+/** Fix Leaflet black map when container gets size after mount (e.g. mobile flex layout). */
+function MapInvalidateSize() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    const run = () => map.invalidateSize();
+    run();
+    const ro = new ResizeObserver(run);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [map]);
   return null;
 }
 
@@ -200,7 +215,7 @@ export function ProjectCreatePage() {
           size="sm"
           onClick={handleUseMyLocation}
           disabled={geoLoading}
-          className="min-h-[44px]"
+          className="h-8 min-h-8 shrink-0"
         >
           {geoLoading ? "Getting location…" : "Use my location"}
         </Button>
@@ -291,13 +306,14 @@ export function ProjectCreatePage() {
   );
 
   const mapSection = (
-    <div className="h-full min-h-[50vh] w-full md:min-h-0">
+    <div className="h-[40vh] min-h-[240px] w-full md:h-full md:min-h-0">
       <MapContainer
         center={mapCenter}
         zoom={DEFAULT_ZOOM}
         className="h-full w-full"
         scrollWheelZoom
       >
+        <MapInvalidateSize />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -333,12 +349,13 @@ export function ProjectCreatePage() {
 
   return (
     <>
-      <div className="flex h-full flex-col md:flex-row">
-        {/* Desktop: map left, form right. Mobile: map top, form below */}
-        <div className="order-2 flex-1 md:order-1 md:min-h-[calc(100vh-120px)]">
+      {/* Full-width layout so map and form card share the same width (no jump). */}
+      <div className="-mx-4 w-[calc(100%+2rem)] flex min-h-0 flex-1 flex-col md:mx-0 md:w-full md:flex-row">
+        {/* Mobile: map on top. Desktop: map left, form right */}
+        <div className="order-1 min-h-[40vh] w-full flex-1 md:order-1 md:min-h-[calc(100vh-120px)]">
           {mapSection}
         </div>
-        <aside className="order-1 w-full border-border bg-surface md:order-2 md:h-auto md:min-h-[calc(100vh-120px)] md:w-[380px] md:overflow-y-auto md:border-l-2">
+        <aside className="order-2 w-full shrink-0 border-border bg-surface md:order-2 md:h-auto md:min-h-[calc(100vh-120px)] md:w-[380px] md:overflow-y-auto md:border-l-2">
           {formPanel}
         </aside>
       </div>

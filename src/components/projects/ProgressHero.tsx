@@ -20,6 +20,9 @@ export interface ProgressHeroProps {
   } | null;
   completedStreets: number;
   totalStreets: number;
+  /** When set, used for "X of Y streets completed" (matches list/map). */
+  completedStreetNames?: number;
+  totalStreetNames?: number;
   currentStreak?: number;
   longestStreak?: number;
 }
@@ -29,10 +32,14 @@ export function ProgressHero({
   nextMilestone,
   completedStreets,
   totalStreets,
+  completedStreetNames,
+  totalStreetNames,
   currentStreak = 0,
   longestStreak = 0,
 }: ProgressHeroProps) {
   const percent = Math.round(Math.min(100, progress));
+  const completed = completedStreetNames ?? completedStreets;
+  const total = totalStreetNames ?? totalStreets;
 
   return (
     <div className="rounded border-2 border-border bg-surface p-4">
@@ -60,7 +67,7 @@ export function ProgressHero({
         </p>
       )}
       <p className="mt-1 text-center text-xs text-text-muted">
-        {completedStreets} of {totalStreets} streets completed
+        {completed} of {total} streets completed
       </p>
       {currentStreak > 0 && (
         <p className="mt-2 text-center text-success text-sm">
