@@ -10,6 +10,7 @@ import { ROUTES } from "../../config/constants";
 const tabs = [
   { to: ROUTES.HOME, label: "Home" },
   { to: ROUTES.PROJECTS_LIST, label: "Projects" },
+  { to: ROUTES.MILESTONES, label: "Milestones" },
   { to: ROUTES.CAMPAIGN, label: "Campaign" },
 ] as const;
 

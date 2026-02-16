@@ -26,15 +26,33 @@ interface GroupedStreet {
   segmentCount: number;
 }
 
+/**
+ * Normalize a street name for grouping purposes.
+ * Handles common OSM data inconsistencies like apostrophe variations.
+ */
+function normalizeStreetName(name: string): string {
+  if (!name) return "unnamed";
+  return name
+    .toLowerCase()
+    .replace(/[''`´]/g, "") // Remove apostrophes
+    .replace(/\bsaint\b/g, "st")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function groupStreetsByName(streets: SnapshotStreet[]): GroupedStreet[] {
-  const byName = new Map<string, SnapshotStreet[]>();
+  const byName = new Map<string, { streets: SnapshotStreet[]; displayName: string }>();
   for (const s of streets) {
-    const key = s.name || "Unnamed";
-    if (!byName.has(key)) byName.set(key, []);
-    byName.get(key)!.push(s);
+    const key = normalizeStreetName(s.name || "Unnamed");
+    if (!byName.has(key)) {
+      // Use the first encountered name as display name
+      byName.set(key, { streets: [], displayName: s.name || "Unnamed" });
+    }
+    byName.get(key)!.streets.push(s);
   }
   const result: GroupedStreet[] = [];
-  for (const [name, ways] of byName.entries()) {
+  for (const data of byName.values()) {
+    const ways = data.streets;
     const totalLengthMeters = ways.reduce((sum, w) => sum + w.lengthMeters, 0);
     const weightedPct =
       totalLengthMeters > 0
@@ -43,7 +61,7 @@ function groupStreetsByName(streets: SnapshotStreet[]): GroupedStreet[] {
         : 0;
     const completed = ways.every((w) => w.completed);
     result.push({
-      name,
+      name: data.displayName,
       totalLengthMeters,
       percentage: Math.round(weightedPct),
       completed,

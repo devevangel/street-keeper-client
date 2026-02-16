@@ -20,6 +20,9 @@ function formatRadius(meters: number): string {
 export function ProjectCard({ project }: ProjectCardProps) {
   const progressPercent = Math.round(project.progress);
   const areaLabel = formatRadius(project.radiusMeters);
+  // Use street names if available (matches detail page), otherwise fall back to segments
+  const totalStreets = project.totalStreetNames ?? project.totalStreets;
+  const completedStreets = project.completedStreetNames ?? project.completedStreets;
 
   return (
     <Link
@@ -31,7 +34,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
         <div className="flex flex-col gap-2">
           <h3 className="text-lg font-bold text-text">{project.name}</h3>
           <p className="text-sm text-text-muted">
-            {project.completedStreets} / {project.totalStreets} streets ·{" "}
+            {completedStreets} / {totalStreets} streets ·{" "}
             {areaLabel} radius
           </p>
           <div className="flex items-center gap-2">

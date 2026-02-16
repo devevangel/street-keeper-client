@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { Button, ThemeToggle } from "../common";
 import { TabNav } from "./TabNav";
+import { PendingCelebrationsChecker } from "../milestones/PendingCelebrationsChecker";
 import { ROUTES } from "../../config/constants";
 
 export function AppLayout() {
@@ -16,6 +17,7 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-bg text-text">
+      <PendingCelebrationsChecker />
       <header className="flex items-center justify-between border-b-2 border-border bg-surface px-4 py-3">
         <h1 className="text-xl font-bold">Street Keeper</h1>
         <div className="flex items-center gap-3">

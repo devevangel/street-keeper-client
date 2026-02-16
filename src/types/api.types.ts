@@ -81,12 +81,51 @@ export interface ProjectListItem {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Total unique street names (grouped by name). If not provided, use totalStreets. */
+  totalStreetNames?: number;
+  /** Completed street names (all segments of street completed). If not provided, use completedStreets. */
+  completedStreetNames?: number;
 }
 
 export interface NextMilestone {
   target: number;
   streetsNeeded: number;
   currentProgress: number;
+}
+
+export interface MilestoneProgress {
+  currentValue: number;
+  targetValue: number;
+  unit: string;
+  ratio: number;
+  isCompleted: boolean;
+}
+
+export interface MilestoneWithProgress {
+  id: string;
+  name: string;
+  typeSlug: string;
+  kind: string;
+  isPinned: boolean;
+  progress: MilestoneProgress;
+  projectId?: string | null;
+}
+
+export interface MilestoneType {
+  id: string;
+  slug: string;
+  scope: "project" | "global";
+  name: string;
+  description: string | null;
+  configSchema: unknown;
+  isEnabled: boolean;
+}
+
+export interface CreateMilestoneInput {
+  typeSlug: string;
+  projectId?: string;
+  config: Record<string, unknown>;
+  name?: string;
 }
 
 export interface StreetsByTypeItem {
@@ -115,6 +154,7 @@ export interface ProjectDetail extends ProjectListItem {
   activityCount: number;
   lastActivityDate: string | null;
   nextMilestone: NextMilestone | null;
+  realNextMilestone?: MilestoneWithProgress | null;
   streetsByType: StreetsByTypeItem[];
   refreshNeeded: boolean;
   daysSinceRefresh: number;
@@ -150,10 +190,20 @@ export interface ProjectPreview {
   radiusMeters: number;
   cachedRadiusMeters: number;
   cacheKey: string;
+  /** Total number of street segments */
   totalStreets: number;
+  /** Total unique street names (for consistent display) */
+  totalStreetNames: number;
   totalLengthMeters: number;
   streetsByType: Record<string, number>;
   warnings: string[];
+  /** Optional: Street names list (only included when includeStreets=true) */
+  streets?: Array<{
+    name: string;
+    segmentCount: number;
+    totalLengthMeters: number;
+    highwayType: string;
+  }>;
 }
 
 export type BoundaryMode = "centroid" | "strict";
@@ -162,7 +212,7 @@ export interface CreateProjectRequest {
   name: string;
   centerLat: number;
   centerLng: number;
-  radiusMeters: 100 | 200 | 500 | 1000 | 2000 | 5000 | 10000;
+  radiusMeters: number; // 100–10000 in 100 m steps
   boundaryMode?: BoundaryMode;
   deadline?: string;
   cacheKey?: string;

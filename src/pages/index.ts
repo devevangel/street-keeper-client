@@ -13,4 +13,5 @@ export { ProjectMapPage } from "./ProjectMapPage";
 export { ProjectHeatmapPage } from "./ProjectHeatmapPage";
 export { ProjectSuggestionsMapPage } from "./ProjectSuggestionsMapPage";
 export { CampaignPage } from "./CampaignPage";
+export { MilestonesPage } from "./MilestonesPage";
 export { DocsPage } from "./DocsPage";

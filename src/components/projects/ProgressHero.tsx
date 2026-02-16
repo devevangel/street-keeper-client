@@ -1,7 +1,10 @@
 /**
  * ProgressHero
  * Large progress percentage with progress bar and milestone hint.
+ * Prefers realNextMilestone (from API) when present; otherwise uses synthetic nextMilestone.
  */
+
+import type { MilestoneWithProgress } from "../../types/api.types";
 
 function milestonePhrase(target: number): string {
   if (target === 25) return "a quarter of the way there";
@@ -25,6 +28,8 @@ export interface ProgressHeroProps {
   totalStreetNames?: number;
   currentStreak?: number;
   longestStreak?: number;
+  /** Real next milestone from API; when present, used for progress bar and hint. */
+  realNextMilestone?: MilestoneWithProgress | null;
 }
 
 export function ProgressHero({
@@ -36,10 +41,27 @@ export function ProgressHero({
   totalStreetNames,
   currentStreak = 0,
   longestStreak = 0,
+  realNextMilestone,
 }: ProgressHeroProps) {
+  const useRealHint = realNextMilestone && !realNextMilestone.progress.isCompleted;
   const percent = Math.round(Math.min(100, progress));
   const completed = completedStreetNames ?? completedStreets;
   const total = totalStreetNames ?? totalStreets;
+
+  const hintText = useRealHint ? (
+    <p className="mt-2 text-center text-text-muted text-sm">
+      Next: {realNextMilestone.name} —{" "}
+      {realNextMilestone.progress.currentValue} /{" "}
+      {realNextMilestone.progress.targetValue}{" "}
+      {realNextMilestone.progress.unit}
+    </p>
+  ) : nextMilestone && nextMilestone.streetsNeeded > 0 ? (
+    <p className="mt-2 text-center text-text-muted text-sm">
+      Just {nextMilestone.streetsNeeded} more street
+      {nextMilestone.streetsNeeded !== 1 ? "s" : ""} and you&apos;ll be{" "}
+      {milestonePhrase(nextMilestone.target)}!
+    </p>
+  ) : null;
 
   return (
     <div className="rounded border-2 border-border bg-surface p-4">
@@ -59,13 +81,7 @@ export function ProgressHero({
           style={{ width: `${percent}%` }}
         />
       </div>
-      {nextMilestone && nextMilestone.streetsNeeded > 0 && (
-        <p className="mt-2 text-center text-text-muted text-sm">
-          Just {nextMilestone.streetsNeeded} more street
-          {nextMilestone.streetsNeeded !== 1 ? "s" : ""} and you&apos;ll be{" "}
-          {milestonePhrase(nextMilestone.target)}!
-        </p>
-      )}
+      {hintText}
       <p className="mt-1 text-center text-xs text-text-muted">
         {completed} of {total} streets completed
       </p>

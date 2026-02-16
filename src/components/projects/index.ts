@@ -17,3 +17,5 @@ export { ActivityFeed } from "./ActivityFeed";
 export { RadiusResizeModal } from "./RadiusResizeModal";
 export { SuggestionsPanel } from "./SuggestionsPanel";
 export { ProjectStreetList } from "./ProjectStreetList";
+export { MilestonesList } from "./MilestonesList";
+export { CreateMilestoneModal } from "./CreateMilestoneModal";

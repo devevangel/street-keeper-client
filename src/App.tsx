@@ -26,6 +26,7 @@ import {
   ProjectHeatmapPage,
   ProjectSuggestionsMapPage,
   CampaignPage,
+  MilestonesPage,
   DocsPage,
 } from "./pages";
 import { DocsLayout } from "./components/docs";
@@ -63,6 +64,7 @@ function App() {
               <Route path=":id" element={<ProjectDetailPage />} />
             </Route>
             <Route path="campaign" element={<CampaignPage />} />
+            <Route path="milestones" element={<MilestonesPage />} />
           </Route>
           <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
         </Routes>

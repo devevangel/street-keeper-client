@@ -13,6 +13,20 @@ import { LocationMarker } from "./LocationMarker";
 import { MapLegend } from "./MapLegend";
 import { StreetLayer } from "./StreetLayer";
 
+/** Fix Leaflet black map when container gets size after mount (e.g. mobile flex layout). */
+function MapInvalidateSize() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    const run = () => map.invalidateSize();
+    run();
+    const ro = new ResizeObserver(run);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [map]);
+  return null;
+}
+
 /** Default center when position is not yet available (e.g. UK). */
 const DEFAULT_CENTER: LatLngTuple = [50, -1];
 
@@ -161,7 +175,7 @@ export function MapView({
       : DEFAULT_CENTER;
   const zoom = mapCenter || userLocation ? ZOOM_USER : ZOOM_DEFAULT;
   const highlightOsmIds =
-    highlightFocus?.streetIds?.map(String) ?? [];
+    highlightFocus?.streetIds?.map((id) => `way/${id}`) ?? [];
 
   return (
     <div className={`relative ${className}`}>
@@ -178,6 +192,7 @@ export function MapView({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           maxZoom={19}
         />
+        <MapInvalidateSize />
         <MapCenterSync center={center} zoom={zoom} />
         {onViewportChange && (
           <MapViewportHandler onViewportChange={onViewportChange} />

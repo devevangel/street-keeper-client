@@ -1,6 +1,6 @@
 /**
  * ProjectCreatePage
- * Create a project: search or pick location, choose radius (500m default), auto-preview, name, create.
+ * Create a project: search or pick location, choose radius (200m default), auto-preview, name, create.
  */
 
 import { useState, useCallback, useEffect, useRef } from "react";
@@ -23,21 +23,9 @@ import { ROUTES } from "../config/constants";
 import type { ProjectPreview } from "../types/api.types";
 import type { GeocodingResult } from "../types/api.types";
 
-const RADIUS_OPTIONS: { value: 100 | 200 | 500 | 1000 | 2000 | 5000 | 10000; label: string }[] = [
-  { value: 100, label: "100 m" },
-  { value: 200, label: "200 m" },
-  { value: 500, label: "500 m" },
-  { value: 1000, label: "1 km" },
-  { value: 2000, label: "2 km" },
-  { value: 5000, label: "5 km" },
-  { value: 10000, label: "10 km" },
-];
-
-type RadiusValue = 100 | 200 | 500 | 1000 | 2000 | 5000 | 10000;
-
 const DEFAULT_CENTER: LatLngTuple = [50.8, -1.09];
 const DEFAULT_ZOOM = 13;
-const AUTO_PREVIEW_DEBOUNCE_MS = 400;
+const AUTO_PREVIEW_DEBOUNCE_MS = 800; // Longer debounce to avoid excessive API calls
 
 function MapClickHandler({
   onMapClick,
@@ -74,7 +62,7 @@ export function ProjectCreatePage() {
   } = useGeolocation();
 
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
-  const [radius, setRadius] = useState<RadiusValue>(500);
+  const [radius, setRadius] = useState<number>(200);
   const [preview, setPreview] = useState<ProjectPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -82,9 +70,12 @@ export function ProjectCreatePage() {
   const [includePartialStreets, setIncludePartialStreets] = useState(true);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [showStreetsList, setShowStreetsList] = useState(false);
+  const [streetSearch, setStreetSearch] = useState("");
   const [successModal, setSuccessModal] = useState<{
     projectId: string;
     totalStreets: number;
+    totalStreetNames: number;
     totalLengthMeters: number;
   } | null>(null);
   const previewAbortRef = useRef<AbortController | null>(null);
@@ -115,20 +106,28 @@ export function ProjectCreatePage() {
     setPreviewError(null);
   }, []);
 
+  // Track if we need to fetch streets list
+  const streetsListRequested = useRef(false);
+
   // Auto-preview when center or radius changes (debounced)
   useEffect(() => {
     if (lat == null || lng == null) {
       setPreview(null);
       setPreviewLoading(false);
+      streetsListRequested.current = false;
       return;
     }
+    // Reset streets list flag when location/radius changes
+    streetsListRequested.current = false;
+    
     const t = setTimeout(() => {
       previewAbortRef.current?.abort();
       previewAbortRef.current = new AbortController();
       setPreviewLoading(true);
       setPreviewError(null);
+      // Fetch without streets list for faster initial response
       projectsService
-        .preview(lat, lng, radius, boundaryMode)
+        .preview(lat, lng, radius, boundaryMode, false)
         .then((res) => {
           setPreview(res.preview);
         })
@@ -148,6 +147,22 @@ export function ProjectCreatePage() {
     };
   }, [lat, lng, radius, boundaryMode]);
 
+  // Fetch streets list when user opens the section (only once per preview)
+  useEffect(() => {
+    if (!showStreetsList || lat == null || lng == null) return;
+    if (streetsListRequested.current) return; // Already requested for this location
+    
+    streetsListRequested.current = true;
+    projectsService
+      .preview(lat, lng, radius, boundaryMode, true)
+      .then((res) => {
+        setPreview(res.preview);
+      })
+      .catch(() => {
+        // Silently fail - user still has the basic preview
+      });
+  }, [showStreetsList, lat, lng, radius, boundaryMode]);
+
   const handleCreate = useCallback(async () => {
     if (!preview || !name.trim() || lat == null || lng == null) return;
     setCreateLoading(true);
@@ -163,9 +178,13 @@ export function ProjectCreatePage() {
       });
       const project = res?.project;
       if (project?.id != null) {
+        // Use totalStreetNames (unique names) for consistency with detail page
+        // Fall back to totalStreets (segments) if not provided
+        const streetCount = project.totalStreetNames ?? project.totalStreets ?? 0;
         setSuccessModal({
           projectId: String(project.id),
           totalStreets: project.totalStreets ?? 0,
+          totalStreetNames: streetCount,
           totalLengthMeters: project.totalLengthMeters ?? 0,
         });
       } else {
@@ -222,28 +241,27 @@ export function ProjectCreatePage() {
       </div>
 
       <div>
-        <span className="mb-2 block text-sm font-medium text-text">Radius</span>
-        <div
-          className="flex flex-wrap gap-2"
-          role="radiogroup"
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-medium text-text">Radius</span>
+          <span className="rounded bg-success/20 px-2 py-1 text-sm font-bold text-success">
+            {radius >= 1000
+              ? `${(radius / 1000).toFixed(1)} km`
+              : `${radius} m`}
+          </span>
+        </div>
+        <input
+          type="range"
+          min={100}
+          max={10000}
+          step={100}
+          value={radius}
+          onChange={(e) => setRadius(Number(e.target.value))}
+          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-border accent-success"
           aria-label="Project radius"
-        >
-          {RADIUS_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              role="radio"
-              aria-checked={radius === opt.value}
-              onClick={() => setRadius(opt.value)}
-              className={`min-h-[44px] min-w-[44px] rounded-full border-2 px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary ${
-                radius === opt.value
-                  ? "border-primary bg-primary text-surface"
-                  : "border-border bg-surface text-text hover:border-primary/70"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+        />
+        <div className="mt-1 flex justify-between text-xs text-text-muted">
+          <span>100 m</span>
+          <span>10 km</span>
         </div>
       </div>
 
@@ -254,20 +272,111 @@ export function ProjectCreatePage() {
           ) : previewError ? (
             <p className="text-danger text-sm">{previewError}</p>
           ) : preview ? (
-            <p className="text-text">
-              <strong>{preview.totalStreets}</strong> streets ·{" "}
-              <strong>{(preview.totalLengthMeters / 1000).toFixed(1)}</strong> km
-              total
-            </p>
+            <>
+              <p className="text-text">
+                <strong>{preview.totalStreetNames}</strong>{" "}
+                street{preview.totalStreetNames !== 1 ? "s" : ""}
+                {preview.totalStreets !== preview.totalStreetNames
+                  ? ` (${preview.totalStreets} segments)`
+                  : ""}{" "}
+                · <strong>{(preview.totalLengthMeters / 1000).toFixed(1)}</strong> km
+                total
+              </p>
+              {preview?.warnings && preview.warnings.length > 0 && (
+                <ul className="mt-2 list-inside list-disc text-text-muted text-sm">
+                  {preview.warnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              )}
+            </>
           ) : null}
-          {preview?.warnings && preview.warnings.length > 0 && (
-            <ul className="mt-2 list-inside list-disc text-text-muted text-sm">
-              {preview.warnings.map((w, i) => (
-                <li key={i}>{w}</li>
-              ))}
-            </ul>
-          )}
         </Card>
+      )}
+
+      {/* Collapsible street list */}
+      {hasCenter && preview && !previewLoading && (
+        <details
+          className="mb-4"
+          open={showStreetsList}
+          onToggle={(e) => {
+            const isOpen = e.currentTarget.open;
+            setShowStreetsList(isOpen);
+            if (!isOpen) {
+              setStreetSearch(""); // Clear search when closing
+            }
+          }}
+        >
+          <summary className="cursor-pointer rounded border-2 border-border bg-surface px-3 py-2 text-sm font-bold uppercase tracking-wide text-text-muted min-h-[44px] flex items-center">
+            Preview streets ({preview.totalStreetNames})
+          </summary>
+          {showStreetsList && (
+            <>
+              {preview.streets ? (
+            <Card className="mt-1">
+              <div className="space-y-3">
+                <input
+                  type="search"
+                  placeholder="Search by name…"
+                  value={streetSearch}
+                  onChange={(e) => setStreetSearch(e.target.value)}
+                  className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text placeholder:text-text-muted focus:outline-none focus:ring-0 focus:ring-offset-0"
+                  aria-label="Search streets"
+                />
+                <div className="max-h-[40vh] overflow-y-auto rounded border-2 border-border">
+                  <ul className="list-none divide-y divide-border p-0">
+                    {preview.streets
+                      .filter((s) =>
+                        streetSearch.trim()
+                          ? s.name.toLowerCase().includes(streetSearch.trim().toLowerCase())
+                          : true
+                      )
+                      .map((street) => (
+                        <li
+                          key={street.name}
+                          className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 even:bg-border/5"
+                        >
+                          <span className="font-medium text-text">
+                            {street.name}
+                            {street.segmentCount > 1 && (
+                              <span className="ml-1.5 text-text-muted text-xs font-normal">
+                                ({street.segmentCount} parts)
+                              </span>
+                            )}
+                          </span>
+                          <div className="flex flex-wrap items-center gap-2 text-sm">
+                            <span className="text-text-muted">
+                              {(street.totalLengthMeters / 1000).toFixed(2)} km
+                            </span>
+                            <span className="rounded bg-border/20 px-2 py-0.5 text-xs text-text-muted">
+                              {street.highwayType}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                  </ul>
+                  {preview.streets.filter((s) =>
+                    streetSearch.trim()
+                      ? s.name.toLowerCase().includes(streetSearch.trim().toLowerCase())
+                      : true
+                  ).length === 0 && (
+                    <p className="p-4 text-center text-text-muted text-sm">
+                      No streets match your search.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </Card>
+              ) : (
+                <Card className="mt-1">
+                  <p className="text-text-muted text-sm p-4">
+                    Loading street list…
+                  </p>
+                </Card>
+              )}
+            </>
+          )}
+        </details>
       )}
 
       <Input
@@ -288,6 +397,13 @@ export function ProjectCreatePage() {
         />
         <span className="text-text text-sm">
           Include streets that cross your area
+          {preview && (
+            <span className="ml-2 text-text-muted text-xs block mt-1">
+              {includePartialStreets
+                ? `✓ Centroid mode: Includes streets whose center point is in your radius (${preview.totalStreetNames} streets)`
+                : `✗ Strict mode: Only streets fully within radius (${preview.totalStreetNames} streets)`}
+            </span>
+          )}
         </span>
       </label>
 
@@ -364,7 +480,7 @@ export function ProjectCreatePage() {
           isOpen={true}
           onClose={() => setSuccessModal(null)}
           projectId={successModal.projectId}
-          totalStreets={successModal.totalStreets}
+          totalStreets={successModal.totalStreetNames}
           totalLengthMeters={successModal.totalLengthMeters}
         />
       )}

@@ -28,13 +28,7 @@ export function SuggestionCard({
     );
   }
   if (!suggestion) {
-    return (
-      <Card>
-        <p className="text-text-muted text-sm">
-          Search an area to get a suggestion.
-        </p>
-      </Card>
-    );
+    return null;
   }
 
   const handleClick = () => {

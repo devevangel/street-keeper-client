@@ -21,6 +21,7 @@ export const ROUTES = {
   PROJECT_HEATMAP: "/projects/:id/heatmap",
   PROJECT_SUGGESTIONS: "/projects/:id/suggestions",
   CAMPAIGN: "/campaign",
+  MILESTONES: "/milestones",
   ACTIVITIES: "/activities",
   GPX_UPLOAD: "/gpx",
   DOCS: "/docs",

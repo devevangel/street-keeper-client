@@ -36,6 +36,7 @@ export const projectsService = {
     centerLng: number,
     radiusMeters: 100 | 200 | 500 | 1000 | 2000 | 5000 | 10000,
     boundaryMode?: "centroid" | "strict",
+    includeStreets?: boolean,
   ): Promise<ProjectPreviewResponse> {
     const params: Record<string, string> = {
       lat: centerLat.toString(),
@@ -43,6 +44,7 @@ export const projectsService = {
       radius: radiusMeters.toString(),
     };
     if (boundaryMode === "strict") params.boundaryMode = "strict";
+    if (includeStreets === true) params.includeStreets = "true";
     return apiClient.get<ProjectPreviewResponse>("/projects/preview", params);
   },
 

@@ -20,6 +20,7 @@ import {
   RadiusResizeModal,
   ProjectStreetList,
 } from "../components/projects";
+import { MilestonesSection } from "../components/milestones/MilestonesSection";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
 import { ROUTES } from "../config/constants";
@@ -239,6 +240,7 @@ export function ProjectDetailPage() {
           totalStreetNames={project.totalStreetNames}
           currentStreak={project.currentStreak}
           longestStreak={project.longestStreak}
+          realNextMilestone={project.realNextMilestone}
         />
         <Link to={suggestionsUrl} className="mt-3 block">
           <Button variant="secondary" size="sm" className="min-h-[44px]">
@@ -291,6 +293,9 @@ export function ProjectDetailPage() {
           />
         </Card>
       </details>
+
+      {/* Goals & Milestones - Consolidated */}
+      <MilestonesSection projectId={project.id} />
 
       {/* Collapsible details */}
       <details className="mb-4">
