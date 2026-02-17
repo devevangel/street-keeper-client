@@ -49,7 +49,7 @@ export function AppLayout() {
 
       <TabNav />
 
-      <main className="flex-1 p-4">
+      <main className="flex-1 p-1">
         <Outlet />
       </main>
     </div>

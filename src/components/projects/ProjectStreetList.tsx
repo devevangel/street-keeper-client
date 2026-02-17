@@ -7,6 +7,7 @@
 
 import { useState, useMemo } from "react";
 import type { SnapshotStreet } from "../../types/api.types";
+import { normalizeStreetName } from "../../utils/normalize-street-name";
 
 interface ProjectStreetListProps {
   streets: SnapshotStreet[];
@@ -24,20 +25,6 @@ interface GroupedStreet {
   percentage: number;
   completed: boolean;
   segmentCount: number;
-}
-
-/**
- * Normalize a street name for grouping purposes.
- * Handles common OSM data inconsistencies like apostrophe variations.
- */
-function normalizeStreetName(name: string): string {
-  if (!name) return "unnamed";
-  return name
-    .toLowerCase()
-    .replace(/[''`´]/g, "") // Remove apostrophes
-    .replace(/\bsaint\b/g, "st")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function groupStreetsByName(streets: SnapshotStreet[]): GroupedStreet[] {

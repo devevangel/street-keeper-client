@@ -4,14 +4,26 @@
  * Uses OpenStreetMap tiles. Renders inside a fixed-height container so the map initializes correctly.
  */
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, useMap, ZoomControl, Marker, Popup } from "react-leaflet";
 import type { LatLngTuple } from "leaflet";
 import L from "leaflet";
 import type { MapStreet } from "../../types/api.types";
 import { LocationMarker } from "./LocationMarker";
-import { MapLegend } from "./MapLegend";
+import { MapLegendFilter, type StreetStatus } from "./MapLegend";
 import { StreetLayer } from "./StreetLayer";
+
+/** Create custom pane for streets with lower z-index so polylines render below overlays. */
+function StreetPane() {
+  const map = useMap();
+  useLayoutEffect(() => {
+    if (!map.getPane("streetPane")) {
+      const pane = map.createPane("streetPane");
+      pane.style.zIndex = "350";
+    }
+  }, [map]);
+  return null;
+}
 
 /** Fix Leaflet black map when container gets size after mount (e.g. mobile flex layout). */
 function MapInvalidateSize() {
@@ -151,6 +163,10 @@ export interface MapViewProps {
   onViewportChange?: (center: { lat: number; lng: number }) => void;
   /** When set, fit bounds to bbox, highlight these street IDs, and show start marker. */
   highlightFocus?: MapViewHighlightFocus | null;
+  /** Initial visible statuses (default: completed and partial). */
+  defaultVisibleStatuses?: Set<StreetStatus>;
+  /** Which status toggles to show in legend (default: completed, partial). */
+  availableStatuses?: StreetStatus[];
 }
 
 const defaultIcon = L.divIcon({
@@ -167,15 +183,45 @@ export function MapView({
   className = "h-[65vh] min-h-[400px] w-full",
   onViewportChange,
   highlightFocus,
+  defaultVisibleStatuses = new Set<StreetStatus>(["completed", "partial"]),
+  availableStatuses = ["completed", "partial"],
 }: MapViewProps) {
+  const [visibleStatuses, setVisibleStatuses] = useState<Set<StreetStatus>>(
+    () => new Set(defaultVisibleStatuses)
+  );
+
+  const handleToggleStatus = useCallback((status: StreetStatus) => {
+    setVisibleStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  }, []);
+
+  const highlightOsmIds =
+    highlightFocus?.streetIds?.map((id) => `way/${id}`) ?? [];
+  const highlightSet = useMemo(
+    () => new Set(highlightOsmIds),
+    [highlightOsmIds.join(",")]
+  );
+
+  const filteredStreets = useMemo(
+    () =>
+      streets.filter(
+        (s) =>
+          visibleStatuses.has(s.status as StreetStatus) ||
+          highlightSet.has(s.osmId)
+      ),
+    [streets, visibleStatuses, highlightSet]
+  );
+
   const center: LatLngTuple = mapCenter
     ? [mapCenter.lat, mapCenter.lng]
     : userLocation
       ? [userLocation.lat, userLocation.lng]
       : DEFAULT_CENTER;
   const zoom = mapCenter || userLocation ? ZOOM_USER : ZOOM_DEFAULT;
-  const highlightOsmIds =
-    highlightFocus?.streetIds?.map((id) => `way/${id}`) ?? [];
 
   return (
     <div className={`relative ${className}`}>
@@ -192,6 +238,7 @@ export function MapView({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           maxZoom={19}
         />
+        <StreetPane />
         <MapInvalidateSize />
         <MapCenterSync center={center} zoom={zoom} />
         {onViewportChange && (
@@ -202,7 +249,7 @@ export function MapView({
         )}
         <ZoomControl position="bottomright" />
         <LocationMarker position={userLocation} />
-        <StreetLayer streets={streets} highlightOsmIds={highlightOsmIds} />
+        <StreetLayer streets={filteredStreets} highlightOsmIds={highlightOsmIds} />
         {highlightFocus?.startPoint && (
           <Marker
             position={[highlightFocus.startPoint.lat, highlightFocus.startPoint.lng]}
@@ -212,7 +259,11 @@ export function MapView({
           </Marker>
         )}
       </MapContainer>
-      <MapLegend />
+      <MapLegendFilter
+        visibleStatuses={visibleStatuses}
+        onToggle={handleToggleStatus}
+        availableStatuses={availableStatuses}
+      />
     </div>
   );
 }

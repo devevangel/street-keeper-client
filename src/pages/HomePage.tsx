@@ -1,16 +1,11 @@
 /**
  * HomePage
- * Simplified homepage that shows different layouts for new vs returning users.
- * New users: welcome message, first street card, map, how it works.
- * Returning users: celebration message, next action, map, sync status.
+ * Unified homepage layout: map, search, sync, suggestions, and project cards.
  */
 
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "../components/common";
-import {
-  NewUserHomepage,
-  ReturningUserHomepage,
-} from "../components/homepage";
+import { ReturningUserHomepage } from "../components/homepage";
 import { LocationPrompt } from "../components/map";
 import { useAnalytics } from "../contexts/AnalyticsContext";
 import { useGeolocation, useHomepageData, useMapStreets } from "../hooks";
@@ -76,11 +71,15 @@ export function HomePage() {
     }
   }, [position?.lat, position?.lng]);
 
-  const { data, error: fetchError, refetch } = useMapStreets(
+  const { data, error: fetchError, refetch: refetchMapStreets } = useMapStreets(
     fetchCenter?.lat ?? null,
     fetchCenter?.lng ?? null,
     DEFAULT_RADIUS,
   );
+
+  const clearSegments = useCallback(() => {
+    setAllSegments(new Map());
+  }, []);
 
   useEffect(() => {
     if (homepage) {
@@ -131,6 +130,14 @@ export function HomePage() {
     setFetchCenter(center);
   }, []);
 
+  const handleFocusLocation = useCallback(
+    (center: { lat: number; lng: number }) => {
+      setMapCenter(center);
+      setFetchCenter(center);
+    },
+    []
+  );
+
 
   useEffect(() => {
     requestPermission();
@@ -173,27 +180,19 @@ export function HomePage() {
     return null;
   }
 
-  if (homepage.isNewUser) {
-    return (
-      <NewUserHomepage
-        data={homepage}
-        isLoading={homepageLoading}
-        userLocation={position}
-        streets={accumulatedSegments}
-        onViewportChange={handleViewportChange}
-      />
-    );
-  }
-
   return (
     <ReturningUserHomepage
       data={homepage}
       isLoading={homepageLoading}
       userLocation={position}
+      mapCenter={mapCenter}
       streets={accumulatedSegments}
       onViewportChange={handleViewportChange}
       onRefetch={refetchHomepage}
+      onClearSegments={clearSegments}
+      onRefetchMapStreets={refetchMapStreets}
       onSearchSelect={handleSearchSelect}
+      onFocusLocation={handleFocusLocation}
     />
   );
 }

@@ -4,6 +4,7 @@
  */
 
 export { useGeolocation } from "./useGeolocation";
+export { useMediaQuery } from "./useMediaQuery";
 export type {
   GeolocationPosition,
   UseGeolocationResult,

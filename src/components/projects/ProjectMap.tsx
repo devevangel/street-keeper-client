@@ -4,21 +4,18 @@
  * Simplified to match home page MapView pattern.
  */
 
+import { useCallback, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Polyline, Popup } from "react-leaflet";
 import type { LatLngTuple } from "leaflet";
 import type { ProjectMapData, ProjectMapStreet } from "../../types/api.types";
+import {
+  MAP_COLORS,
+  MAP_DASH,
+  MAP_WEIGHTS,
+} from "../map/mapConstants";
+import { MapLegendFilter, type StreetStatus } from "../map";
 
-/** Colours by status (match design tokens where applicable) */
-const COLOR_COMPLETED = "#16a34a";
-const COLOR_PARTIAL = "#ca8a04";
-const COLOR_NOT_RUN = "#9ca3af";
-const COLOR_SUGGESTED = "#2563eb";
-
-const WEIGHT = 4;
-const WEIGHT_SUGGESTED = 5;
 const OPACITY = 0.9;
-const DASH_PARTIAL = "6, 6";
-const DASH_NOT_RUN = "4, 8";
 
 function geoJsonToLeaflet(coords: [number, number][]): LatLngTuple[] {
   return coords.map(([lng, lat]) => [lat, lng] as LatLngTuple);
@@ -35,22 +32,22 @@ function ProjectStreetPolyline({
   const isCompleted = street.status === "completed";
   const isPartial = street.status === "partial";
   const color = isSuggested
-    ? COLOR_SUGGESTED
+    ? MAP_COLORS.HIGHLIGHT
     : isCompleted
-    ? COLOR_COMPLETED
+    ? MAP_COLORS.COMPLETED
     : isPartial
-    ? COLOR_PARTIAL
-    : COLOR_NOT_RUN;
+    ? MAP_COLORS.PARTIAL
+    : MAP_COLORS.NOT_RUN;
   const pathOptions = {
     color,
-    weight: isSuggested ? WEIGHT_SUGGESTED : WEIGHT,
+    weight: isSuggested ? MAP_WEIGHTS.HIGHLIGHT : MAP_WEIGHTS.DEFAULT,
     opacity: OPACITY,
     dashArray: isCompleted && !isSuggested
       ? undefined
       : isPartial && !isSuggested
-      ? DASH_PARTIAL
+      ? MAP_DASH.PARTIAL
       : !isSuggested
-      ? DASH_NOT_RUN
+      ? MAP_DASH.NOT_RUN
       : undefined,
   };
 
@@ -109,6 +106,27 @@ export function ProjectMap({
   suggestedOsmIds,
   showSuggestedLegend = false,
 }: ProjectMapProps) {
+  const [visibleStatuses, setVisibleStatuses] = useState<Set<StreetStatus>>(
+    () => new Set(["completed", "partial", "not_started"])
+  );
+
+  const handleToggleStatus = useCallback((status: StreetStatus) => {
+    setVisibleStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  }, []);
+
+  const filteredStreets = useMemo(
+    () =>
+      mapData.streets.filter((s) =>
+        visibleStatuses.has(s.status as StreetStatus)
+      ),
+    [mapData.streets, visibleStatuses]
+  );
+
   const center: LatLngTuple = [
     mapData.boundary.center.lat,
     mapData.boundary.center.lng,
@@ -129,44 +147,28 @@ export function ProjectMap({
           maxZoom={19}
         />
         <ProjectStreetLayer
-          streets={mapData.streets}
+          streets={filteredStreets}
           suggestedOsmIds={suggestedOsmIds}
         />
       </MapContainer>
       <div
-        className="absolute bottom-4 left-4 z-[1000] rounded border-2 border-border bg-bg/95 px-3 py-2 text-xs shadow"
+        className="absolute bottom-4 left-4 z-[1000] flex flex-col gap-2"
         aria-label="Map legend"
       >
         {showSuggestedLegend && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded border-2 border-border bg-bg/95 px-3 py-2 text-xs shadow">
             <span
               className="inline-block h-1.5 w-6 shrink-0 rounded"
-              style={{ backgroundColor: COLOR_SUGGESTED }}
+              style={{ backgroundColor: MAP_COLORS.HIGHLIGHT }}
             />
             <span className="text-text">Suggested</span>
           </div>
         )}
-        <div className={showSuggestedLegend ? "mt-1.5 flex items-center gap-2" : "flex items-center gap-2"}>
-          <span
-            className="inline-block h-1.5 w-6 shrink-0 rounded"
-            style={{ backgroundColor: COLOR_COMPLETED }}
-          />
-          <span className="text-text">Completed</span>
-        </div>
-        <div className="mt-1.5 flex items-center gap-2">
-          <span
-            className="inline-block h-0 w-6 shrink-0 self-center border-b-2 border-[#ca8a04] opacity-90"
-            style={{ borderStyle: "dashed" }}
-          />
-          <span className="text-text">Partial</span>
-        </div>
-        <div className="mt-1.5 flex items-center gap-2">
-          <span
-            className="inline-block h-0 w-6 shrink-0 self-center border-b-2 border-[#9ca3af] opacity-80"
-            style={{ borderStyle: "dashed" }}
-          />
-          <span className="text-text">Not run</span>
-        </div>
+        <MapLegendFilter
+          visibleStatuses={visibleStatuses}
+          onToggle={handleToggleStatus}
+          availableStatuses={["completed", "partial", "not_started"]}
+        />
       </div>
     </div>
   );

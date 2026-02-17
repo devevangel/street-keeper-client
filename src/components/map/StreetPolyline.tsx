@@ -11,25 +11,15 @@
 import { Polyline, Popup } from "react-leaflet";
 import type { LatLngTuple } from "leaflet";
 import type { MapStreet } from "../../types/api.types";
+import {
+  MAP_COLORS,
+  MAP_DASH,
+  MAP_WEIGHTS,
+} from "./mapConstants";
 
-/** Polyline colors: match design tokens (success/warning) for consistency. */
-const COLOR_COMPLETED = "#16a34a";
-const COLOR_PARTIAL = "#ca8a04";
-/** Uncovered portion of partial streets (full street extent not yet run). */
-const COLOR_UNCOVERED = "#9ca3af";
-
-/** Stroke width: completed stands out more. */
-const WEIGHT_COMPLETED = 5;
-const WEIGHT_PARTIAL = 3;
-
-/** Opacity: completed solid, partial slightly transparent. */
-const OPACITY_COMPLETED = 1;
-const OPACITY_PARTIAL = 0.7;
-
-/** Dash pattern for in-progress streets (dash length, gap length in px). */
-const DASH_PARTIAL = "8, 6";
-/** Lighter dash for uncovered portion. */
-const DASH_UNCOVERED = "4, 8";
+/** Opacity for smoother appearance. */
+const OPACITY_COMPLETED = 0.85;
+const OPACITY_PARTIAL = 0.75;
 
 interface StreetPolylineProps {
   /** Street data including geometry (GeoJSON LineString) and status. */
@@ -61,8 +51,11 @@ const PopupContent = ({ street }: { street: MapStreet }) => {
   );
 };
 
-const WEIGHT_HIGHLIGHT = 8;
-const COLOR_HIGHLIGHT = "#10b981";
+const PATH_OPTIONS_BASE = {
+  lineCap: "round" as const,
+  lineJoin: "round" as const,
+  pane: "streetPane",
+};
 
 export function StreetPolyline({ street, highlight = false }: StreetPolylineProps) {
   const fullPositions = geoJsonToLeaflet(street.geometry.coordinates);
@@ -73,9 +66,10 @@ export function StreetPolyline({ street, highlight = false }: StreetPolylineProp
       <Polyline
         positions={fullPositions}
         pathOptions={{
-          color: COLOR_HIGHLIGHT,
-          weight: WEIGHT_HIGHLIGHT,
-          opacity: 1,
+          ...PATH_OPTIONS_BASE,
+          color: MAP_COLORS.HIGHLIGHT,
+          weight: MAP_WEIGHTS.HIGHLIGHT,
+          opacity: 0.9,
         }}
       >
         <Popup>
@@ -90,8 +84,9 @@ export function StreetPolyline({ street, highlight = false }: StreetPolylineProp
       <Polyline
         positions={fullPositions}
         pathOptions={{
-          color: COLOR_COMPLETED,
-          weight: WEIGHT_COMPLETED,
+          ...PATH_OPTIONS_BASE,
+          color: MAP_COLORS.COMPLETED,
+          weight: MAP_WEIGHTS.DEFAULT,
           opacity: OPACITY_COMPLETED,
         }}
       >
@@ -114,17 +109,19 @@ export function StreetPolyline({ street, highlight = false }: StreetPolylineProp
         <Polyline
           positions={fullPositions}
           pathOptions={{
-            color: COLOR_UNCOVERED,
+            ...PATH_OPTIONS_BASE,
+            color: MAP_COLORS.UNCOVERED,
             weight: 2,
-            opacity: 0.5,
-            dashArray: DASH_UNCOVERED,
+            opacity: 0.4,
+            dashArray: MAP_DASH.UNCOVERED,
           }}
         />
         <Polyline
           positions={coveredPositions}
           pathOptions={{
-            color: COLOR_PARTIAL,
-            weight: WEIGHT_PARTIAL,
+            ...PATH_OPTIONS_BASE,
+            color: MAP_COLORS.PARTIAL,
+            weight: MAP_WEIGHTS.DEFAULT,
             opacity: OPACITY_PARTIAL,
           }}
         >
@@ -140,10 +137,11 @@ export function StreetPolyline({ street, highlight = false }: StreetPolylineProp
     <Polyline
       positions={fullPositions}
       pathOptions={{
-        color: COLOR_PARTIAL,
-        weight: WEIGHT_PARTIAL,
+        ...PATH_OPTIONS_BASE,
+        color: MAP_COLORS.PARTIAL,
+        weight: MAP_WEIGHTS.DEFAULT,
         opacity: OPACITY_PARTIAL,
-        dashArray: DASH_PARTIAL,
+        dashArray: MAP_DASH.PARTIAL,
       }}
     >
       <Popup>

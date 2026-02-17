@@ -5,7 +5,10 @@
 
 export { LocationMarker } from "./LocationMarker";
 export { LocationPrompt } from "./LocationPrompt";
-export { MapLegend } from "./MapLegend";
+export {
+  MapLegendFilter,
+  type StreetStatus,
+} from "./MapLegend";
 export { MapStats } from "./MapStats";
 export { MapView, type MapViewHighlightFocus } from "./MapView";
 export { StreetCard } from "./StreetCard";
