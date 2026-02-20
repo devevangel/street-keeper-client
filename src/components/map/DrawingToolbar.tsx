@@ -21,9 +21,10 @@ export type ShapeData =
 
 function getPolygonCoordinatesFromLayer(layer: { getLatLngs?: () => unknown }): [number, number][] {
   const latlngs = layer.getLatLngs?.();
-  if (!Array.isArray(latlngs)) return [];
-  // Outer ring only; Geoman polygon gives array of LatLng
-  const ring = latlngs as Array<{ lat: number; lng: number }>;
+  if (!Array.isArray(latlngs) || latlngs.length === 0) return [];
+  // Geoman polygon returns nested array: [[LatLng, LatLng, ...]] for outer ring
+  // Handle both nested and flat array structures
+  const ring = (Array.isArray(latlngs[0]) ? latlngs[0] : latlngs) as Array<{ lat: number; lng: number }>;
   return ring.map((p) => [p.lng, p.lat] as [number, number]);
 }
 

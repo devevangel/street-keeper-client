@@ -234,7 +234,7 @@ export function ProjectCreatePage() {
         .preview(
           opts,
           boundaryMode,
-          activeShape.type === "circle",
+          true, // Always include streets for preview (both circle and polygon)
           signal,
         )
         .then((res) => {
