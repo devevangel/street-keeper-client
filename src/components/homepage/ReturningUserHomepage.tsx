@@ -5,6 +5,7 @@
  * Each project card has its own collapsible streets list.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "../common/Button";
 import { Card } from "../common/Card";
 import { SuggestionCard } from "./SuggestionCard";
@@ -15,6 +16,7 @@ import { useAnalytics } from "../../contexts/AnalyticsContext";
 import { activitiesService } from "../../services/activities.service";
 import { projectsService } from "../../services/projects.service";
 import { invalidateHomepageCache } from "../../services/homepage.service";
+import { ROUTES } from "../../config/constants";
 import type { HomepagePayload } from "../../services/homepage.service";
 import type {
   MapStreet,
@@ -141,7 +143,7 @@ export function ReturningUserHomepage({
           const bCompleted = b.completedStreetNames ?? b.completedStreets;
           return bCompleted - aCompleted;
         });
-        setProjects(activeProjects.slice(0, 4));
+        setProjects(activeProjects.slice(0, 3));
       })
       .catch(() => {
         if (!cancelled) setProjects([]);
@@ -269,8 +271,7 @@ export function ReturningUserHomepage({
     }
   }, [track, onRefetch, onClearSegments, onRefetchMapStreets]);
 
-  const topProject = projects[0];
-  const ongoingProjects = projects.slice(1, 4);
+  const featuredProjects = projects.slice(0, 3);
 
   return (
     <>
@@ -378,27 +379,15 @@ export function ReturningUserHomepage({
               )}
             </div>
 
-            {/* Top Project with streets collapsible */}
+            {/* Featured Projects */}
             {projectsLoading ? (
               <Card padding="sm">
                 <p className="text-text-muted text-sm">Loading projects…</p>
               </Card>
-            ) : topProject ? (
+            ) : featuredProjects.length > 0 ? (
               <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-text">Top Project</h3>
-                <ProjectCardWithStreets
-                  project={topProject}
-                  onStreetClick={handleStreetClick}
-                  onStreetBlur={handleStreetBlur}
-                />
-              </div>
-            ) : null}
-
-            {/* Ongoing Projects with streets collapsible */}
-            {ongoingProjects.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-text">Ongoing Projects</h3>
-                {ongoingProjects.map((project) => (
+                <h3 className="text-sm font-semibold text-text">Featured Projects</h3>
+                {featuredProjects.map((project) => (
                   <ProjectCardWithStreets
                     key={project.id}
                     project={project}
@@ -406,8 +395,14 @@ export function ReturningUserHomepage({
                     onStreetBlur={handleStreetBlur}
                   />
                 ))}
+                <Link
+                  to={ROUTES.PROJECTS_LIST}
+                  className="block text-center text-sm text-primary hover:underline"
+                >
+                  View more projects →
+                </Link>
               </div>
-            )}
+            ) : null}
           </div>
         </aside>
       </div>
