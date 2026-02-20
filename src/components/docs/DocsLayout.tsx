@@ -1,11 +1,10 @@
 /**
  * DocsLayout Component
- * Layout for the in-app docs viewer: header with title, back link, theme toggle, and Outlet for content.
+ * Layout for the in-app docs viewer: header with title, back link, and Outlet for content.
  */
 
 import { Outlet } from "react-router-dom";
 import { Link } from "react-router-dom";
-import { ThemeToggle } from "../common";
 import { ROUTES } from "../../config/constants";
 
 export function DocsLayout() {
@@ -21,7 +20,6 @@ export function DocsLayout() {
           </Link>
           <h1 className="text-xl font-bold">Street Keeper Docs</h1>
         </div>
-        <ThemeToggle />
       </header>
       <Outlet />
     </div>

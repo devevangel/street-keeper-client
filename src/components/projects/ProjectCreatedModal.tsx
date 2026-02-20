@@ -9,6 +9,7 @@ import { Link, useNavigate } from "react-router-dom";
 import confetti from "canvas-confetti";
 import { Modal, Button } from "../common";
 import { ROUTES } from "../../config/constants";
+import { usePreferences } from "../../contexts/PreferencesContext";
 import { getProjectMilestones } from "../../services/milestones.service";
 
 export interface ProjectCreatedModalProps {
@@ -155,7 +156,8 @@ export function ProjectCreatedModal({
     navigate(projectUrl);
   };
 
-  const lengthKm = (totalLengthMeters / 1000).toFixed(1);
+  const preferences = usePreferences();
+  const lengthStr = preferences?.formatDistance(totalLengthMeters, 1) ?? `${(totalLengthMeters / 1000).toFixed(1)} km`;
   const firstMilestone = milestones[0];
 
   return (
@@ -175,7 +177,7 @@ export function ProjectCreatedModal({
             <h2 className="text-xl font-bold text-text mb-1">You're all set!</h2>
             <p className="text-text-muted text-sm">
               <strong className="text-text">{totalStreets}</strong> streets to explore across{" "}
-              <strong className="text-text">{lengthKm} km</strong>
+              <strong className="text-text">{lengthStr}</strong>
             </p>
           </div>
           {/* Confetti canvas will be rendered by canvas-confetti */}

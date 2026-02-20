@@ -12,4 +12,5 @@ export { ProjectCreatePage } from "./ProjectCreatePage";
 export { ProjectSuggestionsMapPage } from "./ProjectSuggestionsMapPage";
 export { CampaignPage } from "./CampaignPage";
 export { MilestonesPage } from "./MilestonesPage";
+export { PreferencesPage } from "./PreferencesPage";
 export { DocsPage } from "./DocsPage";

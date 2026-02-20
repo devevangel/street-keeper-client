@@ -3,6 +3,7 @@
  * Compact list of recent runs: name, date, streets completed/improved. Max 5 items.
  */
 
+import { usePreferences } from "../../contexts/PreferencesContext";
 import type { ProjectActivityItem } from "../../types/api.types";
 
 export interface ActivityFeedProps {
@@ -11,26 +12,24 @@ export interface ActivityFeedProps {
   className?: string;
 }
 
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const today = now.toDateString();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === today) return "Today";
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return d.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "2-digit",
-  });
-}
-
 export function ActivityFeed({
   activities,
   maxItems = 5,
   className = "",
 }: ActivityFeedProps) {
+  const preferences = usePreferences();
+  const prefFormatDate = preferences?.formatDate ?? ((d: Date | string) => new Date(d).toLocaleDateString());
+
+  function formatDate(dateStr: string): string {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const today = now.toDateString();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === today) return "Today";
+    if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+    return prefFormatDate(d);
+  }
   const shown = activities.slice(0, maxItems);
   const hasMore = activities.length > maxItems;
 

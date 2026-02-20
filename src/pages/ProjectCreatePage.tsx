@@ -16,7 +16,8 @@ import { UnifiedMap, MAP_ZOOM, type ShapeData } from "../components/map";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
 import { useGeolocation } from "../hooks";
-import { ROUTES } from "../config/constants";
+import { ROUTES, DEFAULT_PROJECT_RADIUS_METERS } from "../config/constants";
+import { usePreferences } from "../contexts/PreferencesContext";
 import type {
   ProjectPreview,
   ProjectMapStreet,
@@ -25,7 +26,6 @@ import type {
 import type { GeocodingResult } from "../types/api.types";
 
 const DEFAULT_CENTER: LatLngTuple = [50.8, -1.09];
-const DEFAULT_RADIUS_METERS = 300;
 const AUTO_PREVIEW_DEBOUNCE_MS = 800;
 
 /** Predefined radius snap points for better UX across large range */
@@ -35,13 +35,13 @@ const RADIUS_SNAP_POINTS = [
   7500, 10000, 15000, 20000, 30000, 50000,
 ];
 
-/** Format radius for display */
-function formatRadius(meters: number): string {
-  if (meters >= 1000) {
-    const km = meters / 1000;
-    return km % 1 === 0 ? `${km} km` : `${km.toFixed(1)} km`;
-  }
-  return `${meters} m`;
+/** Snap a radius (m) to the nearest RADIUS_SNAP_POINTS value so the slider and state stay in sync. */
+function snapToRadiusPoints(meters: number): number {
+  const idx = RADIUS_SNAP_POINTS.findIndex((p) => p >= meters);
+  if (idx <= 0) return RADIUS_SNAP_POINTS[0];
+  const prev = RADIUS_SNAP_POINTS[idx - 1];
+  const next = RADIUS_SNAP_POINTS[idx];
+  return meters - prev <= next - meters ? prev : next;
 }
 
 /** Normalize osmId to always have "way/" prefix for consistent map highlighting */
@@ -99,6 +99,18 @@ export function ProjectCreatePage() {
     requestPermission,
     isLoading: geoLoading,
   } = useGeolocation();
+  const preferences = usePreferences();
+  const formatRadius = preferences?.formatRadius ?? ((m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`));
+  const formatDistance = preferences?.formatDistance ?? ((m: number, p = 1) => `${(m / 1000).toFixed(p)} km`);
+
+  /** Default radius from user preferences (meters), snapped to slider points. Used when placing/resetting marker. */
+  const defaultRadiusMeters = useMemo(
+    () =>
+      snapToRadiusPoints(
+        preferences?.preferences?.defaultProjectRadius ?? DEFAULT_PROJECT_RADIUS_METERS
+      ),
+    [preferences?.preferences?.defaultProjectRadius]
+  );
 
   const [activeShape, setActiveShape] = useState<ShapeData | null>(null);
   const [activeTool, setActiveTool] = useState<
@@ -108,7 +120,7 @@ export function ProjectCreatePage() {
     lat: number;
     lng: number;
   } | null>(null);
-  const [markerRadius, setMarkerRadius] = useState(DEFAULT_RADIUS_METERS);
+  const [markerRadius, setMarkerRadius] = useState(DEFAULT_PROJECT_RADIUS_METERS);
   const [highlightOsmIds, setHighlightOsmIds] = useState<string[]>([]);
   const [streetHighlightBbox, setStreetHighlightBbox] = useState<
     [number, number, number, number] | null
@@ -368,10 +380,10 @@ export function ProjectCreatePage() {
           <button
             type="button"
             title="Pan / Select"
-            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-colors ${
+            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-all ${
               activeTool === "cursor"
-                ? "border-accent bg-accent text-surface"
-                : "border-border bg-surface text-text hover:border-accent/50 hover:bg-border/20"
+                ? "border-primary bg-primary text-surface shadow-md scale-110 ring-2 ring-primary/30"
+                : "border-border bg-surface text-text hover:border-primary/50 hover:bg-border/20"
             }`}
             onClick={() => setActiveTool("cursor")}
           >
@@ -380,10 +392,10 @@ export function ProjectCreatePage() {
           <button
             type="button"
             title="Draw polygon area"
-            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-colors ${
+            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-all ${
               activeTool === "polygon"
-                ? "border-accent bg-accent text-surface"
-                : "border-border bg-surface text-text hover:border-accent/50 hover:bg-border/20"
+                ? "border-primary bg-primary text-surface shadow-md scale-110 ring-2 ring-primary/30"
+                : "border-border bg-surface text-text hover:border-primary/50 hover:bg-border/20"
             }`}
             onClick={() => {
               setActiveTool("polygon");
@@ -398,10 +410,10 @@ export function ProjectCreatePage() {
           <button
             type="button"
             title="Place marker pin"
-            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-colors ${
+            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-all ${
               activeTool === "marker"
-                ? "border-accent bg-accent text-surface"
-                : "border-border bg-surface text-text hover:border-accent/50 hover:bg-border/20"
+                ? "border-primary bg-primary text-surface shadow-md scale-110 ring-2 ring-primary/30"
+                : "border-border bg-surface text-text hover:border-primary/50 hover:bg-border/20"
             }`}
             onClick={() => setActiveTool("marker")}
           >
@@ -410,15 +422,15 @@ export function ProjectCreatePage() {
           <button
             type="button"
             title="Delete shape"
-            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-colors ${
+            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-all ${
               !activeShape && !markerPosition
                 ? "cursor-not-allowed border-border bg-surface text-text opacity-50"
-                : "border-border bg-surface text-text hover:bg-border/20"
+                : "border-danger bg-danger/10 text-danger hover:bg-danger hover:text-surface hover:shadow-md"
             }`}
             onClick={() => {
               setActiveShape(null);
               setMarkerPosition(null);
-              setMarkerRadius(DEFAULT_RADIUS_METERS);
+              setMarkerRadius(defaultRadiusMeters);
               setPreview(null);
               setHighlightOsmIds([]);
               setStreetHighlightBbox(null);
@@ -475,8 +487,8 @@ export function ProjectCreatePage() {
             aria-label="Project radius"
           />
           <div className="mt-1 flex justify-between text-xs text-text-muted">
-            <span>100 m</span>
-            <span>50 km</span>
+            <span>{formatRadius(100)}</span>
+            <span>{formatRadius(50000)}</span>
           </div>
         </div>
       )}
@@ -496,8 +508,7 @@ export function ProjectCreatePage() {
                   ? ` (${preview.totalStreets} segments)`
                   : ""}{" "}
                 ·{" "}
-                <strong>{(preview.totalLengthMeters / 1000).toFixed(1)}</strong>{" "}
-                km total
+                <strong>{formatDistance(preview.totalLengthMeters, 1)}</strong> total
               </p>
               {preview?.warnings && preview.warnings.length > 0 && (
                 <ul className="mt-2 list-inside list-disc text-text-muted text-sm">
@@ -648,21 +659,21 @@ export function ProjectCreatePage() {
   const handleMapClickForMarker = useCallback(
     (point: { lat: number; lng: number }) => {
       setMarkerPosition(point);
-      setMarkerRadius(DEFAULT_RADIUS_METERS);
+      setMarkerRadius(defaultRadiusMeters);
       setActiveShape({
         type: "circle",
         center: point,
-        radiusMeters: DEFAULT_RADIUS_METERS,
+        radiusMeters: defaultRadiusMeters,
       });
     },
-    [],
+    [defaultRadiusMeters],
   );
 
   const handleMarkerClick = useCallback(() => {
     setMarkerPosition(null);
     setActiveShape(null);
-    setMarkerRadius(DEFAULT_RADIUS_METERS);
-  }, []);
+    setMarkerRadius(defaultRadiusMeters);
+  }, [defaultRadiusMeters]);
 
   const handleMapClick = useCallback(
     (point: { lat: number; lng: number }) => {
@@ -694,13 +705,14 @@ export function ProjectCreatePage() {
 
   const showUserLocationMarker = geoPosition && !activeShape;
 
-  // Use user location zoom when available, otherwise default zoom
+  // Use user location zoom when available, preference default, or fallback
+  const prefDefaultZoom = preferences?.preferences?.defaultMapZoom ?? MAP_ZOOM.DEFAULT;
   const mapZoom =
     geoPosition && !activeShape
       ? MAP_ZOOM.USER_LOCATION
       : activeShape
         ? MAP_ZOOM.PROJECT_DETAIL
-        : MAP_ZOOM.DEFAULT;
+        : prefDefaultZoom;
 
   const mapSection = (
     <div className="relative h-[40vh] min-h-[240px] w-full md:h-full md:min-h-0">

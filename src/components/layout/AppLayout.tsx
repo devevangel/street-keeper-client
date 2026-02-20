@@ -7,10 +7,13 @@
 import { Outlet } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { Button, ThemeToggle } from "../common";
+import { Button } from "../common";
 import { TabNav } from "./TabNav";
 import { PendingCelebrationsChecker } from "../milestones/PendingCelebrationsChecker";
 import { ROUTES } from "../../config/constants";
+
+const navButtonClass =
+  "inline-flex items-center justify-center rounded border-2 border-border bg-surface px-2 py-1 text-sm font-medium text-text hover:bg-border/10 hover:opacity-90 transition-colors";
 
 export function AppLayout() {
   const { user, logout } = useAuth();
@@ -21,11 +24,11 @@ export function AppLayout() {
       <header className="flex items-center justify-between border-b-2 border-border bg-surface px-4 py-3">
         <h1 className="text-xl font-bold">Street Keeper</h1>
         <div className="flex items-center gap-3">
-          <Link
-            to={ROUTES.DOCS}
-            className="text-sm text-text-muted underline hover:text-text"
-          >
+          <Link to={ROUTES.DOCS} className={navButtonClass}>
             Docs
+          </Link>
+          <Link to={ROUTES.PREFERENCES} className={navButtonClass}>
+            Settings
           </Link>
           {user?.profilePic ? (
             <img
@@ -40,7 +43,6 @@ export function AppLayout() {
               {user?.name ?? "User"}
             </span>
           )}
-          <ThemeToggle />
           <Button type="button" variant="secondary" size="sm" onClick={logout}>
             Logout
           </Button>

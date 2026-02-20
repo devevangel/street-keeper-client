@@ -8,6 +8,7 @@
 import { useState, useMemo } from "react";
 import type { SnapshotStreet } from "../../types/api.types";
 import { normalizeStreetName } from "../../utils/normalize-street-name";
+import { usePreferences } from "../../contexts/PreferencesContext";
 
 interface ProjectStreetListProps {
   streets: SnapshotStreet[];
@@ -78,6 +79,8 @@ export function ProjectStreetList({
   overallProgressPercent,
 }: ProjectStreetListProps) {
   const [search, setSearch] = useState("");
+  const preferences = usePreferences();
+  const formatDistance = preferences?.formatDistance ?? ((m: number, p = 1) => `${(m / 1000).toFixed(p)} km`);
 
   const grouped = useMemo(() => groupStreetsByName(streets), [streets]);
 
@@ -87,10 +90,10 @@ export function ProjectStreetList({
     return grouped.filter((g) => g.name.toLowerCase().includes(q));
   }, [grouped, search]);
 
-  const totalKm =
+  const totalMeters =
     totalLengthMeters != null
-      ? totalLengthMeters / 1000
-      : streets.reduce((sum, s) => sum + s.lengthMeters, 0) / 1000;
+      ? totalLengthMeters
+      : streets.reduce((sum, s) => sum + s.lengthMeters, 0);
 
   return (
     <div className="space-y-3">
@@ -99,7 +102,7 @@ export function ProjectStreetList({
         {streets.length !== grouped.length &&
           ` (${streets.length} segments)`}.
         {" · "}
-        Total: {totalKm.toFixed(1)} km
+        Total: {formatDistance(totalMeters, 1)}
         {overallProgressPercent != null &&
           ` · Overall: ${Math.round(overallProgressPercent)}% complete`}
       </p>
@@ -131,7 +134,7 @@ export function ProjectStreetList({
               </span>
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="text-text-muted">
-                  {(row.totalLengthMeters / 1000).toFixed(2)} km
+                  {formatDistance(row.totalLengthMeters, 2)}
                 </span>
                 <span className="text-text-muted">{row.percentage}%</span>
                 <span

@@ -12,6 +12,7 @@ import {
   Outlet,
 } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { PreferencesProvider } from "./contexts/PreferencesContext";
 import { AnalyticsProvider } from "./contexts/AnalyticsContext";
 import { ProtectedRoute } from "./components/routing";
 import { AppLayout } from "./components/layout";
@@ -25,6 +26,7 @@ import {
   ProjectSuggestionsMapPage,
   CampaignPage,
   MilestonesPage,
+  PreferencesPage,
   DocsPage,
 } from "./pages";
 import { DocsLayout } from "./components/docs";
@@ -33,6 +35,7 @@ import { ROUTES } from "./config/constants";
 function App() {
   return (
     <AuthProvider>
+      <PreferencesProvider>
       <AnalyticsProvider>
       <BrowserRouter>
         <Routes>
@@ -61,11 +64,13 @@ function App() {
             </Route>
             <Route path="campaign" element={<CampaignPage />} />
             <Route path="milestones" element={<MilestonesPage />} />
+            <Route path="preferences" element={<PreferencesPage />} />
           </Route>
           <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
         </Routes>
       </BrowserRouter>
       </AnalyticsProvider>
+      </PreferencesProvider>
     </AuthProvider>
   );
 }

@@ -6,18 +6,16 @@
 
 import { Link } from "react-router-dom";
 import { Card } from "../common";
+import { usePreferences } from "../../contexts/PreferencesContext";
 import type { ProjectListItem } from "../../types/api.types";
 
 export interface ProjectCardProps {
   project: ProjectListItem;
 }
 
-function formatRadius(meters: number): string {
-  if (meters >= 1000) return `${meters / 1000} km`;
-  return `${meters} m`;
-}
-
 export function ProjectCard({ project }: ProjectCardProps) {
+  const preferences = usePreferences();
+  const formatRadius = preferences?.formatRadius ?? ((m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`));
   const progressPercent = Math.round(project.progress);
   const isCircle = project.boundaryType === "circle" && project.radiusMeters != null;
   const areaLabel = isCircle

@@ -13,10 +13,12 @@ import { ProjectCardWithStreets } from "./ProjectCardWithStreets";
 import { UniversalSearchInput } from "../projects/UniversalSearchInput";
 import { UnifiedMap, MAP_ZOOM, type MapViewHighlightFocus } from "../map";
 import { useAnalytics } from "../../contexts/AnalyticsContext";
+import { usePreferences } from "../../contexts/PreferencesContext";
 import { activitiesService } from "../../services/activities.service";
 import { projectsService } from "../../services/projects.service";
 import { invalidateHomepageCache } from "../../services/homepage.service";
 import { ROUTES } from "../../config/constants";
+import { FILTER_PILLS, type FilterStatus } from "../../utils/street-filters";
 import type { HomepagePayload } from "../../services/homepage.service";
 import type {
   MapStreet,
@@ -109,6 +111,7 @@ export function ReturningUserHomepage({
   onFocusLocation,
 }: ReturningUserHomepageProps) {
   const { track } = useAnalytics();
+  const preferences = usePreferences();
   const [highlightFocus, setHighlightFocus] =
     useState<MapViewHighlightFocus | null>(null);
   const [highlightProjectId, setHighlightProjectId] = useState<string | null>(
@@ -123,8 +126,19 @@ export function ReturningUserHomepage({
   } | null>(null);
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<FilterStatus>("all");
+  const [binCounts, setBinCounts] = useState({ completed: 0, almostThere: 0, inProgress: 0, notStarted: 0 });
+  const binCountsByProjectRef = useRef<Record<string, { completed: number; almostThere: number; inProgress: number; notStarted: number }>>({});
   const mapRef = useRef<HTMLDivElement>(null);
   const projectMapCache = useRef(new Map<string, ProjectMapData>());
+
+  // Sync activeFilter with user preference once loaded
+  const prefStreetFilter = preferences?.preferences?.defaultStreetFilter;
+  useEffect(() => {
+    if (prefStreetFilter && prefStreetFilter !== "all") {
+      setActiveFilter(prefStreetFilter as FilterStatus);
+    }
+  }, [prefStreetFilter]);
 
   // Effective map center: use focused location when set, otherwise user location
   const effectiveMapCenter = mapCenter ?? userLocation;
@@ -273,6 +287,20 @@ export function ReturningUserHomepage({
 
   const featuredProjects = projects.slice(0, 3);
 
+  const handleBinCountsReport = useCallback((projectId: string, counts: { completed: number; almostThere: number; inProgress: number; notStarted: number }) => {
+    binCountsByProjectRef.current[projectId] = counts;
+    const totals = Object.values(binCountsByProjectRef.current).reduce(
+      (acc, c) => ({
+        completed: acc.completed + c.completed,
+        almostThere: acc.almostThere + c.almostThere,
+        inProgress: acc.inProgress + c.inProgress,
+        notStarted: acc.notStarted + c.notStarted,
+      }),
+      { completed: 0, almostThere: 0, inProgress: 0, notStarted: 0 }
+    );
+    setBinCounts(totals);
+  }, []);
+
   return (
     <>
       {/* Mobile: Suggestion on top */}
@@ -304,7 +332,7 @@ export function ReturningUserHomepage({
           <div ref={mapRef} className="h-[40vh] w-full md:h-full">
             <UnifiedMap
               center={effectiveMapCenter}
-              zoom={userLocation ? MAP_ZOOM.USER_LOCATION : MAP_ZOOM.DEFAULT}
+              zoom={userLocation ? MAP_ZOOM.USER_LOCATION : (preferences?.preferences?.defaultMapZoom ?? MAP_ZOOM.DEFAULT)}
               userLocation={userLocation}
               showUserLocationMarker
               streets={mergedStreets}
@@ -379,6 +407,47 @@ export function ReturningUserHomepage({
               )}
             </div>
 
+            {/* Global filter pills - only show once streets are loaded or show just the active filter */}
+            {featuredProjects.length > 0 && (
+              <div className="flex gap-1.5" role="group" aria-label="Filter streets">
+                {/* Only show "All" if it's active OR if we have any bin counts (streets loaded) */}
+                {(activeFilter === "all" || Object.values(binCounts).some(c => c > 0)) && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter("all")}
+                    className={`flex-[0.95] rounded-full border px-1.5 py-1 text-xs font-medium transition-all ${
+                      activeFilter === "all"
+                        ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
+                        : "border-border bg-surface text-text-muted hover:bg-border/50 hover:border-text-muted"
+                    }`}
+                  >
+                    All
+                  </button>
+                )}
+                {FILTER_PILLS.map(({ key, label, dotColor }) => {
+                  const count = binCounts[key as keyof typeof binCounts];
+                  const isActive = activeFilter === key;
+                  // Always show the active filter pill, hide others with count === 0
+                  if (count === 0 && !isActive) return null;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setActiveFilter(key)}
+                      className={`flex-[0.95] inline-flex items-center justify-center gap-1 rounded-full border px-1.5 py-1 text-xs font-medium transition-all ${
+                        isActive
+                          ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
+                          : "border-border bg-surface text-text-muted hover:bg-border/50 hover:border-text-muted"
+                      }`}
+                    >
+                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`} aria-hidden />
+                      {count > 0 ? count : label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Featured Projects */}
             {projectsLoading ? (
               <Card padding="sm">
@@ -391,8 +460,10 @@ export function ReturningUserHomepage({
                   <ProjectCardWithStreets
                     key={project.id}
                     project={project}
+                    activeFilter={activeFilter}
                     onStreetClick={handleStreetClick}
                     onStreetBlur={handleStreetBlur}
+                    onBinCountsReport={handleBinCountsReport}
                   />
                 ))}
                 <Link

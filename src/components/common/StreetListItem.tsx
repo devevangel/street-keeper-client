@@ -4,6 +4,7 @@
  */
 
 import { useMediaQuery } from "../../hooks";
+import { usePreferences } from "../../contexts/PreferencesContext";
 
 export interface StreetListItemData {
   name: string;
@@ -30,6 +31,8 @@ export function StreetListItem({
   variant = "homepage",
 }: StreetListItemProps) {
   const hasHover = useMediaQuery("(hover: hover)");
+  const preferences = usePreferences();
+  const formatDistance = preferences?.formatDistance ?? ((m: number, p = 1) => `${(m / 1000).toFixed(p)} km`);
 
   const handleAction = () => {
     onHighlight(street);
@@ -65,7 +68,7 @@ export function StreetListItem({
         {variant === "preview" && (
           <div className="flex flex-wrap items-center gap-2 text-sm">
             {street.lengthKm !== undefined && (
-              <span className="text-text-muted">{street.lengthKm.toFixed(2)} km</span>
+              <span className="text-text-muted">{formatDistance(street.lengthKm * 1000, 2)}</span>
             )}
             {street.highwayType && (
               <span className="rounded bg-border/20 px-2 py-0.5 text-xs text-text-muted">

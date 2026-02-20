@@ -4,7 +4,7 @@
  * Clicking a street focuses the map on the project area and highlights all segments of that street.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "../common/Card";
 import { StreetListItem, type StreetListItemData } from "../common";
@@ -12,21 +12,26 @@ import { projectsService } from "../../services/projects.service";
 import { ROUTES } from "../../config/constants";
 import type { ProjectListItem, SnapshotStreet } from "../../types/api.types";
 import { groupStreetsByName } from "../../utils/group-streets-by-name";
+import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
 
 interface ProjectCardWithStreetsProps {
   project: ProjectListItem;
+  activeFilter?: FilterStatus;
   onStreetClick: (params: {
     project: ProjectListItem;
     streetName: string;
     osmIds: string[];
   }) => void;
   onStreetBlur?: () => void;
+  onBinCountsReport?: (projectId: string, counts: { completed: number; almostThere: number; inProgress: number; notStarted: number }) => void;
 }
 
 export function ProjectCardWithStreets({
   project,
+  activeFilter = "all",
   onStreetClick,
   onStreetBlur,
+  onBinCountsReport,
 }: ProjectCardWithStreetsProps) {
   const navigate = useNavigate();
   const [streets, setStreets] = useState<SnapshotStreet[]>([]);
@@ -60,10 +65,38 @@ export function ProjectCardWithStreets({
     };
   }, [project.id, expanded]);
 
-  const grouped = groupStreetsByName(streets);
+  const grouped = useMemo(() => groupStreetsByName(streets), [streets]);
+
+  // Compute bin counts and report to parent when streets change
+  const binCounts = useMemo(() => {
+    const counts = { completed: 0, almostThere: 0, inProgress: 0, notStarted: 0 };
+    for (const g of grouped) {
+      const bin = getStreetBin(g.percentage, g.completed);
+      if (bin !== "all") counts[bin]++;
+    }
+    return counts;
+  }, [grouped]);
+
+  // Report bin counts to parent only when streets array changes (not on every render)
+  const streetsKey = streets.map(s => s.osmId).join(",");
+  useEffect(() => {
+    if (streets.length > 0 && onBinCountsReport) {
+      const counts = { completed: 0, almostThere: 0, inProgress: 0, notStarted: 0 };
+      const grp = groupStreetsByName(streets);
+      for (const g of grp) {
+        const bin = getStreetBin(g.percentage, g.completed);
+        if (bin !== "all") counts[bin]++;
+      }
+      onBinCountsReport(project.id, counts);
+    }
+  }, [project.id, streetsKey, onBinCountsReport]);
+
+  const filtered = activeFilter === "all"
+    ? grouped
+    : grouped.filter((g) => getStreetBin(g.percentage, g.completed) === activeFilter);
+
   const incomplete = grouped.filter((g) => !g.completed);
   const incompleteCount = incomplete.length;
-  // When collapsed, use project stats for streets left to complete
   const totalNames = project.totalStreetNames ?? project.totalStreets;
   const completedNames = project.completedStreetNames ?? project.completedStreets;
   const leftToComplete = expanded ? incompleteCount : Math.max(0, totalNames - completedNames);
@@ -119,18 +152,21 @@ export function ProjectCardWithStreets({
               <p className="text-text-muted text-sm">No streets found</p>
             ) : (
               <ul className="list-none divide-y divide-border space-y-0 p-0">
-                {grouped
-                  .filter((g) => !g.completed)
-                  .map((row) => (
-                    <StreetListItem
-                      key={row.name}
-                      street={row}
-                      onHighlight={handleStreetHighlight}
-                      onClearHighlight={handleStreetClear}
-                      variant="homepage"
-                    />
-                  ))}
-                {incompleteCount === 0 && (
+                {filtered.map((row) => (
+                  <StreetListItem
+                    key={row.name}
+                    street={row}
+                    onHighlight={handleStreetHighlight}
+                    onClearHighlight={handleStreetClear}
+                    variant="homepage"
+                  />
+                ))}
+                {filtered.length === 0 && (
+                  <li className="px-3 py-2 text-sm text-text-muted">
+                    {activeFilter === "all" ? "No streets found" : "No streets in this category"}
+                  </li>
+                )}
+                {activeFilter === "all" && incompleteCount === 0 && grouped.length > 0 && (
                   <li className="px-3 py-2 text-sm text-text-muted">
                     All streets completed!
                   </li>

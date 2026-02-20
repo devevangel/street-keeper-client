@@ -15,8 +15,8 @@ import { ApiError } from "../lib/api-client";
 import { ROUTES } from "../config/constants";
 import type { ProjectDetail, ProjectMapData, ProjectMapStreet } from "../types/api.types";
 import { groupProjectMapStreetsByName } from "../utils/group-streets-by-name";
-
-type FilterStatus = "all" | "completed" | "almostThere" | "inProgress" | "notStarted";
+import { FILTER_PILLS, getStreetBin, type FilterStatus } from "../utils/street-filters";
+import { usePreferences } from "../contexts/PreferencesContext";
 
 /** Normalize osmId to "way/..." for consistent map highlighting */
 function normalizeOsmId(osmId: string): string {
@@ -83,28 +83,10 @@ function projectMapCenter(mapData: ProjectMapData): { lat: number; lng: number }
   return { lat: sum[1] / coords.length, lng: sum[0] / coords.length };
 }
 
-/** Get completion bin for a street based on percentage */
-function getStreetBin(percentage: number, completed: boolean): FilterStatus {
-  if (completed) return "completed";
-  if (percentage >= 75) return "almostThere";
-  if (percentage > 0) return "inProgress";
-  return "notStarted";
-}
-
-const FILTER_PILLS: Array<{
-  key: FilterStatus;
-  label: string;
-  dotColor: string;
-}> = [
-  { key: "completed", label: "Completed", dotColor: "bg-[#16a34a]" },
-  { key: "almostThere", label: "Almost there", dotColor: "bg-[#ca8a04]" },
-  { key: "inProgress", label: "In progress", dotColor: "bg-[#2563eb]" },
-  { key: "notStarted", label: "Not started", dotColor: "bg-[#9ca3af]" },
-];
-
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const preferences = usePreferences();
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [mapData, setMapData] = useState<ProjectMapData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,6 +96,14 @@ export function ProjectDetailPage() {
   // Street list state
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterStatus>("all");
+
+  // Sync activeFilter with user preference once loaded
+  const prefStreetFilter = preferences?.preferences?.defaultStreetFilter;
+  useEffect(() => {
+    if (prefStreetFilter && prefStreetFilter !== "all") {
+      setActiveFilter(prefStreetFilter as FilterStatus);
+    }
+  }, [prefStreetFilter]);
 
   // Map highlight state
   const [highlightOsmIds, setHighlightOsmIds] = useState<string[]>([]);
@@ -309,33 +299,38 @@ export function ProjectDetailPage() {
               <div className="mt-2 flex flex-col gap-3">
                 {/* Filter pills */}
                 <div className="flex gap-1.5" role="group" aria-label="Filter streets">
-                  <button
-                    type="button"
-                    onClick={() => setActiveFilter("all")}
-                    className={`flex-[0.95] rounded-full border px-1.5 py-1 text-xs font-medium transition-colors ${
-                      activeFilter === "all"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-surface text-text-muted hover:bg-border/50"
-                    }`}
-                  >
-                    All
-                  </button>
+                  {/* Only show "All" if it's active OR if we have any bin counts */}
+                  {(activeFilter === "all" || Object.values(binCounts).some(c => c > 0)) && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilter("all")}
+                      className={`flex-[0.95] rounded-full border px-1.5 py-1 text-xs font-medium transition-all ${
+                        activeFilter === "all"
+                          ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
+                          : "border-border bg-surface text-text-muted hover:bg-border/50 hover:border-text-muted"
+                      }`}
+                    >
+                      All
+                    </button>
+                  )}
                   {FILTER_PILLS.map(({ key, label, dotColor }) => {
                     const count = binCounts[key];
-                    if (count === 0) return null;
+                    const isActive = activeFilter === key;
+                    // Always show the active filter pill, hide others with count === 0
+                    if (count === 0 && !isActive) return null;
                     return (
                       <button
                         key={key}
                         type="button"
                         onClick={() => setActiveFilter(key)}
-                        className={`flex-[0.95] inline-flex items-center justify-center gap-1 rounded-full border px-1.5 py-1 text-xs font-medium transition-colors ${
-                          activeFilter === key
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border bg-surface text-text-muted hover:bg-border/50"
+                        className={`flex-[0.95] inline-flex items-center justify-center gap-1 rounded-full border px-1.5 py-1 text-xs font-medium transition-all ${
+                          isActive
+                            ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
+                            : "border-border bg-surface text-text-muted hover:bg-border/50 hover:border-text-muted"
                         }`}
                       >
                         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`} aria-hidden />
-                        {count}
+                        {count > 0 ? count : label}
                       </button>
                     );
                   })}

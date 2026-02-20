@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from "react";
 import { Modal, Button } from "../common";
+import { usePreferences } from "../../contexts/PreferencesContext";
 
 export interface RadiusResizeModalProps {
   isOpen: boolean;
@@ -19,6 +20,8 @@ export function RadiusResizeModal({
   currentRadiusMeters,
   onResize,
 }: RadiusResizeModalProps) {
+  const preferences = usePreferences();
+  const formatRadius = preferences?.formatRadius ?? ((m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`));
   const [selected, setSelected] = useState(currentRadiusMeters);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,18 +58,13 @@ export function RadiusResizeModal({
     >
       <div className="flex flex-col gap-4">
         <p className="text-text text-sm">
-          Current radius:{" "}
-          {currentRadiusMeters >= 1000
-            ? `${currentRadiusMeters / 1000} km`
-            : `${currentRadiusMeters} m`}
+          Current radius: {formatRadius(currentRadiusMeters)}
         </p>
         <div>
           <div className="mb-2 flex items-center justify-between">
             <span className="text-sm font-medium text-text">New radius</span>
             <span className="rounded bg-success/20 px-2 py-1 text-sm font-bold text-success">
-              {selected >= 1000
-                ? `${(selected / 1000).toFixed(1)} km`
-                : `${selected} m`}
+              {formatRadius(selected)}
             </span>
           </div>
           <input
@@ -80,8 +78,8 @@ export function RadiusResizeModal({
             aria-label="Project radius"
           />
           <div className="mt-1 flex justify-between text-xs text-text-muted">
-            <span>100 m</span>
-            <span>10 km</span>
+            <span>{formatRadius(100)}</span>
+            <span>{formatRadius(10000)}</span>
           </div>
         </div>
         {isReducing && (
