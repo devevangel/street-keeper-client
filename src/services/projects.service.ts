@@ -43,7 +43,7 @@ export const projectsService = {
           boundaryType: "polygon";
           polygonCoordinates: [number, number][];
         },
-    boundaryMode?: "centroid" | "strict",
+    boundaryMode?: "centroid" | "strict" | "intersects",
     includeStreets?: boolean,
     signal?: AbortSignal,
   ): Promise<ProjectPreviewResponse> {
@@ -57,6 +57,8 @@ export const projectsService = {
       params.polygon = JSON.stringify(options.polygonCoordinates);
     }
     if (boundaryMode === "strict") params.boundaryMode = "strict";
+    else if (boundaryMode === "centroid") params.boundaryMode = "centroid";
+    else if (boundaryMode === "intersects") params.boundaryMode = "intersects";
     if (includeStreets === true) params.includeStreets = "true";
     return apiClient.get<ProjectPreviewResponse>("/projects/preview", params, signal);
   },

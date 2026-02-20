@@ -210,7 +210,7 @@ export interface ProjectPreview {
   }>;
 }
 
-export type BoundaryMode = "centroid" | "strict";
+export type BoundaryMode = "centroid" | "strict" | "intersects";
 
 export interface CreateProjectRequest {
   name: string;
@@ -220,6 +220,8 @@ export interface CreateProjectRequest {
   radiusMeters?: number;
   polygonCoordinates?: [number, number][];
   boundaryMode?: BoundaryMode;
+  /** Creation-time only. Cannot be changed after project creation. */
+  includePreviousRuns?: boolean;
   deadline?: string;
   cacheKey?: string;
 }

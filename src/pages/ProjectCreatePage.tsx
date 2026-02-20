@@ -17,7 +17,11 @@ import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
 import { useGeolocation } from "../hooks";
 import { ROUTES } from "../config/constants";
-import type { ProjectPreview, ProjectMapStreet } from "../types/api.types";
+import type {
+  ProjectPreview,
+  ProjectMapStreet,
+  BoundaryMode,
+} from "../types/api.types";
 import type { GeocodingResult } from "../types/api.types";
 
 const DEFAULT_CENTER: LatLngTuple = [50.8, -1.09];
@@ -30,20 +34,6 @@ const RADIUS_SNAP_POINTS = [
   1000, 1500, 2000, 3000, 5000,
   7500, 10000, 15000, 20000, 30000, 50000,
 ];
-
-/** Find nearest snap point for a given value */
-function snapToNearest(value: number): number {
-  let closest = RADIUS_SNAP_POINTS[0];
-  let minDiff = Math.abs(value - closest);
-  for (const point of RADIUS_SNAP_POINTS) {
-    const diff = Math.abs(value - point);
-    if (diff < minDiff) {
-      minDiff = diff;
-      closest = point;
-    }
-  }
-  return closest;
-}
 
 /** Format radius for display */
 function formatRadius(meters: number): string {
@@ -133,6 +123,7 @@ export function ProjectCreatePage() {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [includePartialStreets, setIncludePartialStreets] = useState(true);
+  const [includePreviousRuns, setIncludePreviousRuns] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [showStreetsList, setShowStreetsList] = useState(false);
@@ -145,7 +136,9 @@ export function ProjectCreatePage() {
   } | null>(null);
   const previewAbortRef = useRef<AbortController | null>(null);
 
-  const boundaryMode = includePartialStreets ? "centroid" : "strict";
+  const boundaryMode: BoundaryMode = includePartialStreets
+    ? "intersects"
+    : "strict";
 
   const markerBbox = useMemo((): [number, number, number, number] | null => {
     if (!markerPosition || !markerRadius) return null;
@@ -279,6 +272,7 @@ export function ProjectCreatePage() {
               centerLng: activeShape.center.lng,
               radiusMeters: activeShape.radiusMeters,
               boundaryMode,
+              includePreviousRuns,
               cacheKey: preview.cacheKey,
             }
           : {
@@ -286,6 +280,7 @@ export function ProjectCreatePage() {
               boundaryType: "polygon" as const,
               polygonCoordinates: activeShape.coordinates,
               boundaryMode,
+              includePreviousRuns,
               cacheKey: preview.cacheKey,
             };
       const res = await projectsService.create(body);
@@ -311,7 +306,7 @@ export function ProjectCreatePage() {
     } finally {
       setCreateLoading(false);
     }
-  }, [preview, name, activeShape, boundaryMode]);
+  }, [preview, name, activeShape, boundaryMode, includePreviousRuns]);
 
   const canCreate = Boolean(
     hasValidShape && preview?.cacheKey && name.trim() && !createLoading,
@@ -612,10 +607,25 @@ export function ProjectCreatePage() {
           {preview && (
             <span className="ml-2 text-text-muted text-xs block mt-1">
               {includePartialStreets
-                ? `✓ Centroid mode: Includes streets whose center point is in your radius (${preview.totalStreetNames} streets)`
-                : `✗ Strict mode: Only streets fully within radius (${preview.totalStreetNames} streets)`}
+                ? `✓ Intersects: Includes any street that touches your area (${preview.totalStreetNames} streets)`
+                : `✗ Strict: Only streets fully within your area (${preview.totalStreetNames} streets)`}
             </span>
           )}
+        </span>
+      </label>
+
+      <label className="flex min-h-[44px] cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          checked={includePreviousRuns}
+          onChange={(e) => setIncludePreviousRuns(e.target.checked)}
+          className="h-5 w-5 border-border text-primary focus:ring-primary"
+        />
+        <span className="text-text text-sm">
+          Include previous Strava runs
+          <span className="ml-2 text-text-muted text-xs block mt-1">
+            Count activities you&apos;ve already completed in this area toward your progress
+          </span>
         </span>
       </label>
 
@@ -626,7 +636,11 @@ export function ProjectCreatePage() {
         disabled={!canCreate}
         className="min-h-[48px] w-full"
       >
-        {createLoading ? "Creating…" : "Create project"}
+        {createLoading
+          ? "Creating…"
+          : includePreviousRuns
+            ? "Create project and calculate progress"
+            : "Create project"}
       </Button>
     </div>
   );
