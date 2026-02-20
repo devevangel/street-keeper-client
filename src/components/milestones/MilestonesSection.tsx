@@ -73,7 +73,7 @@ export function MilestonesSection({ projectId }: MilestonesSectionProps) {
 
   if (loading) {
     return (
-      <details className="mb-4" open>
+      <details className="mb-4">
         <summary className="cursor-pointer rounded border-2 border-border bg-surface px-3 py-2 text-sm font-bold uppercase tracking-wide text-text-muted min-h-[44px] flex items-center">
           Your Goals
         </summary>
@@ -97,7 +97,7 @@ export function MilestonesSection({ projectId }: MilestonesSectionProps) {
 
   return (
     <>
-      <details className="mb-4" open={milestones!.active.length > 0}>
+      <details className="mb-4">
         <summary className="cursor-pointer rounded border-2 border-border bg-surface px-3 py-2 text-sm font-bold uppercase tracking-wide text-text-muted min-h-[44px] flex items-center">
           Your Goals {totalMilestones > 0 && `(${milestones!.active.length} active${milestones!.completed.length > 0 ? `, ${milestones!.completed.length} completed` : ""})`}
         </summary>

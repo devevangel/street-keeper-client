@@ -17,8 +17,6 @@ export const ROUTES = {
   AUTH_CALLBACK: "/auth/callback",
   PROJECTS_LIST: "/projects",
   PROJECT_DETAIL: "/projects/:id",
-  PROJECT_MAP: "/projects/:id/map",
-  PROJECT_HEATMAP: "/projects/:id/heatmap",
   PROJECT_SUGGESTIONS: "/projects/:id/suggestions",
   CAMPAIGN: "/campaign",
   MILESTONES: "/milestones",

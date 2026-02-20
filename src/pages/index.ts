@@ -9,8 +9,6 @@ export { HomePage } from "./HomePage";
 export { ProjectsPage } from "./ProjectsPage";
 export { ProjectDetailPage } from "./ProjectDetailPage";
 export { ProjectCreatePage } from "./ProjectCreatePage";
-export { ProjectMapPage } from "./ProjectMapPage";
-export { ProjectHeatmapPage } from "./ProjectHeatmapPage";
 export { ProjectSuggestionsMapPage } from "./ProjectSuggestionsMapPage";
 export { CampaignPage } from "./CampaignPage";
 export { MilestonesPage } from "./MilestonesPage";

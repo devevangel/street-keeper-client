@@ -28,7 +28,6 @@ export function ProjectCreatedModal({
 }: ProjectCreatedModalProps) {
   const navigate = useNavigate();
   const projectUrl = ROUTES.PROJECT_DETAIL.replace(":id", projectId);
-  const mapUrl = ROUTES.PROJECT_MAP.replace(":id", projectId);
   const suggestionsUrl = ROUTES.PROJECT_SUGGESTIONS.replace(":id", projectId);
 
   const [milestones, setMilestones] = useState<Array<{
@@ -258,15 +257,7 @@ export function ProjectCreatedModal({
           >
             See your project
           </Button>
-          <div className="flex flex-wrap gap-2 justify-center text-sm">
-            <Link
-              to={mapUrl}
-              onClick={onClose}
-              className="text-primary hover:underline"
-            >
-              View streets on map
-            </Link>
-            <span className="text-text-muted">·</span>
+          <div className="flex justify-center text-sm">
             <Link
               to={suggestionsUrl}
               onClick={onClose}
