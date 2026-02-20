@@ -153,10 +153,12 @@ export function ProjectDetailPage() {
 
   const lastRunText = formatLastRun(project.lastActivityDate);
   const suggestionsUrl = ROUTES.PROJECT_SUGGESTIONS.replace(":id", project.id);
-  const radiusLabel =
-    project.radiusMeters >= 1000
+  const isCircle = (project as { boundaryType?: string }).boundaryType !== "polygon";
+  const radiusLabel = isCircle && project.radiusMeters != null
+    ? project.radiusMeters >= 1000
       ? `${project.radiusMeters / 1000} km`
-      : `${project.radiusMeters} m`;
+      : `${project.radiusMeters} m`
+    : "Custom area";
 
   return (
     <div className="p-4 text-base">
@@ -180,7 +182,7 @@ export function ProjectDetailPage() {
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold text-text">{project.name}</h1>
           <span className="rounded bg-border px-2 py-1 text-text-muted text-sm">
-            {radiusLabel} radius
+            {isCircle ? `${radiusLabel} radius` : radiusLabel}
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -338,17 +340,19 @@ export function ProjectDetailPage() {
         <Card className="mt-1">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 p-3 text-sm text-text">
             <span className="flex items-center gap-2">
-              {radiusLabel} radius
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setRadiusModalOpen(true);
-                }}
-                className="min-h-[44px] min-w-[44px] rounded border border-border px-2 py-1 text-primary hover:underline"
-              >
-                Change
-              </button>
+              {isCircle ? `${radiusLabel} radius` : radiusLabel}
+              {isCircle && project.radiusMeters != null && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setRadiusModalOpen(true);
+                  }}
+                  className="min-h-[44px] min-w-[44px] rounded border border-border px-2 py-1 text-primary hover:underline"
+                >
+                  Change
+                </button>
+              )}
             </span>
             <span>{project.totalStreetNames ?? project.totalStreets} streets</span>
             <span>
@@ -362,12 +366,14 @@ export function ProjectDetailPage() {
         </Card>
       </details>
 
-      <RadiusResizeModal
-        isOpen={radiusModalOpen}
-        onClose={() => setRadiusModalOpen(false)}
-        currentRadiusMeters={project.radiusMeters}
-        onResize={handleResizeRadius}
-      />
+      {isCircle && project.radiusMeters != null && (
+        <RadiusResizeModal
+          isOpen={radiusModalOpen}
+          onClose={() => setRadiusModalOpen(false)}
+          currentRadiusMeters={project.radiusMeters}
+          onResize={handleResizeRadius}
+        />
+      )}
 
       {project.streetsByType.length > 0 && (
         <details className="mb-4">

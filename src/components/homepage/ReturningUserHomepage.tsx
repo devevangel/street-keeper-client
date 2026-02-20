@@ -10,7 +10,7 @@ import { Card } from "../common/Card";
 import { SuggestionCard } from "./SuggestionCard";
 import { ProjectCardWithStreets } from "./ProjectCardWithStreets";
 import { UniversalSearchInput } from "../projects/UniversalSearchInput";
-import { MapView, type MapViewHighlightFocus } from "../map";
+import { UnifiedMap, MAP_ZOOM, type MapViewHighlightFocus } from "../map";
 import { useAnalytics } from "../../contexts/AnalyticsContext";
 import { activitiesService } from "../../services/activities.service";
 import { projectsService } from "../../services/projects.service";
@@ -301,15 +301,23 @@ export function ReturningUserHomepage({
         {/* Map section - left side */}
         <div className="order-1 min-h-[40vh] w-full flex-1 md:order-1 md:h-auto md:min-h-[calc(100vh-120px)]">
           <div ref={mapRef} className="h-[40vh] w-full md:h-full">
-            <MapView
-              mapCenter={effectiveMapCenter}
+            <UnifiedMap
+              center={effectiveMapCenter}
+              zoom={userLocation ? MAP_ZOOM.USER_LOCATION : MAP_ZOOM.DEFAULT}
               userLocation={userLocation}
+              showUserLocationMarker
               streets={mergedStreets}
-              onViewportChange={onViewportChange}
-              highlightFocus={highlightFocus}
               defaultVisibleStatuses={new Set(["completed"])}
               availableStatuses={["completed", "partial"]}
+              onViewportChange={onViewportChange}
+              highlightFocus={highlightFocus}
+              highlightOsmIds={
+                highlightFocus?.streetIds?.map((id) => `way/${id}`) ?? []
+              }
+              showLegend
               className="h-full w-full"
+              isLoading={!userLocation && !mapCenter}
+              loadingMessage="Getting your location…"
             />
           </div>
         </div>

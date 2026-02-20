@@ -6,12 +6,54 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button, Card } from "../components/common";
-import { ProjectMap } from "../components/projects";
+import { UnifiedMap } from "../components/map";
+import { MAP_ZOOM } from "../components/map/mapConstants";
 import { projectsService } from "../services/projects.service";
 import { suggestionsService } from "../services/suggestions.service";
 import { ApiError } from "../lib/api-client";
 import { ROUTES } from "../config/constants";
 import type { ProjectMapData } from "../types/api.types";
+
+function projectMapCenter(mapData: ProjectMapData): { lat: number; lng: number } {
+  const b = mapData.boundary;
+  if (b.type === "circle") return b.center;
+  const coords = b.coordinates;
+  if (!coords.length) return { lat: 50.8, lng: -1.09 };
+  const sum = coords.reduce(
+    (a, p) => [a[0] + p[0], a[1] + p[1]],
+    [0, 0]
+  );
+  return { lat: sum[1] / coords.length, lng: sum[0] / coords.length };
+}
+
+/** Compute bounding box from boundary for fitting map view */
+function computeBoundaryBbox(boundary: ProjectMapData["boundary"]): [number, number, number, number] | null {
+  if (boundary.type === "circle") {
+    const { center, radiusMeters } = boundary;
+    const latDeg = radiusMeters / 111320;
+    const lngDeg = radiusMeters / (111320 * Math.cos((center.lat * Math.PI) / 180));
+    return [
+      center.lat - latDeg,
+      center.lng - lngDeg,
+      center.lat + latDeg,
+      center.lng + lngDeg,
+    ];
+  }
+  // Polygon boundary
+  const coords = boundary.coordinates;
+  if (!coords.length) return null;
+  let minLat = coords[0][1];
+  let maxLat = coords[0][1];
+  let minLng = coords[0][0];
+  let maxLng = coords[0][0];
+  for (const [lng, lat] of coords) {
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+    if (lng < minLng) minLng = lng;
+    if (lng > maxLng) maxLng = lng;
+  }
+  return [minLat, minLng, maxLat, maxLng];
+}
 
 export function ProjectSuggestionsMapPage() {
   const { id } = useParams<{ id: string }>();
@@ -86,8 +128,11 @@ export function ProjectSuggestionsMapPage() {
 
   if (!mapData) return null;
 
+  const center = projectMapCenter(mapData);
+  const boundaryBbox = computeBoundaryBbox(mapData.boundary);
+
   return (
-    <div className="flex flex-col p-4">
+    <div className="flex min-h-screen flex-col p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <Link
@@ -104,12 +149,21 @@ export function ProjectSuggestionsMapPage() {
       <p className="mb-3 text-sm text-text-muted">
         {suggestedOsmIds.size} suggested street(s) highlighted in blue
       </p>
-      <ProjectMap
-        mapData={mapData}
-        suggestedOsmIds={suggestedOsmIds}
-        showSuggestedLegend
-        className="h-[70vh] min-h-[500px] w-full"
-      />
+      <div className="flex-1" style={{ minHeight: "500px", height: "70vh" }}>
+        <UnifiedMap
+          center={center}
+          zoom={MAP_ZOOM.PROJECT_DETAIL}
+          streets={mapData.streets}
+          defaultVisibleStatuses={new Set(["completed", "partial", "not_started"])}
+          availableStatuses={["completed", "partial", "not_started"]}
+          boundary={mapData.boundary}
+          showBoundaryOutline
+          highlightFocus={boundaryBbox ? { bbox: boundaryBbox } : null}
+          highlightOsmIds={Array.from(suggestedOsmIds)}
+          showLegend
+          className="h-full w-full"
+        />
+      </div>
     </div>
   );
 }

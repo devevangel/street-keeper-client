@@ -81,6 +81,17 @@ textarea:focus-visible {
   font-size: 0.7rem;
 }
 
+/* Drawing mode: use default arrow cursor instead of grab/grabbing */
+.drawing-mode,
+.drawing-mode *,
+.drawing-mode.leaflet-grab,
+.drawing-mode.leaflet-touch-drag {
+  cursor: default !important;
+}
+.drawing-mode .leaflet-marker-icon {
+  cursor: pointer !important;
+}
+
 /* User location marker: Google Maps–style blue dot (solid center, white ring, soft halo) + pulse */
 .street-keeper-user-marker-wrapper {
   background: none !important;

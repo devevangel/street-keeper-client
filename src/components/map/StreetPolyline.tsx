@@ -31,9 +31,18 @@ interface StreetPolylineProps {
 /**
  * Converts GeoJSON coordinates [lng, lat] to Leaflet [lat, lng].
  * Backend returns GeoJSON; Leaflet expects lat-first.
+ * Filters out any invalid coords to prevent Leaflet crashes.
  */
 function geoJsonToLeaflet(coordinates: [number, number][]): LatLngTuple[] {
-  return coordinates.map(([lng, lat]) => [lat, lng] as LatLngTuple);
+  return coordinates
+    .filter(
+      (c) =>
+        Array.isArray(c) &&
+        c.length >= 2 &&
+        Number.isFinite(c[0]) &&
+        Number.isFinite(c[1])
+    )
+    .map(([lng, lat]) => [lat, lng] as LatLngTuple);
 }
 
 const PopupContent = ({ street }: { street: MapStreet }) => {
@@ -58,7 +67,21 @@ const PATH_OPTIONS_BASE = {
 };
 
 export function StreetPolyline({ street, highlight = false }: StreetPolylineProps) {
+  // Guard: skip if geometry is missing or empty (prevents Leaflet crash)
+  if (
+    !street.geometry?.coordinates ||
+    street.geometry.coordinates.length < 2
+  ) {
+    return null;
+  }
+
   const fullPositions = geoJsonToLeaflet(street.geometry.coordinates);
+
+  // Guard: ensure at least 2 valid positions after conversion
+  if (fullPositions.length < 2) {
+    return null;
+  }
+
   const isCompleted = street.status === "completed";
 
   if (highlight) {
@@ -104,33 +127,36 @@ export function StreetPolyline({ street, highlight = false }: StreetPolylineProp
     const coveredPositions = geoJsonToLeaflet(
       street.coveredGeometry.coordinates
     );
-    return (
-      <>
-        <Polyline
-          positions={fullPositions}
-          pathOptions={{
-            ...PATH_OPTIONS_BASE,
-            color: MAP_COLORS.UNCOVERED,
-            weight: 2,
-            opacity: 0.4,
-            dashArray: MAP_DASH.UNCOVERED,
-          }}
-        />
-        <Polyline
-          positions={coveredPositions}
-          pathOptions={{
-            ...PATH_OPTIONS_BASE,
-            color: MAP_COLORS.PARTIAL,
-            weight: MAP_WEIGHTS.DEFAULT,
-            opacity: OPACITY_PARTIAL,
-          }}
-        >
-          <Popup>
-            <PopupContent street={street} />
-          </Popup>
-        </Polyline>
-      </>
-    );
+    // Only render covered polyline if it has at least 2 valid positions
+    if (coveredPositions.length >= 2) {
+      return (
+        <>
+          <Polyline
+            positions={fullPositions}
+            pathOptions={{
+              ...PATH_OPTIONS_BASE,
+              color: MAP_COLORS.UNCOVERED,
+              weight: 2,
+              opacity: 0.4,
+              dashArray: MAP_DASH.UNCOVERED,
+            }}
+          />
+          <Polyline
+            positions={coveredPositions}
+            pathOptions={{
+              ...PATH_OPTIONS_BASE,
+              color: MAP_COLORS.PARTIAL,
+              weight: MAP_WEIGHTS.DEFAULT,
+              opacity: OPACITY_PARTIAL,
+            }}
+          >
+            <Popup>
+              <PopupContent street={street} />
+            </Popup>
+          </Polyline>
+        </>
+      );
+    }
   }
 
   return (

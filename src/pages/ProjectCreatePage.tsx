@@ -1,58 +1,107 @@
 /**
  * ProjectCreatePage
- * Create a project: search or pick location, choose radius (200m default), auto-preview, name, create.
+ * Create a project: draw a polygon or circle on the map, auto-preview, name, create.
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Circle,
-  useMap,
-  useMapEvents,
-} from "react-leaflet";
 import type { LatLngTuple } from "leaflet";
-import { Button, Card, Input } from "../components/common";
-import { UniversalSearchInput, ProjectCreatedModal } from "../components/projects";
+import { MousePointer2, Hexagon, MapPin, Trash2 } from "lucide-react";
+import { Button, Card, Input, StreetListItem, type StreetListItemData } from "../components/common";
+import {
+  UniversalSearchInput,
+  ProjectCreatedModal,
+} from "../components/projects";
+import { UnifiedMap, MAP_ZOOM, type ShapeData } from "../components/map";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
 import { useGeolocation } from "../hooks";
 import { ROUTES } from "../config/constants";
-import type { ProjectPreview } from "../types/api.types";
+import type { ProjectPreview, ProjectMapStreet } from "../types/api.types";
 import type { GeocodingResult } from "../types/api.types";
 
 const DEFAULT_CENTER: LatLngTuple = [50.8, -1.09];
-const DEFAULT_ZOOM = 13;
-const AUTO_PREVIEW_DEBOUNCE_MS = 800; // Longer debounce to avoid excessive API calls
+const DEFAULT_RADIUS_METERS = 300;
+const AUTO_PREVIEW_DEBOUNCE_MS = 800;
 
-function MapClickHandler({
-  onMapClick,
-}: {
-  onMapClick: (point: { lat: number; lng: number }) => void;
-}) {
-  useMapEvents({
-    click: (e) => {
-      onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
-    },
-  });
-  return null;
+/** Predefined radius snap points for better UX across large range */
+const RADIUS_SNAP_POINTS = [
+  100, 200, 300, 400, 500, 750,
+  1000, 1500, 2000, 3000, 5000,
+  7500, 10000, 15000, 20000, 30000, 50000,
+];
+
+/** Find nearest snap point for a given value */
+function snapToNearest(value: number): number {
+  let closest = RADIUS_SNAP_POINTS[0];
+  let minDiff = Math.abs(value - closest);
+  for (const point of RADIUS_SNAP_POINTS) {
+    const diff = Math.abs(value - point);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = point;
+    }
+  }
+  return closest;
 }
 
-/** Fix Leaflet black map when container gets size after mount (e.g. mobile flex layout). */
-function MapInvalidateSize() {
-  const map = useMap();
-  useEffect(() => {
-    const container = map.getContainer();
-    const run = () => map.invalidateSize();
-    run();
-    const ro = new ResizeObserver(run);
-    ro.observe(container);
-    return () => ro.disconnect();
-  }, [map]);
-  return null;
+/** Format radius for display */
+function formatRadius(meters: number): string {
+  if (meters >= 1000) {
+    const km = meters / 1000;
+    return km % 1 === 0 ? `${km} km` : `${km.toFixed(1)} km`;
+  }
+  return `${meters} m`;
 }
+
+/** Normalize osmId to always have "way/" prefix for consistent map highlighting */
+function normalizeOsmId(osmId: string): string {
+  return osmId.startsWith("way/") ? osmId : `way/${osmId}`;
+}
+
+/** Convert preview street (with geometry) to ProjectMapStreet for rendering on map */
+function previewStreetToMapStreet(
+  street: NonNullable<ProjectPreview["streets"]>[number]
+): ProjectMapStreet | null {
+  if (street.osmId == null || !street.geometry) return null;
+  return {
+    osmId: normalizeOsmId(String(street.osmId)),
+    name: street.name,
+    highwayType: street.highwayType,
+    lengthMeters: street.totalLengthMeters,
+    percentage: 0,
+    status: "not_started",
+    geometry: street.geometry,
+  };
+}
+
+/** Compute [minLat, minLng, maxLat, maxLng] from GeoJSON LineString coordinates [lng, lat][] */
+function computeBboxFromCoords(
+  coords: [number, number][],
+): [number, number, number, number] {
+  if (coords.length === 0)
+    return [0, 0, 0, 0];
+  let minLng = coords[0][0],
+    maxLng = coords[0][0],
+    minLat = coords[0][1],
+    maxLat = coords[0][1];
+  for (let i = 1; i < coords.length; i++) {
+    const [lng, lat] = coords[i];
+    if (lng < minLng) minLng = lng;
+    if (lng > maxLng) maxLng = lng;
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+  }
+  return [minLat, minLng, maxLat, maxLng];
+}
+
+/** Lucide React icons for map tools */
+const ToolIcons = {
+  cursor: <MousePointer2 size={20} />,
+  polygon: <Hexagon size={20} />,
+  marker: <MapPin size={20} />,
+  trash: <Trash2 size={20} />,
+};
 
 export function ProjectCreatePage() {
   const {
@@ -61,8 +110,24 @@ export function ProjectCreatePage() {
     isLoading: geoLoading,
   } = useGeolocation();
 
-  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
-  const [radius, setRadius] = useState<number>(200);
+  const [activeShape, setActiveShape] = useState<ShapeData | null>(null);
+  const [activeTool, setActiveTool] = useState<
+    "cursor" | "polygon" | "marker"
+  >("cursor");
+  const [markerPosition, setMarkerPosition] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [markerRadius, setMarkerRadius] = useState(DEFAULT_RADIUS_METERS);
+  const [highlightOsmIds, setHighlightOsmIds] = useState<string[]>([]);
+  const [streetHighlightBbox, setStreetHighlightBbox] = useState<
+    [number, number, number, number] | null
+  >(null);
+
+  // Auto-request geolocation on mount
+  useEffect(() => {
+    requestPermission();
+  }, [requestPermission]);
   const [preview, setPreview] = useState<ProjectPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -82,105 +147,152 @@ export function ProjectCreatePage() {
 
   const boundaryMode = includePartialStreets ? "centroid" : "strict";
 
-  const mapCenter: LatLngTuple = center
-    ? [center.lat, center.lng]
-    : geoPosition
-      ? [geoPosition.lat, geoPosition.lng]
-      : DEFAULT_CENTER;
+  const markerBbox = useMemo((): [number, number, number, number] | null => {
+    if (!markerPosition || !markerRadius) return null;
+    const latDeg =
+      markerRadius / 111320;
+    const lngDeg =
+      markerRadius /
+      (111320 * Math.cos((markerPosition.lat * Math.PI) / 180));
+    return [
+      markerPosition.lat - latDeg,
+      markerPosition.lng - lngDeg,
+      markerPosition.lat + latDeg,
+      markerPosition.lng + lngDeg,
+    ];
+  }, [markerPosition, markerRadius]);
 
-  const hasCenter = center != null || geoPosition != null;
-  const lat = center?.lat ?? geoPosition?.lat;
-  const lng = center?.lng ?? geoPosition?.lng;
+  const mapCenter: LatLngTuple =
+    activeShape?.type === "circle"
+      ? [activeShape.center.lat, activeShape.center.lng]
+      : activeShape?.type === "polygon"
+        ? (() => {
+            const c = activeShape.coordinates;
+            if (c.length === 0) return DEFAULT_CENTER;
+            const sum = c.reduce((a, p) => [a[0] + p[0], a[1] + p[1]], [0, 0]);
+            return [sum[1] / c.length, sum[0] / c.length] as LatLngTuple;
+          })()
+        : geoPosition
+          ? [geoPosition.lat, geoPosition.lng]
+          : DEFAULT_CENTER;
 
-  const handleUseMyLocation = useCallback(() => {
-    requestPermission();
-  }, [requestPermission]);
+  const hasValidShape = activeShape != null;
 
+  const handleSearchSelect = useCallback(
+    (result: GeocodingResult) => {
+      const point = { lat: result.lat, lng: result.lng };
+      setMarkerPosition(point);
+      setActiveShape({
+        type: "circle",
+        center: point,
+        radiusMeters: markerRadius,
+      });
+      setActiveTool("marker");
+      setPreview(null);
+      setPreviewError(null);
+    },
+    [markerRadius],
+  );
+
+  // Request ID to discard stale responses from race conditions
+  const previewRequestIdRef = useRef(0);
+
+  // Unified preview effect: debounced fetch with proper abort handling
   useEffect(() => {
-    if (geoPosition) setCenter({ lat: geoPosition.lat, lng: geoPosition.lng });
-  }, [geoPosition]);
-
-  const handleSearchSelect = useCallback((result: GeocodingResult) => {
-    setCenter({ lat: result.lat, lng: result.lng });
-    setPreview(null);
-    setPreviewError(null);
-  }, []);
-
-  // Track if we need to fetch streets list
-  const streetsListRequested = useRef(false);
-
-  // Auto-preview when center or radius changes (debounced)
-  useEffect(() => {
-    if (lat == null || lng == null) {
+    if (!activeShape) {
       setPreview(null);
       setPreviewLoading(false);
-      streetsListRequested.current = false;
       return;
     }
-    // Reset streets list flag when location/radius changes
-    streetsListRequested.current = false;
-    
+
+    // Increment request ID to track this specific request
+    const requestId = ++previewRequestIdRef.current;
+
     const t = setTimeout(() => {
+      // Abort any previous in-flight request
       previewAbortRef.current?.abort();
       previewAbortRef.current = new AbortController();
+      const signal = previewAbortRef.current.signal;
+
       setPreviewLoading(true);
       setPreviewError(null);
-      // Fetch without streets list for faster initial response
+
+      const opts =
+        activeShape.type === "circle"
+          ? {
+              boundaryType: "circle" as const,
+              centerLat: activeShape.center.lat,
+              centerLng: activeShape.center.lng,
+              radiusMeters: activeShape.radiusMeters,
+            }
+          : {
+              boundaryType: "polygon" as const,
+              polygonCoordinates: activeShape.coordinates,
+            };
+
       projectsService
-        .preview(lat, lng, radius, boundaryMode, false)
+        .preview(
+          opts,
+          boundaryMode,
+          activeShape.type === "circle",
+          signal,
+        )
         .then((res) => {
-          setPreview(res.preview);
+          // Only update state if this is still the latest request
+          if (requestId === previewRequestIdRef.current) {
+            setPreview(res.preview);
+          }
         })
         .catch((err) => {
+          // Ignore abort errors and stale responses
+          if (signal.aborted || requestId !== previewRequestIdRef.current) return;
           setPreviewError(
-            err instanceof ApiError ? err.message : "Failed to load preview"
+            err instanceof ApiError ? err.message : "Failed to load preview",
           );
           setPreview(null);
         })
         .finally(() => {
-          setPreviewLoading(false);
+          // Only update loading state if this is still the latest request
+          if (requestId === previewRequestIdRef.current) {
+            setPreviewLoading(false);
+          }
         });
     }, AUTO_PREVIEW_DEBOUNCE_MS);
+
     return () => {
       clearTimeout(t);
       previewAbortRef.current?.abort();
     };
-  }, [lat, lng, radius, boundaryMode]);
-
-  // Fetch streets list when user opens the section (only once per preview)
-  useEffect(() => {
-    if (!showStreetsList || lat == null || lng == null) return;
-    if (streetsListRequested.current) return; // Already requested for this location
-    
-    streetsListRequested.current = true;
-    projectsService
-      .preview(lat, lng, radius, boundaryMode, true)
-      .then((res) => {
-        setPreview(res.preview);
-      })
-      .catch(() => {
-        // Silently fail - user still has the basic preview
-      });
-  }, [showStreetsList, lat, lng, radius, boundaryMode]);
+  }, [activeShape, boundaryMode]);
 
   const handleCreate = useCallback(async () => {
-    if (!preview || !name.trim() || lat == null || lng == null) return;
+    if (!preview || !name.trim() || !activeShape) return;
     setCreateLoading(true);
     setCreateError(null);
     try {
-      const res = await projectsService.create({
-        name: name.trim(),
-        centerLat: lat,
-        centerLng: lng,
-        radiusMeters: radius,
-        boundaryMode,
-        cacheKey: preview.cacheKey,
-      });
+      const body =
+        activeShape.type === "circle"
+          ? {
+              name: name.trim(),
+              boundaryType: "circle" as const,
+              centerLat: activeShape.center.lat,
+              centerLng: activeShape.center.lng,
+              radiusMeters: activeShape.radiusMeters,
+              boundaryMode,
+              cacheKey: preview.cacheKey,
+            }
+          : {
+              name: name.trim(),
+              boundaryType: "polygon" as const,
+              polygonCoordinates: activeShape.coordinates,
+              boundaryMode,
+              cacheKey: preview.cacheKey,
+            };
+      const res = await projectsService.create(body);
       const project = res?.project;
       if (project?.id != null) {
-        // Use totalStreetNames (unique names) for consistency with detail page
-        // Fall back to totalStreets (segments) if not provided
-        const streetCount = project.totalStreetNames ?? project.totalStreets ?? 0;
+        const streetCount =
+          project.totalStreetNames ?? project.totalStreets ?? 0;
         setSuccessModal({
           projectId: String(project.id),
           totalStreets: project.totalStreets ?? 0,
@@ -189,21 +301,59 @@ export function ProjectCreatePage() {
         });
       } else {
         setCreateError(
-          "Project was created but the response was invalid. Check your projects list."
+          "Project was created but the response was invalid. Check your projects list.",
         );
       }
     } catch (err) {
       setCreateError(
-        err instanceof ApiError ? err.message : "Failed to create project"
+        err instanceof ApiError ? err.message : "Failed to create project",
       );
     } finally {
       setCreateLoading(false);
     }
-  }, [preview, name, lat, lng, radius, boundaryMode]);
+  }, [preview, name, activeShape, boundaryMode]);
 
   const canCreate = Boolean(
-    hasCenter && preview?.cacheKey && name.trim() && !createLoading
+    hasValidShape && preview?.cacheKey && name.trim() && !createLoading,
   );
+
+  type PreviewStreet = NonNullable<ProjectPreview["streets"]>[number];
+
+  // Convert preview streets to StreetListItemData with geometry lookup (key as string for number/string osmId)
+  const { streetListItems, streetGeometryLookup } = useMemo(() => {
+    if (!preview?.streets) return { streetListItems: [], streetGeometryLookup: new Map<string, PreviewStreet>() };
+    const items: StreetListItemData[] = [];
+    const lookup = new Map<string, PreviewStreet>();
+    for (const street of preview.streets) {
+      const key = String(street.osmId ?? street.name);
+      lookup.set(key, street);
+      items.push({
+        name: street.name,
+        osmIds: street.osmId != null ? [String(street.osmId)] : [],
+        lengthKm: street.totalLengthMeters / 1000,
+        highwayType: street.highwayType,
+        segmentCount: street.segmentCount,
+      });
+    }
+    return { streetListItems: items, streetGeometryLookup: lookup };
+  }, [preview?.streets]);
+
+  const handleStreetHighlight = useCallback((streetData: StreetListItemData) => {
+    const osmId = streetData.osmIds[0];
+    const key = osmId != null ? String(osmId) : streetData.name;
+    const street = streetGeometryLookup.get(key);
+    if (!street?.geometry) return;
+    const coords = street.geometry.coordinates;
+    const bbox = computeBboxFromCoords(coords);
+    const normalizedId = street.osmId != null ? normalizeOsmId(String(street.osmId)) : null;
+    setHighlightOsmIds(normalizedId ? [normalizedId] : []);
+    setStreetHighlightBbox(bbox);
+  }, [streetGeometryLookup]);
+
+  const handleStreetClear = useCallback(() => {
+    setHighlightOsmIds([]);
+    setStreetHighlightBbox(null);
+  }, []);
 
   const formPanel = (
     <div className="flex flex-col gap-4 p-4 md:p-6">
@@ -215,57 +365,128 @@ export function ProjectCreatePage() {
       </Link>
       <h2 className="text-2xl font-bold text-text">Create project</h2>
 
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-0 flex-1">
-          <label
-            htmlFor="geocode-search"
-            className="mb-1 block text-sm font-medium text-text"
+      <div className="rounded border-2 border-border bg-surface/50 p-2">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
+          Map tools
+        </p>
+        <div className="flex flex-wrap gap-1">
+          <button
+            type="button"
+            title="Pan / Select"
+            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-colors ${
+              activeTool === "cursor"
+                ? "border-accent bg-accent text-surface"
+                : "border-border bg-surface text-text hover:border-accent/50 hover:bg-border/20"
+            }`}
+            onClick={() => setActiveTool("cursor")}
           >
-            Where?
-          </label>
-          <UniversalSearchInput
-            placeholder="Search anywhere: address, park, hospital…"
-            onSelect={handleSearchSelect}
-          />
+            {ToolIcons.cursor}
+          </button>
+          <button
+            type="button"
+            title="Draw polygon area"
+            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-colors ${
+              activeTool === "polygon"
+                ? "border-accent bg-accent text-surface"
+                : "border-border bg-surface text-text hover:border-accent/50 hover:bg-border/20"
+            }`}
+            onClick={() => {
+              setActiveTool("polygon");
+              if (activeShape?.type === "circle") {
+                setActiveShape(null);
+                setMarkerPosition(null);
+              }
+            }}
+          >
+            {ToolIcons.polygon}
+          </button>
+          <button
+            type="button"
+            title="Place marker pin"
+            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-colors ${
+              activeTool === "marker"
+                ? "border-accent bg-accent text-surface"
+                : "border-border bg-surface text-text hover:border-accent/50 hover:bg-border/20"
+            }`}
+            onClick={() => setActiveTool("marker")}
+          >
+            {ToolIcons.marker}
+          </button>
+          <button
+            type="button"
+            title="Delete shape"
+            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-colors ${
+              !activeShape && !markerPosition
+                ? "cursor-not-allowed border-border bg-surface text-text opacity-50"
+                : "border-border bg-surface text-text hover:bg-border/20"
+            }`}
+            onClick={() => {
+              setActiveShape(null);
+              setMarkerPosition(null);
+              setMarkerRadius(DEFAULT_RADIUS_METERS);
+              setPreview(null);
+              setHighlightOsmIds([]);
+              setStreetHighlightBbox(null);
+            }}
+            disabled={!activeShape && !markerPosition}
+          >
+            {ToolIcons.trash}
+          </button>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={handleUseMyLocation}
-          disabled={geoLoading}
-          className="h-8 min-h-8 shrink-0"
-        >
-          {geoLoading ? "Getting location…" : "Use my location"}
-        </Button>
       </div>
 
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm font-medium text-text">Radius</span>
-          <span className="rounded bg-success/20 px-2 py-1 text-sm font-bold text-success">
-            {radius >= 1000
-              ? `${(radius / 1000).toFixed(1)} km`
-              : `${radius} m`}
-          </span>
-        </div>
-        <input
-          type="range"
-          min={100}
-          max={10000}
-          step={100}
-          value={radius}
-          onChange={(e) => setRadius(Number(e.target.value))}
-          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-border accent-success"
-          aria-label="Project radius"
+        <label
+          htmlFor="geocode-search"
+          className="mb-1 block text-sm font-medium text-text"
+        >
+          Where?
+        </label>
+        <UniversalSearchInput
+          placeholder="Search anywhere: address, park, hospital…"
+          onSelect={handleSearchSelect}
         />
-        <div className="mt-1 flex justify-between text-xs text-text-muted">
-          <span>100 m</span>
-          <span>10 km</span>
-        </div>
       </div>
 
-      {hasCenter && (
+      {markerPosition && (
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-text">Radius</span>
+            <span className="rounded bg-success/20 px-2 py-1 text-sm font-bold text-success">
+              {formatRadius(markerRadius)}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={RADIUS_SNAP_POINTS.length - 1}
+            step={1}
+            value={RADIUS_SNAP_POINTS.indexOf(markerRadius) !== -1 
+              ? RADIUS_SNAP_POINTS.indexOf(markerRadius) 
+              : RADIUS_SNAP_POINTS.findIndex(p => p >= markerRadius) || 0}
+            onChange={(e) => {
+              const index = Number(e.target.value);
+              const newRadius = RADIUS_SNAP_POINTS[index];
+              setMarkerRadius(newRadius);
+              if (markerPosition) {
+                setActiveShape({
+                  type: "circle",
+                  center: markerPosition,
+                  radiusMeters: newRadius,
+                });
+              }
+            }}
+            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-border accent-success"
+            aria-label="Project radius"
+          />
+          <div className="mt-1 flex justify-between text-xs text-text-muted">
+            <span>100 m</span>
+            <span>50 km</span>
+          </div>
+        </div>
+      )}
+
+      {hasValidShape && (
         <Card padding="sm">
           {previewLoading ? (
             <p className="text-text-muted text-sm">Loading preview…</p>
@@ -274,13 +495,14 @@ export function ProjectCreatePage() {
           ) : preview ? (
             <>
               <p className="text-text">
-                <strong>{preview.totalStreetNames}</strong>{" "}
-                street{preview.totalStreetNames !== 1 ? "s" : ""}
+                <strong>{preview.totalStreetNames}</strong> street
+                {preview.totalStreetNames !== 1 ? "s" : ""}
                 {preview.totalStreets !== preview.totalStreetNames
                   ? ` (${preview.totalStreets} segments)`
                   : ""}{" "}
-                · <strong>{(preview.totalLengthMeters / 1000).toFixed(1)}</strong> km
-                total
+                ·{" "}
+                <strong>{(preview.totalLengthMeters / 1000).toFixed(1)}</strong>{" "}
+                km total
               </p>
               {preview?.warnings && preview.warnings.length > 0 && (
                 <ul className="mt-2 list-inside list-disc text-text-muted text-sm">
@@ -295,7 +517,7 @@ export function ProjectCreatePage() {
       )}
 
       {/* Collapsible street list */}
-      {hasCenter && preview && !previewLoading && (
+      {hasValidShape && preview && !previewLoading && (
         <details
           className="mb-4"
           open={showStreetsList}
@@ -312,61 +534,51 @@ export function ProjectCreatePage() {
           </summary>
           {showStreetsList && (
             <>
-              {preview.streets ? (
-            <Card className="mt-1">
-              <div className="space-y-3">
-                <input
-                  type="search"
-                  placeholder="Search by name…"
-                  value={streetSearch}
-                  onChange={(e) => setStreetSearch(e.target.value)}
-                  className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text placeholder:text-text-muted focus:outline-none focus:ring-0 focus:ring-offset-0"
-                  aria-label="Search streets"
-                />
-                <div className="max-h-[40vh] overflow-y-auto rounded border-2 border-border">
-                  <ul className="list-none divide-y divide-border p-0">
-                    {preview.streets
-                      .filter((s) =>
+              {streetListItems.length > 0 ? (
+                <Card className="mt-1">
+                  <div className="space-y-3">
+                    <input
+                      type="search"
+                      placeholder="Search by name…"
+                      value={streetSearch}
+                      onChange={(e) => setStreetSearch(e.target.value)}
+                      className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text placeholder:text-text-muted focus:outline-none focus:ring-0 focus:ring-offset-0"
+                      aria-label="Search streets"
+                    />
+                    <div className="max-h-[40vh] overflow-y-auto rounded border-2 border-border">
+                      <ul className="list-none divide-y divide-border p-0">
+                        {streetListItems
+                          .filter((s) =>
+                            streetSearch.trim()
+                              ? s.name
+                                  .toLowerCase()
+                                  .includes(streetSearch.trim().toLowerCase())
+                              : true,
+                          )
+                          .map((street, idx) => (
+                            <StreetListItem
+                              key={street.osmIds[0] ?? `${street.name}-${idx}`}
+                              street={street}
+                              onHighlight={handleStreetHighlight}
+                              onClearHighlight={handleStreetClear}
+                              variant="minimal"
+                            />
+                          ))}
+                      </ul>
+                      {streetListItems.filter((s) =>
                         streetSearch.trim()
-                          ? s.name.toLowerCase().includes(streetSearch.trim().toLowerCase())
-                          : true
-                      )
-                      .map((street) => (
-                        <li
-                          key={street.name}
-                          className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 even:bg-border/5"
-                        >
-                          <span className="font-medium text-text">
-                            {street.name}
-                            {street.segmentCount > 1 && (
-                              <span className="ml-1.5 text-text-muted text-xs font-normal">
-                                ({street.segmentCount} parts)
-                              </span>
-                            )}
-                          </span>
-                          <div className="flex flex-wrap items-center gap-2 text-sm">
-                            <span className="text-text-muted">
-                              {(street.totalLengthMeters / 1000).toFixed(2)} km
-                            </span>
-                            <span className="rounded bg-border/20 px-2 py-0.5 text-xs text-text-muted">
-                              {street.highwayType}
-                            </span>
-                          </div>
-                        </li>
-                      ))}
-                  </ul>
-                  {preview.streets.filter((s) =>
-                    streetSearch.trim()
-                      ? s.name.toLowerCase().includes(streetSearch.trim().toLowerCase())
-                      : true
-                  ).length === 0 && (
-                    <p className="p-4 text-center text-text-muted text-sm">
-                      No streets match your search.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </Card>
+                          ? s.name
+                              .toLowerCase()
+                              .includes(streetSearch.trim().toLowerCase())
+                          : true,
+                      ).length === 0 && (
+                        <p className="p-4 text-center text-text-muted text-sm">
+                          No streets match your search.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </Card>
               ) : (
                 <Card className="mt-1">
                   <p className="text-text-muted text-sm p-4">
@@ -407,9 +619,7 @@ export function ProjectCreatePage() {
         </span>
       </label>
 
-      {createError && (
-        <p className="text-danger text-sm">{createError}</p>
-      )}
+      {createError && <p className="text-danger text-sm">{createError}</p>}
       <Button
         type="button"
         onClick={handleCreate}
@@ -421,45 +631,94 @@ export function ProjectCreatePage() {
     </div>
   );
 
+  const handleMapClickForMarker = useCallback(
+    (point: { lat: number; lng: number }) => {
+      setMarkerPosition(point);
+      setMarkerRadius(DEFAULT_RADIUS_METERS);
+      setActiveShape({
+        type: "circle",
+        center: point,
+        radiusMeters: DEFAULT_RADIUS_METERS,
+      });
+    },
+    [],
+  );
+
+  const handleMarkerClick = useCallback(() => {
+    setMarkerPosition(null);
+    setActiveShape(null);
+    setMarkerRadius(DEFAULT_RADIUS_METERS);
+  }, []);
+
+  const handleMapClick = useCallback(
+    (point: { lat: number; lng: number }) => {
+      if (activeTool === "marker") {
+        handleMapClickForMarker(point);
+      }
+    },
+    [activeTool, handleMapClickForMarker],
+  );
+
+  // Convert preview streets to map-renderable format for highlighting
+  const previewStreetsForMap = useMemo(() => {
+    if (!preview?.streets) return [];
+    return preview.streets
+      .map(previewStreetToMapStreet)
+      .filter((s): s is ProjectMapStreet => s !== null);
+  }, [preview?.streets]);
+
+  const helperText =
+    activeTool === "polygon"
+        ? "Click to add points. Double-click to finish. ESC to cancel."
+        : activeTool === "marker"
+          ? markerPosition
+            ? "Click elsewhere to move. Click marker to remove."
+            : "Click on the map to place a marker."
+          : activeShape
+            ? "Click a shape to edit."
+            : "Select a tool above to define your project boundary.";
+
+  const showUserLocationMarker = geoPosition && !activeShape;
+
+  // Use user location zoom when available, otherwise default zoom
+  const mapZoom =
+    geoPosition && !activeShape
+      ? MAP_ZOOM.USER_LOCATION
+      : activeShape
+        ? MAP_ZOOM.PROJECT_DETAIL
+        : MAP_ZOOM.DEFAULT;
+
   const mapSection = (
-    <div className="h-[40vh] min-h-[240px] w-full md:h-full md:min-h-0">
-      <MapContainer
-        center={mapCenter}
-        zoom={DEFAULT_ZOOM}
+    <div className="relative h-[40vh] min-h-[240px] w-full md:h-full md:min-h-0">
+      <UnifiedMap
+        center={{ lat: mapCenter[0], lng: mapCenter[1] }}
+        zoom={mapZoom}
+        userLocation={geoPosition}
+        showUserLocationMarker={showUserLocationMarker}
+        streets={previewStreetsForMap}
+        highlightOsmIds={highlightOsmIds}
+        drawingEnabled
+        activeShape={activeShape}
+        onShapeChange={setActiveShape}
+        activeTool={activeTool}
+        onClick={
+          activeTool === "marker" ? handleMapClick : undefined
+        }
+        markerPosition={markerPosition}
+        onMarkerClick={handleMarkerClick}
+        highlightFocus={
+          streetHighlightBbox
+            ? { bbox: streetHighlightBbox }
+            : markerBbox
+              ? { bbox: markerBbox }
+              : null
+        }
+        showDrawnCircle={true}
+        isLoading={geoLoading && !geoPosition}
+        loadingMessage="Getting your location…"
+        helperText={helperText}
         className="h-full w-full"
-        scrollWheelZoom
-      >
-        <MapInvalidateSize />
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <MapClickHandler onMapClick={setCenter} />
-        {hasCenter && (
-          <>
-            <Marker
-              position={
-                center
-                  ? [center.lat, center.lng]
-                  : [geoPosition!.lat, geoPosition!.lng]
-              }
-            />
-            <Circle
-              center={
-                center
-                  ? [center.lat, center.lng]
-                  : [geoPosition!.lat, geoPosition!.lng]
-              }
-              radius={radius}
-              pathOptions={{
-                color: "#16a34a",
-                fillOpacity: 0.1,
-                weight: 2,
-              }}
-            />
-          </>
-        )}
-      </MapContainer>
+      />
     </div>
   );
 

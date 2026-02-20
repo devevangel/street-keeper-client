@@ -6,56 +6,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMediaQuery } from "../../hooks";
 import { Card } from "../common/Card";
+import { StreetListItem, type StreetListItemData } from "../common";
 import { projectsService } from "../../services/projects.service";
 import { ROUTES } from "../../config/constants";
 import type { ProjectListItem, SnapshotStreet } from "../../types/api.types";
-import { normalizeStreetName } from "../../utils/normalize-street-name";
-
-/** Group streets by name and include all osmIds for highlighting all segments. */
-function groupStreetsByName(streets: SnapshotStreet[]): {
-  name: string;
-  percentage: number;
-  completed: boolean;
-  osmIds: string[];
-}[] {
-  const byName = new Map<
-    string,
-    { streets: SnapshotStreet[]; displayName: string }
-  >();
-  for (const s of streets) {
-    const key = normalizeStreetName(s.name || "Unnamed");
-    if (!byName.has(key)) {
-      byName.set(key, { streets: [], displayName: s.name || "Unnamed" });
-    }
-    byName.get(key)!.streets.push(s);
-  }
-  const result: {
-    name: string;
-    percentage: number;
-    completed: boolean;
-    osmIds: string[];
-  }[] = [];
-  for (const data of byName.values()) {
-    const ways = data.streets;
-    const totalLengthMeters = ways.reduce((sum, w) => sum + w.lengthMeters, 0);
-    const weightedPct =
-      totalLengthMeters > 0
-        ? ways.reduce((sum, w) => sum + w.percentage * w.lengthMeters, 0) /
-          totalLengthMeters
-        : 0;
-    const completed = ways.every((w) => w.completed);
-    result.push({
-      name: data.displayName,
-      percentage: Math.round(weightedPct),
-      completed,
-      osmIds: ways.map((w) => w.osmId),
-    });
-  }
-  result.sort((a, b) => a.name.localeCompare(b.name));
-  return result;
-}
+import { groupStreetsByName } from "../../utils/group-streets-by-name";
 
 interface ProjectCardWithStreetsProps {
   project: ProjectListItem;
@@ -73,7 +29,6 @@ export function ProjectCardWithStreets({
   onStreetBlur,
 }: ProjectCardWithStreetsProps) {
   const navigate = useNavigate();
-  const hasHover = useMediaQuery("(hover: hover)");
   const [streets, setStreets] = useState<SnapshotStreet[]>([]);
   const [streetsLoading, setStreetsLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -113,16 +68,20 @@ export function ProjectCardWithStreets({
   const completedNames = project.completedStreetNames ?? project.completedStreets;
   const leftToComplete = expanded ? incompleteCount : Math.max(0, totalNames - completedNames);
 
-  const handleStreetAction = useCallback(
-    (row: { name: string; osmIds: string[] }) => {
+  const handleStreetHighlight = useCallback(
+    (street: StreetListItemData) => {
       onStreetClick({
         project,
-        streetName: row.name,
-        osmIds: row.osmIds,
+        streetName: street.name,
+        osmIds: street.osmIds,
       });
     },
     [project, onStreetClick]
   );
+
+  const handleStreetClear = useCallback(() => {
+    onStreetBlur?.();
+  }, [onStreetBlur]);
 
   return (
     <Card padding="sm" className="space-y-2">
@@ -163,26 +122,13 @@ export function ProjectCardWithStreets({
                 {grouped
                   .filter((g) => !g.completed)
                   .map((row) => (
-                    <li
+                    <StreetListItem
                       key={row.name}
-                      className="cursor-pointer px-3 py-2 text-sm hover:bg-border/10 even:bg-border/5"
-                      onClick={
-                        hasHover
-                          ? undefined
-                          : () => handleStreetAction(row)
-                      }
-                      onMouseEnter={
-                        hasHover ? () => handleStreetAction(row) : undefined
-                      }
-                      onMouseLeave={hasHover ? onStreetBlur : undefined}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-text">{row.name}</span>
-                        <span className="text-text-muted">
-                          {Math.round(row.percentage)}%
-                        </span>
-                      </div>
-                    </li>
+                      street={row}
+                      onHighlight={handleStreetHighlight}
+                      onClearHighlight={handleStreetClear}
+                      variant="homepage"
+                    />
                   ))}
                 {incompleteCount === 0 && (
                   <li className="px-3 py-2 text-sm text-text-muted">

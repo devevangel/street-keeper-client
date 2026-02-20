@@ -70,9 +70,10 @@ export interface SnapshotStreet {
 export interface ProjectListItem {
   id: string;
   name: string;
-  centerLat: number;
-  centerLng: number;
-  radiusMeters: number;
+  boundaryType: "circle" | "polygon";
+  centerLat: number | null;
+  centerLng: number | null;
+  radiusMeters: number | null;
   progress: number;
   totalStreets: number;
   completedStreets: number;
@@ -81,9 +82,7 @@ export interface ProjectListItem {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
-  /** Total unique street names (grouped by name). If not provided, use totalStreets. */
   totalStreetNames?: number;
-  /** Completed street names (all segments of street completed). If not provided, use completedStreets. */
   completedStreetNames?: number;
 }
 
@@ -185,24 +184,29 @@ export interface ProjectActivitiesResponse {
 }
 
 export interface ProjectPreview {
-  centerLat: number;
-  centerLng: number;
-  radiusMeters: number;
-  cachedRadiusMeters: number;
+  boundaryType: "circle" | "polygon";
+  centerLat?: number;
+  centerLng?: number;
+  radiusMeters?: number;
+  cachedRadiusMeters?: number;
+  polygonCoordinates?: [number, number][];
   cacheKey: string;
-  /** Total number of street segments */
   totalStreets: number;
-  /** Total unique street names (for consistent display) */
   totalStreetNames: number;
   totalLengthMeters: number;
   streetsByType: Record<string, number>;
   warnings: string[];
-  /** Optional: Street names list (only included when includeStreets=true) */
   streets?: Array<{
     name: string;
     segmentCount: number;
     totalLengthMeters: number;
     highwayType: string;
+    /** When present, enables map highlight on hover/click */
+    osmId?: string;
+    geometry?: {
+      type: "LineString";
+      coordinates: [number, number][];
+    };
   }>;
 }
 
@@ -210,9 +214,11 @@ export type BoundaryMode = "centroid" | "strict";
 
 export interface CreateProjectRequest {
   name: string;
-  centerLat: number;
-  centerLng: number;
-  radiusMeters: number; // 100–10000 in 100 m steps
+  boundaryType?: "circle" | "polygon";
+  centerLat?: number;
+  centerLng?: number;
+  radiusMeters?: number;
+  polygonCoordinates?: [number, number][];
   boundaryMode?: BoundaryMode;
   deadline?: string;
   cacheKey?: string;
@@ -249,12 +255,14 @@ export interface ProjectMapStreet {
   };
 }
 
-/** Circle boundary for project map centering */
-export interface ProjectMapBoundary {
-  type: "circle";
-  center: { lat: number; lng: number };
-  radiusMeters: number;
-}
+/** Boundary for project map (circle or polygon) */
+export type ProjectMapBoundary =
+  | {
+      type: "circle";
+      center: { lat: number; lng: number };
+      radiusMeters: number;
+    }
+  | { type: "polygon"; coordinates: [number, number][] };
 
 /** Stats for project map view; use *StreetNames for display consistency with list. */
 export interface ProjectMapStats {
@@ -270,9 +278,9 @@ export interface ProjectMapStats {
 export interface ProjectMapData {
   id: string;
   name: string;
-  centerLat: number;
-  centerLng: number;
-  radiusMeters: number;
+  centerLat: number | null;
+  centerLng: number | null;
+  radiusMeters: number | null;
   progress: number;
   boundary: ProjectMapBoundary;
   stats: ProjectMapStats;

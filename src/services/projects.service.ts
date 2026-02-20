@@ -32,20 +32,33 @@ export const projectsService = {
   },
 
   async preview(
-    centerLat: number,
-    centerLng: number,
-    radiusMeters: 100 | 200 | 500 | 1000 | 2000 | 5000 | 10000,
+    options:
+      | {
+          boundaryType: "circle";
+          centerLat: number;
+          centerLng: number;
+          radiusMeters: number;
+        }
+      | {
+          boundaryType: "polygon";
+          polygonCoordinates: [number, number][];
+        },
     boundaryMode?: "centroid" | "strict",
     includeStreets?: boolean,
+    signal?: AbortSignal,
   ): Promise<ProjectPreviewResponse> {
-    const params: Record<string, string> = {
-      lat: centerLat.toString(),
-      lng: centerLng.toString(),
-      radius: radiusMeters.toString(),
-    };
+    const params: Record<string, string> = {};
+    if (options.boundaryType === "circle") {
+      params.lat = options.centerLat.toString();
+      params.lng = options.centerLng.toString();
+      params.radius = options.radiusMeters.toString();
+    } else {
+      params.boundaryType = "polygon";
+      params.polygon = JSON.stringify(options.polygonCoordinates);
+    }
     if (boundaryMode === "strict") params.boundaryMode = "strict";
     if (includeStreets === true) params.includeStreets = "true";
-    return apiClient.get<ProjectPreviewResponse>("/projects/preview", params);
+    return apiClient.get<ProjectPreviewResponse>("/projects/preview", params, signal);
   },
 
   async create(data: CreateProjectRequest): Promise<ProjectDetailResponse> {

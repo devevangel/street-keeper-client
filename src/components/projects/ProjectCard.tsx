@@ -19,8 +19,10 @@ function formatRadius(meters: number): string {
 
 export function ProjectCard({ project }: ProjectCardProps) {
   const progressPercent = Math.round(project.progress);
-  const areaLabel = formatRadius(project.radiusMeters);
-  // Use street names if available (matches detail page), otherwise fall back to segments
+  const isCircle = project.boundaryType === "circle" && project.radiusMeters != null;
+  const areaLabel = isCircle
+    ? `${formatRadius(project.radiusMeters)} radius`
+    : "Custom area";
   const totalStreets = project.totalStreetNames ?? project.totalStreets;
   const completedStreets = project.completedStreetNames ?? project.completedStreets;
 
@@ -34,8 +36,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
         <div className="flex flex-col gap-2">
           <h3 className="text-lg font-bold text-text">{project.name}</h3>
           <p className="text-sm text-text-muted">
-            {completedStreets} / {totalStreets} streets ·{" "}
-            {areaLabel} radius
+            {completedStreets} / {totalStreets} streets · {areaLabel}
           </p>
           <div className="flex items-center gap-2">
             <div

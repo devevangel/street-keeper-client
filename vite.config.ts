@@ -6,6 +6,9 @@ import { VitePWA } from "vite-plugin-pwa";
 // https://vite.dev/config/
 // Markdown: import as raw string with ?raw (e.g. "./docs/foo.md?raw") for the in-app docs viewer.
 export default defineConfig({
+  optimizeDeps: {
+    include: ["@geoman-io/leaflet-geoman-free"],
+  },
   plugins: [
     react(),
     tailwindcss(),

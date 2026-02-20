@@ -1,6 +1,5 @@
 export { ProjectCard } from "./ProjectCard";
 export { ProjectStats } from "./ProjectStats";
-export { ProjectMap } from "./ProjectMap";
 export { UniversalSearchInput } from "./UniversalSearchInput";
 export { ProgressTimeline } from "./ProgressTimeline";
 export { CompletionFunnel } from "./CompletionFunnel";

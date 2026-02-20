@@ -5,15 +5,14 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { MapContainer, TileLayer } from "react-leaflet";
 import { Button, Card } from "../components/common";
-import { ProjectHeatmap } from "../components/projects";
+import { UnifiedMap } from "../components/map";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
 import { ROUTES } from "../config/constants";
 import type { ProjectHeatmapData } from "../types/api.types";
 
-const DEFAULT_CENTER: [number, number] = [50.8, -1.09];
+const DEFAULT_CENTER = { lat: 50.8, lng: -1.09 };
 const DEFAULT_ZOOM = 13;
 
 export function ProjectHeatmapPage() {
@@ -78,12 +77,12 @@ export function ProjectHeatmapPage() {
     );
   }
 
-  const center: [number, number] =
+  const center =
     heatmapData && heatmapData.points.length > 0
-      ? [
-          (heatmapData.bounds.south + heatmapData.bounds.north) / 2,
-          (heatmapData.bounds.west + heatmapData.bounds.east) / 2,
-        ]
+      ? {
+          lat: (heatmapData.bounds.south + heatmapData.bounds.north) / 2,
+          lng: (heatmapData.bounds.west + heatmapData.bounds.east) / 2,
+        }
       : DEFAULT_CENTER;
 
   return (
@@ -104,21 +103,14 @@ export function ProjectHeatmapPage() {
       <p className="mb-3 text-text-muted text-sm">
         Activity density: brighter areas = more runs through that spot.
       </p>
-      <div className="h-[70vh] min-h-[400px] w-full overflow-hidden rounded border-2 border-border">
-        <MapContainer
+      <div className="w-full overflow-hidden rounded border-2 border-border" style={{ minHeight: "400px", height: "70vh" }}>
+        <UnifiedMap
           center={center}
           zoom={DEFAULT_ZOOM}
+          heatmapPoints={heatmapData?.points ?? []}
+          heatmapBounds={heatmapData?.bounds}
           className="h-full w-full"
-          scrollWheelZoom
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          {heatmapData && heatmapData.points.length > 0 && (
-            <ProjectHeatmap heatmapData={heatmapData} />
-          )}
-        </MapContainer>
+        />
       </div>
       {heatmapData && heatmapData.points.length === 0 && (
         <p className="mt-2 text-text-muted text-sm">
