@@ -376,13 +376,13 @@ export function ProjectCreatePage() {
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
           Map tools
         </p>
-        <div className="flex flex-wrap gap-1">
+        <div className="flex w-full justify-evenly gap-2">
           <button
             type="button"
             title="Pan / Select"
-            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-all ${
+            className={`flex h-9 w-9 items-center justify-center rounded border transition-all ${
               activeTool === "cursor"
-                ? "border-primary bg-primary text-surface shadow-md scale-110 ring-2 ring-primary/30"
+                ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
                 : "border-border bg-surface text-text hover:border-primary/50 hover:bg-border/20"
             }`}
             onClick={() => setActiveTool("cursor")}
@@ -392,9 +392,9 @@ export function ProjectCreatePage() {
           <button
             type="button"
             title="Draw polygon area"
-            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-all ${
+            className={`flex h-9 w-9 items-center justify-center rounded border transition-all ${
               activeTool === "polygon"
-                ? "border-primary bg-primary text-surface shadow-md scale-110 ring-2 ring-primary/30"
+                ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
                 : "border-border bg-surface text-text hover:border-primary/50 hover:bg-border/20"
             }`}
             onClick={() => {
@@ -410,9 +410,9 @@ export function ProjectCreatePage() {
           <button
             type="button"
             title="Place marker pin"
-            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-all ${
+            className={`flex h-9 w-9 items-center justify-center rounded border transition-all ${
               activeTool === "marker"
-                ? "border-primary bg-primary text-surface shadow-md scale-110 ring-2 ring-primary/30"
+                ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
                 : "border-border bg-surface text-text hover:border-primary/50 hover:bg-border/20"
             }`}
             onClick={() => setActiveTool("marker")}

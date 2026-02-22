@@ -60,7 +60,7 @@ import { HeatmapLayer } from "./HeatmapLayer";
 import { MapViewportHandler } from "./MapViewportHandler";
 import { FitBoundsToHighlight } from "./FitBoundsToHighlight";
 import { MapClickHandler } from "./MapClickHandler";
-import { MapLegendFilter, type StreetStatus } from "./MapLegend";
+import { MapLegendFilter, MapLegendGuide, type StreetStatus } from "./MapLegend";
 import { MapLoadingOverlay } from "./MapLoadingOverlay";
 import { MAP_ZOOM } from "./mapConstants";
 import type { ShapeData } from "./DrawingToolbar";
@@ -104,6 +104,8 @@ export interface UnifiedMapProps {
   onMarkerClick?: () => void;
 
   showLegend?: boolean;
+  /** Read-only color guide (Completed, Partial, Not run yet). Use on homepage. */
+  showLegendGuide?: boolean;
   isLoading?: boolean;
   loadingMessage?: string;
   helperText?: string;
@@ -151,6 +153,7 @@ function MapContent(props: UnifiedMapProps) {
     markerPosition,
     onMarkerClick,
     showLegend,
+    showLegendGuide,
     showDrawnCircle,
   } = props;
 
@@ -264,6 +267,7 @@ function MapContent(props: UnifiedMapProps) {
           availableStatuses={availableStatuses}
         />
       )}
+      {showLegendGuide && <MapLegendGuide />}
     </>
   );
 }

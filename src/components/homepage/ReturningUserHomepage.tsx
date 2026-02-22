@@ -18,7 +18,7 @@ import { activitiesService } from "../../services/activities.service";
 import { projectsService } from "../../services/projects.service";
 import { invalidateHomepageCache } from "../../services/homepage.service";
 import { ROUTES } from "../../config/constants";
-import { FILTER_PILLS, type FilterStatus } from "../../utils/street-filters";
+import { FILTER_PILLS, getStreetBin, type FilterStatus } from "../../utils/street-filters";
 import type { HomepagePayload } from "../../services/homepage.service";
 import type {
   MapStreet,
@@ -264,6 +264,22 @@ export function ReturningUserHomepage({
     return [...streets, ...toAdd];
   }, [streets, highlightStreetsFromProject]);
 
+  // Filter map streets by active pill selection (mirror pill behavior on map)
+  const highlightOsmIdSet = useMemo(
+    () => new Set(highlightFocus?.streetIds?.map((id) => `way/${id}`) ?? []),
+    [highlightFocus?.streetIds],
+  );
+  const filteredStreetsForMap = useMemo(() => {
+    if (!mergedStreets.length) return mergedStreets;
+    return mergedStreets.filter((s) => {
+      const completed = s.status === "completed";
+      const bin = getStreetBin(s.percentage ?? 0, completed);
+      const matchesFilter = activeFilter === "all" || bin === activeFilter;
+      const isHighlighted = highlightOsmIdSet.has(s.osmId);
+      return matchesFilter || isHighlighted;
+    });
+  }, [mergedStreets, activeFilter, highlightOsmIdSet]);
+
   const handleSync = useCallback(async () => {
     track("sync_clicked", {});
     setSyncing(true);
@@ -335,15 +351,14 @@ export function ReturningUserHomepage({
               zoom={userLocation ? MAP_ZOOM.USER_LOCATION : (preferences?.preferences?.defaultMapZoom ?? MAP_ZOOM.DEFAULT)}
               userLocation={userLocation}
               showUserLocationMarker
-              streets={mergedStreets}
-              defaultVisibleStatuses={new Set(["completed"])}
-              availableStatuses={["completed", "partial"]}
+              streets={filteredStreetsForMap}
               onViewportChange={onViewportChange}
               highlightFocus={highlightFocus}
               highlightOsmIds={
                 highlightFocus?.streetIds?.map((id) => `way/${id}`) ?? []
               }
-              showLegend
+              showLegend={false}
+              showLegendGuide
               className="h-full w-full"
               isLoading={!userLocation && !mapCenter}
               loadingMessage="Getting your location…"

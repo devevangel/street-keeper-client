@@ -8,6 +8,14 @@ import { MAP_COLORS } from "./mapConstants";
 
 export type StreetStatus = "completed" | "partial" | "not_started";
 
+/** Legend entries matching filter pill colors for polylines */
+const PILL_LEGEND_ENTRIES = [
+  { key: "completed", label: "Completed", color: MAP_COLORS.COMPLETED, dashed: false },
+  { key: "almostThere", label: "Almost there", color: MAP_COLORS.ALMOST_THERE, dashed: true },
+  { key: "inProgress", label: "In progress", color: MAP_COLORS.IN_PROGRESS, dashed: true },
+  { key: "notStarted", label: "Not started", color: MAP_COLORS.NOT_RUN, dashed: true },
+] as const;
+
 const STATUS_CONFIG: Record<
   StreetStatus,
   { label: string; color: string; dashed: boolean }
@@ -28,6 +36,40 @@ const STATUS_CONFIG: Record<
     dashed: true,
   },
 };
+
+/** Read-only legend guide: shows all polyline colors matching filter pills. */
+export function MapLegendGuide() {
+  return (
+    <div
+      className="absolute bottom-4 left-4 z-[1000] rounded border border-border bg-bg/95 px-3 py-2 text-xs shadow"
+      aria-label="Map legend"
+      role="group"
+    >
+      {PILL_LEGEND_ENTRIES.map(({ key, label, color, dashed }) => (
+        <div
+          key={key}
+          className="mt-1.5 flex w-full items-center gap-2 px-1 py-0.5 first:mt-0"
+        >
+          <span
+            className={`inline-block w-6 shrink-0 self-center ${
+              dashed ? "h-0 border-b-2" : "h-1.5 rounded"
+            }`}
+            style={
+              dashed
+                ? {
+                    borderColor: color,
+                    borderStyle: "dashed",
+                    opacity: 0.9,
+                  }
+                : { backgroundColor: color }
+            }
+          />
+          <span className="text-text">{label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface MapLegendFilterProps {
   /** Which statuses are currently visible */

@@ -1,8 +1,11 @@
-/** Unified color palette for street polylines */
+/** Unified color palette for street polylines - matches filter pill colors */
 export const MAP_COLORS = {
   COMPLETED: "#16a34a",
-  PARTIAL: "#ca8a04",
+  ALMOST_THERE: "#ca8a04",
+  IN_PROGRESS: "#2563eb",
   NOT_RUN: "#9ca3af",
+  /** @deprecated Use ALMOST_THERE or IN_PROGRESS */
+  PARTIAL: "#ca8a04",
   HIGHLIGHT: "#2563eb",
   UNCOVERED: "#dadce0",
 } as const;
@@ -14,6 +17,8 @@ export const MAP_WEIGHTS = {
 
 export const MAP_DASH = {
   PARTIAL: "6, 6",
+  ALMOST_THERE: "6, 6",
+  IN_PROGRESS: "6, 6",
   NOT_RUN: "4, 8",
   UNCOVERED: "4, 8",
 } as const;

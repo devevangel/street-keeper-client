@@ -11,6 +11,7 @@ import {
   MAP_DASH,
   MAP_WEIGHTS,
 } from "./mapConstants";
+import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
 
 const OPACITY = 0.85;
 const OPACITY_PARTIAL = 0.75;
@@ -91,15 +92,17 @@ function UnifiedStreetPolyline({
     return null;
   }
 
-  const isCompleted = street.status === "completed";
-  const isNotStarted = street.status === "not_started";
+  const completed = street.status === "completed";
+  const bin: FilterStatus = getStreetBin(street.percentage ?? 0, completed);
 
-  const statusLabel =
-    street.status === "completed"
-      ? "Completed"
-      : street.status === "partial"
-        ? "In progress"
-        : "Not started";
+  const BIN_LABELS: Record<FilterStatus, string> = {
+    all: "All",
+    completed: "Completed",
+    almostThere: "Almost there",
+    inProgress: "In progress",
+    notStarted: "Not started",
+  };
+  const statusLabel = BIN_LABELS[bin];
 
   if (highlight) {
     return (
@@ -127,7 +130,7 @@ function UnifiedStreetPolyline({
     );
   }
 
-  if (isNotStarted) {
+  if (bin === "notStarted") {
     return (
       <Polyline
         positions={fullPositions}
@@ -151,7 +154,7 @@ function UnifiedStreetPolyline({
     );
   }
 
-  if (isCompleted) {
+  if (bin === "completed") {
     return (
       <Polyline
         positions={fullPositions}
@@ -177,6 +180,9 @@ function UnifiedStreetPolyline({
     );
   }
 
+  const polyColor = bin === "almostThere" ? MAP_COLORS.ALMOST_THERE : MAP_COLORS.IN_PROGRESS;
+  const polyDash = bin === "almostThere" ? MAP_DASH.ALMOST_THERE : MAP_DASH.IN_PROGRESS;
+
   const hasCoveredGeometry = street.coveredGeometry?.coordinates?.length;
   if (hasCoveredGeometry && street.coveredGeometry) {
     const coveredPositions = geoJsonToLeaflet(street.coveredGeometry.coordinates);
@@ -198,7 +204,7 @@ function UnifiedStreetPolyline({
             positions={coveredPositions}
             pathOptions={{
               ...PATH_OPTIONS_BASE,
-              color: MAP_COLORS.PARTIAL,
+              color: polyColor,
               weight: MAP_WEIGHTS.DEFAULT,
               opacity: OPACITY_PARTIAL,
             }}
@@ -225,10 +231,10 @@ function UnifiedStreetPolyline({
       positions={fullPositions}
       pathOptions={{
         ...PATH_OPTIONS_BASE,
-        color: MAP_COLORS.PARTIAL,
+        color: polyColor,
         weight: MAP_WEIGHTS.DEFAULT,
         opacity: OPACITY_PARTIAL,
-        dashArray: MAP_DASH.PARTIAL,
+        dashArray: polyDash,
       }}
     >
       <Popup>
