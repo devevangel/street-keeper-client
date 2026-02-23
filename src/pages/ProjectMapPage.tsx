@@ -156,12 +156,12 @@ export function ProjectMapPage() {
 
   if (error && !mapData) {
     return (
-      <Card className="max-w-md">
-        <p className="text-danger">{error}</p>
-        <Button variant="secondary" onClick={fetchMap} className="mt-2">
+      <Card className="m-4 max-w-md space-y-4">
+        <p className="text-sm text-danger">{error}</p>
+        <Button variant="secondary" onClick={fetchMap}>
           Retry
         </Button>
-        <Link to={`/projects/${id}`} className="mt-3 block">
+        <Link to={`/projects/${id}`} className="block text-sm text-text-muted hover:underline">
           Back to project
         </Link>
       </Card>
@@ -182,8 +182,8 @@ export function ProjectMapPage() {
 
   return (
     <div className="flex min-h-screen flex-col p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <Link
             to={`/projects/${id}`}
             className="text-sm text-text-muted hover:underline"
@@ -193,7 +193,7 @@ export function ProjectMapPage() {
           <h1 className="text-xl font-bold text-text">{mapData.name}</h1>
         </div>
       </div>
-      <p className="mb-3 text-sm text-text-muted">
+      <p className="mb-4 text-sm text-text-muted">
         {mapData.stats.completedStreetNames ?? mapData.stats.completedStreets}{" "}
         completed · {mapData.stats.partialStreets} partial ·{" "}
         {mapData.stats.notRunStreets} not run
@@ -214,18 +214,18 @@ export function ProjectMapPage() {
             className="h-full w-full"
           />
         </div>
-        <aside className="w-full shrink-0 border-border bg-surface md:w-[340px] md:overflow-y-auto md:border-l-2">
+        <aside className="w-full shrink-0 border-border bg-surface md:w-[340px] md:overflow-y-auto md:border-l">
           <div className="flex flex-col gap-4 p-4">
-            <h3 className="text-sm font-semibold text-text">Streets</h3>
+            <h3 className="text-base font-semibold text-text">Streets</h3>
             <details className="space-y-2" open>
-              <summary className="cursor-pointer rounded border-2 border-border bg-surface px-3 py-2 text-sm font-bold uppercase tracking-wide text-text-muted min-h-[44px] flex items-center">
+              <summary className="flex min-h-[44px] cursor-pointer items-center rounded-lg border border-border bg-surface px-4 py-3 text-sm font-semibold uppercase tracking-wide text-text-muted">
                 Streets ({groupedStreets.filter((g) => !g.completed).length} to complete)
               </summary>
-              <Card padding="sm" className="mt-1 max-h-[40vh] overflow-y-auto md:max-h-[50vh]">
+              <Card padding="sm" className="mt-2 max-h-[40vh] overflow-y-auto md:max-h-[50vh]">
                 {groupedStreets.length === 0 ? (
-                  <p className="text-text-muted text-sm">No streets</p>
+                  <p className="text-sm text-text-muted">No streets</p>
                 ) : (
-                  <ul className="list-none divide-y divide-border space-y-0 p-0">
+                  <ul className="list-none divide-y divide-border p-0">
                     {groupedStreets
                       .filter((g) => !g.completed)
                       .map((row) => (
@@ -238,7 +238,7 @@ export function ProjectMapPage() {
                         />
                       ))}
                     {groupedStreets.every((g) => g.completed) && (
-                      <li className="px-3 py-2 text-sm text-text-muted">
+                      <li className="px-4 py-3 text-sm text-text-muted">
                         All streets completed!
                       </li>
                     )}

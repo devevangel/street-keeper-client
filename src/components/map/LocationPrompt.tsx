@@ -1,17 +1,21 @@
 /**
- * LocationPrompt Component
+ * LocationPrompt
  * Asks user to enable geolocation. Shows loading or error state with retry.
- * Used on HomePage before fetching map streets.
+ * Used on HomePage before fetching map streets. Follows EmptyState pattern for error.
+ *
+ * @example
+ * <LocationPrompt isLoading={loading} error={error} onRetry={requestPermission} />
  */
 
-import { Card } from "../common";
+import { Button } from "../common/Button";
+import { EmptyState } from "../common/EmptyState";
 
 interface LocationPromptProps {
   /** True while waiting for geolocation permission/result */
   isLoading: boolean;
   /** Error message if permission denied or unavailable */
   error: string | null;
-  /** Callback when user clicks "Try again" */
+  /** Callback when user clicks the retry/enable action */
   onRetry: () => void;
 }
 
@@ -27,7 +31,7 @@ export function LocationPrompt({
         role="status"
         aria-label="Requesting location"
       >
-        <p className="text-text-muted">Requesting your location...</p>
+        <p className="text-base text-text-muted">Requesting your location…</p>
         <p className="text-sm text-text-muted">
           Allow access to show streets near you.
         </p>
@@ -37,19 +41,12 @@ export function LocationPrompt({
 
   if (error) {
     return (
-      <Card>
-        <h2 className="mb-2 text-xl font-bold">Location needed</h2>
-        <p className="mb-4 text-text-muted" role="alert">
-          {error}
-        </p>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="border-2 border-border bg-surface px-4 py-2 font-bold text-text hover:opacity-90"
-        >
-          Try again
-        </button>
-      </Card>
+      <EmptyState
+        title="Location needed"
+        description={error}
+        action="Enable location"
+        onAction={onRetry}
+      />
     );
   }
 

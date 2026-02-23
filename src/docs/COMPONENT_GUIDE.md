@@ -96,7 +96,7 @@ Container for grouped content. Uses `bg-surface` and `border-border`.
 
 | Prop        | Type                                      | Default | Description          |
 | ----------- | ----------------------------------------- | ------- | -------------------- |
-| `padding`   | `"none"` \| `"sm"` \| `"md"` \| `"large"` | `"md"`  | Inner padding        |
+| `padding`   | `"none"` \| `"sm"` \| `"md"` \| `"lg"` | `"md"`  | Inner padding        |
 | `children`  | `ReactNode`                               | -       | Content              |
 | `className` | `string`                                  | `""`    | Extra classes        |
 | ...         | `HTMLAttributes<HTMLDivElement>`          | -       | Any native div props |
@@ -111,7 +111,7 @@ import { Card } from "../components/common";
   <p>...</p>
 </Card>
 
-<Card padding="large" className="mt-4">
+<Card padding="lg" className="mt-4">
   ...
 </Card>
 ```

@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "../common/Button";
 import { Card } from "../common/Card";
+import { MetricBlock } from "../common/MetricBlock";
 import { SuggestionCard } from "./SuggestionCard";
 import { ProjectCardWithStreets } from "./ProjectCardWithStreets";
 import { UniversalSearchInput } from "../projects/UniversalSearchInput";
@@ -303,6 +304,17 @@ export function ReturningUserHomepage({
 
   const featuredProjects = projects.slice(0, 3);
 
+  const heroMetricTotals = useMemo(() => {
+    let completed = 0;
+    let total = 0;
+    for (const p of featuredProjects) {
+      completed += p.completedStreetNames ?? p.completedStreets ?? 0;
+      total += p.totalStreetNames ?? p.totalStreets ?? 0;
+    }
+    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+    return { completed, total, percentage };
+  }, [featuredProjects]);
+
   const handleBinCountsReport = useCallback((projectId: string, counts: { completed: number; almostThere: number; inProgress: number; notStarted: number }) => {
     binCountsByProjectRef.current[projectId] = counts;
     const totals = Object.values(binCountsByProjectRef.current).reduce(
@@ -377,20 +389,29 @@ export function ReturningUserHomepage({
               />
             </div>
 
-            {/* Sync button */}
+            {/* Hero metric: total progress across featured projects */}
+            {featuredProjects.length > 0 && heroMetricTotals.total > 0 && (
+              <Card padding="md" className="space-y-1">
+                <MetricBlock label="Your progress" value={heroMetricTotals.completed} size="md" />
+                <span className="text-sm text-text-muted">
+                  of {heroMetricTotals.total} streets · {heroMetricTotals.percentage}%
+                </span>
+              </Card>
+            )}
+
+            {/* Sync button – single secondary action per guide; verb phrase label */}
             <div className="flex flex-col gap-2">
               <Button
                 variant="secondary"
-                size="sm"
                 onClick={handleSync}
                 disabled={syncing}
                 className="w-full"
               >
-                {syncing ? "Syncing…" : "Sync from Strava"}
+                {syncing ? "Syncing activities…" : "Sync activities from Strava"}
               </Button>
               {syncResult && (
                 <span
-                  className={`text-sm ${syncResult.error ? "text-red-500" : "text-success"}`}
+                  className={`text-sm ${syncResult.error ? "text-danger" : "text-success"}`}
                 >
                   {syncResult.error ??
                     (syncResult.synced > 0
@@ -424,13 +445,13 @@ export function ReturningUserHomepage({
 
             {/* Global filter pills - only show once streets are loaded or show just the active filter */}
             {featuredProjects.length > 0 && (
-              <div className="flex gap-1.5" role="group" aria-label="Filter streets">
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Filter streets">
                 {/* Only show "All" if it's active OR if we have any bin counts (streets loaded) */}
                 {(activeFilter === "all" || Object.values(binCounts).some(c => c > 0)) && (
                   <button
                     type="button"
                     onClick={() => setActiveFilter("all")}
-                    className={`flex-[0.95] rounded-full border px-1.5 py-1 text-xs font-medium transition-all ${
+                    className={`min-h-[44px] flex-[0.95] rounded-full border px-3 py-2 text-sm font-medium transition-all ${
                       activeFilter === "all"
                         ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
                         : "border-border bg-surface text-text-muted hover:bg-border/50 hover:border-text-muted"
@@ -449,7 +470,7 @@ export function ReturningUserHomepage({
                       key={key}
                       type="button"
                       onClick={() => setActiveFilter(key)}
-                      className={`flex-[0.95] inline-flex items-center justify-center gap-1 rounded-full border px-1.5 py-1 text-xs font-medium transition-all ${
+                      className={`min-h-[44px] flex-[0.95] inline-flex items-center justify-center gap-1 rounded-full border px-3 py-2 text-sm font-medium transition-all ${
                         isActive
                           ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
                           : "border-border bg-surface text-text-muted hover:bg-border/50 hover:border-text-muted"
@@ -469,8 +490,8 @@ export function ReturningUserHomepage({
                 <p className="text-text-muted text-sm">Loading projects…</p>
               </Card>
             ) : featuredProjects.length > 0 ? (
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-text">Featured Projects</h3>
+              <div className="space-y-4">
+                <h3 className="text-base font-semibold text-text">Featured Projects</h3>
                 {featuredProjects.map((project) => (
                   <ProjectCardWithStreets
                     key={project.id}

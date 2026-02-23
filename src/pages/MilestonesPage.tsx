@@ -11,7 +11,7 @@ import {
   deleteMilestone,
 } from "../services/milestones.service";
 import { projectsService } from "../services/projects.service";
-import { Button, Input } from "../components/common";
+import { Button, Input, Select } from "../components/common";
 import { CreateMilestoneModal } from "../components/projects/CreateMilestoneModal";
 import { ROUTES } from "../config/constants";
 import type { MilestoneWithProgress } from "../types/api.types";
@@ -36,21 +36,23 @@ function MilestoneRow({
   const canDelete = kind === "custom" && onDelete;
 
   return (
-    <div className="flex items-center gap-3 border-b border-border py-3 last:border-b-0">
-      <button
+    <div className="flex min-h-[56px] items-center gap-4 border-b border-border px-4 py-3 last:border-b-0">
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => onPinChange(id, !isPinned)}
-        className="shrink-0 rounded p-1 text-text-muted hover:bg-muted hover:text-text"
+        className="min-w-[44px] shrink-0"
         aria-label={isPinned ? "Unpin milestone" : "Pin milestone"}
         title={isPinned ? "Unpin" : "Pin"}
       >
         {isPinned ? "📌" : "📍"}
-      </button>
+      </Button>
       <div className="min-w-0 flex-1">
         <div className="font-medium text-text">{name}</div>
         <div className="mt-1 flex items-center gap-2">
           <div
-            className="h-2 flex-1 overflow-hidden rounded bg-border"
+            className="h-2 flex-1 overflow-hidden rounded-full bg-border/30"
             role="progressbar"
             aria-valuenow={pct}
             aria-valuemin={0}
@@ -68,7 +70,7 @@ function MilestoneRow({
             {progress.currentValue} / {progress.targetValue} {progress.unit}
           </span>
         </div>
-        <div className="mt-1 text-xs text-text-muted">
+        <div className="mt-1 text-sm text-text-muted">
           {projectName ?? "Global"}
         </div>
       </div>
@@ -81,15 +83,17 @@ function MilestoneRow({
         </Link>
       )}
       {canDelete && (
-        <button
+        <Button
           type="button"
+          variant="danger"
+          size="sm"
           onClick={() => onDelete(id)}
-          className="shrink-0 rounded p-1 text-text-muted hover:bg-danger/20 hover:text-danger"
+          className="min-w-[44px] shrink-0"
           aria-label="Delete milestone"
           title="Delete"
         >
           🗑
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -176,7 +180,7 @@ export function MilestonesPage() {
         Track and complete goals. Filter to find easy wins or ones you’re close to finishing.
       </p>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-4">
         <Input
           type="search"
           placeholder="Search by name…"
@@ -185,38 +189,36 @@ export function MilestonesPage() {
           className="min-w-[180px] flex-1"
           aria-label="Search milestones by name"
         />
-        <select
+        <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          className="rounded border border-border bg-bg px-3 py-2 text-text text-sm"
+          options={[
+            { value: "all", label: "All" },
+            { value: "almost_there", label: "Almost there (≥70%)" },
+            { value: "in_progress", label: "In progress" },
+            { value: "not_started", label: "Not started" },
+          ]}
           aria-label="Filter by progress"
-        >
-          <option value="all">All</option>
-          <option value="almost_there">Almost there (≥70%)</option>
-          <option value="in_progress">In progress</option>
-          <option value="not_started">Not started</option>
-        </select>
-        <select
+          className="min-w-[180px]"
+        />
+        <Select
           value={scopeFilter}
           onChange={(e) => setScopeFilter(e.target.value as ScopeFilter)}
-          className="rounded border border-border bg-bg px-3 py-2 text-text text-sm"
+          options={[
+            { value: "all", label: "All projects" },
+            { value: "global", label: "Global only" },
+            ...projects.map((p) => ({ value: p.id, label: p.name })),
+          ]}
           aria-label="Filter by project"
-        >
-          <option value="all">All projects</option>
-          <option value="global">Global only</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+          className="min-w-[180px]"
+        />
       </div>
 
       {filteredMilestones.length === 0 ? (
-        <div className="rounded border border-border bg-surface p-6 text-center text-text-muted">
+        <div className="rounded-lg border border-border bg-surface p-6 text-center">
           {milestones.length === 0 ? (
-            <>
-              <p className="mb-3">No milestones yet.</p>
+            <div className="space-y-4">
+              <p className="text-sm text-text-muted">No milestones yet.</p>
               <Button
                 type="button"
                 variant="primary"
@@ -224,13 +226,13 @@ export function MilestonesPage() {
               >
                 Add your first milestone
               </Button>
-            </>
+            </div>
           ) : (
-            <p>No milestones match your filters. Try changing search or filters.</p>
+            <p className="text-sm text-text-muted">No milestones match your filters. Try changing search or filters.</p>
           )}
         </div>
       ) : (
-        <div className="rounded border border-border bg-surface p-3">
+        <div className="overflow-hidden rounded-lg border border-border bg-surface">
           {filteredMilestones.map((m) => (
             <MilestoneRow
               key={m.id}
@@ -248,6 +250,7 @@ export function MilestonesPage() {
           <Button
             type="button"
             variant="secondary"
+            size="md"
             onClick={() => setCreateModalOpen(true)}
           >
             Add global milestone

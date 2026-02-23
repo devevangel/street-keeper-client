@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button, Card } from "../components/common";
+import { Button, Card, Select } from "../components/common";
 import { usePreferences } from "../contexts/PreferencesContext";
 import { ROUTES, DEFAULT_PROJECT_RADIUS_METERS } from "../config/constants";
 
@@ -75,48 +75,42 @@ export function PreferencesPage() {
 
       <h1 className="text-2xl font-bold text-text mb-4">Preferences</h1>
 
-      <Card className="space-y-6 p-4">
-        <div>
-          <label className="block text-sm font-medium text-text mb-2">Distance unit</label>
-          <select
-            value={distanceUnit}
-            onChange={(e) => setDistanceUnit(e.target.value)}
-            className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <option value="km">Kilometers</option>
-            <option value="miles">Miles</option>
-            <option value="meters">Meters</option>
-          </select>
-        </div>
+      <Card className="space-y-6">
+        <Select
+          label="Distance unit"
+          value={distanceUnit}
+          onChange={(e) => setDistanceUnit(e.target.value)}
+          options={[
+            { value: "km", label: "Kilometers" },
+            { value: "miles", label: "Miles" },
+            { value: "meters", label: "Meters" },
+          ]}
+        />
 
-        <div>
-          <label className="block text-sm font-medium text-text mb-2">Theme</label>
-          <select
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-            className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <option value="system">System</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </div>
+        <Select
+          label="Theme"
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          options={[
+            { value: "system", label: "System" },
+            { value: "light", label: "Light" },
+            { value: "dark", label: "Dark" },
+          ]}
+        />
 
-        <div>
-          <label className="block text-sm font-medium text-text mb-2">Date format</label>
-          <select
-            value={dateFormat}
-            onChange={(e) => setDateFormat(e.target.value)}
-            className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <option value="short">Short (e.g. Jan 15, 26)</option>
-            <option value="long">Long (e.g. January 15, 2026)</option>
-            <option value="numeric">Numeric (e.g. 15/01/2026)</option>
-          </select>
-        </div>
+        <Select
+          label="Date format"
+          value={dateFormat}
+          onChange={(e) => setDateFormat(e.target.value)}
+          options={[
+            { value: "short", label: "Short (e.g. Jan 15, 26)" },
+            { value: "long", label: "Long (e.g. January 15, 2026)" },
+            { value: "numeric", label: "Numeric (e.g. 15/01/2026)" },
+          ]}
+        />
 
-        <div>
-          <label className="block text-sm font-medium text-text mb-2">Default map zoom (13–19)</label>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-text">Default map zoom (13–19)</label>
           <input
             type="range"
             min={13}
@@ -128,45 +122,41 @@ export function PreferencesPage() {
           <span className="text-sm text-text-muted">{defaultMapZoom}</span>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-text mb-2">Default project radius (m)</label>
-          <select
-            value={defaultProjectRadius}
-            onChange={(e) => setDefaultProjectRadius(Number(e.target.value))}
-            className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <option value={100}>100 m</option>
-            <option value={200}>200 m</option>
-            <option value={300}>300 m</option>
-            <option value={500}>500 m</option>
-            <option value={1000}>1 km</option>
-            <option value={2000}>2 km</option>
-            <option value={5000}>5 km</option>
-          </select>
-        </div>
+        <Select
+          label="Default project radius (m)"
+          value={String(defaultProjectRadius)}
+          onChange={(e) => setDefaultProjectRadius(Number(e.target.value))}
+          options={[
+            { value: "100", label: "100 m" },
+            { value: "200", label: "200 m" },
+            { value: "300", label: "300 m" },
+            { value: "500", label: "500 m" },
+            { value: "1000", label: "1 km" },
+            { value: "2000", label: "2 km" },
+            { value: "5000", label: "5 km" },
+          ]}
+        />
 
-        <div>
-          <label className="block text-sm font-medium text-text mb-2">Default street filter (homepage)</label>
-          <select
-            value={defaultStreetFilter}
-            onChange={(e) => setDefaultStreetFilter(e.target.value)}
-            className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <option value="all">All</option>
-            <option value="completed">Completed</option>
-            <option value="almostThere">Almost there</option>
-            <option value="inProgress">In progress</option>
-            <option value="notStarted">Not started</option>
-          </select>
-        </div>
+        <Select
+          label="Default street filter (homepage)"
+          value={defaultStreetFilter}
+          onChange={(e) => setDefaultStreetFilter(e.target.value)}
+          options={[
+            { value: "all", label: "All" },
+            { value: "completed", label: "Completed" },
+            { value: "almostThere", label: "Almost there" },
+            { value: "inProgress", label: "In progress" },
+            { value: "notStarted", label: "Not started" },
+          ]}
+        />
 
         {message && (
-          <p className={`text-sm ${message.type === "success" ? "text-success" : "text-danger"}`}>
+          <p className={`text-sm ${message.type === "success" ? "text-success" : "text-danger"}`} role="status">
             {message.text}
           </p>
         )}
 
-        <Button onClick={handleSave} disabled={saving || !updatePreferencesFn} className="w-full">
+        <Button variant="primary" size="md" onClick={handleSave} disabled={saving || !updatePreferencesFn} className="w-full">
           {saving ? "Saving…" : "Save preferences"}
         </Button>
       </Card>

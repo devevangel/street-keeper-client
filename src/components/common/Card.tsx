@@ -7,15 +7,15 @@ import type { HTMLAttributes, ReactNode } from "react";
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
-  /** Padding: none | sm | md | large */
-  padding?: "none" | "sm" | "md" | "large";
+  /** Padding: none | sm | md | lg */
+  padding?: "none" | "sm" | "md" | "lg";
 }
 
 const paddingStyles = {
   none: "p-0",
   sm: "p-2",
   md: "p-4",
-  large: "p-6",
+  lg: "p-6",
 } as const;
 
 export function Card({
@@ -27,7 +27,7 @@ export function Card({
   return (
     <div
       className={[
-        "bg-surface border-2 border-border",
+        "bg-surface border border-border",
         paddingStyles[padding],
         className,
       ].join(" ")}

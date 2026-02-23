@@ -114,12 +114,12 @@ export function ProjectSuggestionsMapPage() {
 
   if (error && !mapData) {
     return (
-      <Card className="max-w-md">
-        <p className="text-danger">{error}</p>
-        <Button variant="secondary" onClick={fetchData} className="mt-2">
+      <Card className="m-4 max-w-md space-y-4">
+        <p className="text-sm text-danger">{error}</p>
+        <Button variant="secondary" onClick={fetchData}>
           Retry
         </Button>
-        <Link to={`/projects/${id}`} className="mt-3 block">
+        <Link to={`/projects/${id}`} className="block text-sm text-text-muted hover:underline">
           Back to project
         </Link>
       </Card>
@@ -133,8 +133,8 @@ export function ProjectSuggestionsMapPage() {
 
   return (
     <div className="flex min-h-screen flex-col p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <Link
             to={`/projects/${id}`}
             className="text-sm text-text-muted hover:underline"
@@ -146,7 +146,7 @@ export function ProjectSuggestionsMapPage() {
           </h1>
         </div>
       </div>
-      <p className="mb-3 text-sm text-text-muted">
+      <p className="mb-4 text-sm text-text-muted">
         {suggestedOsmIds.size} suggested street(s) highlighted in blue
       </p>
       <div className="flex-1" style={{ minHeight: "500px", height: "70vh" }}>

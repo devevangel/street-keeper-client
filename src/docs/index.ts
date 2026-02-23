@@ -3,6 +3,7 @@
  * Exports all markdown docs for the in-app docs viewer.
  */
 
+import about from "./ABOUT.md?raw";
 import codingPatterns from "./CODING_PATTERNS.md?raw";
 import componentGuide from "./COMPONENT_GUIDE.md?raw";
 import designTokens from "./DESIGN_TOKENS.md?raw";
@@ -18,6 +19,11 @@ export interface DocEntry {
 }
 
 export const DOCS: DocEntry[] = [
+  {
+    slug: "about",
+    title: "About Street Keeper",
+    content: about,
+  },
   {
     slug: "coding-patterns",
     title: "Coding Patterns",

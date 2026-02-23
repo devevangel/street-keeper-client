@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "../common/Card";
+import { MetricBlock } from "../common/MetricBlock";
 import { StreetListItem, type StreetListItemData } from "../common";
 import { projectsService } from "../../services/projects.service";
 import { ROUTES } from "../../config/constants";
@@ -117,22 +118,25 @@ export function ProjectCardWithStreets({
   }, [onStreetBlur]);
 
   return (
-    <Card padding="sm" className="space-y-2">
+    <Card padding="sm" className="space-y-3">
       <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <button
-            type="button"
-            onClick={() => navigate(`${ROUTES.PROJECTS_LIST}/${project.id}`)}
-            className="text-left text-sm font-medium text-accent hover:underline"
-          >
-            {project.name}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => navigate(`${ROUTES.PROJECTS_LIST}/${project.id}`)}
+          className="text-left text-base font-medium text-accent hover:underline"
+        >
+          {project.name}
+        </button>
       </div>
-      <div className="text-sm text-text-muted">
-        {project.completedStreetNames ?? project.completedStreets} /{" "}
-        {project.totalStreetNames ?? project.totalStreets} streets ·{" "}
-        {Math.round(project.progress)}%
+      <div className="space-y-0.5">
+        <MetricBlock
+          label="Streets completed"
+          value={completedNames}
+          size="md"
+        />
+        <span className="text-sm text-text-muted">
+          of {totalNames} streets · {Math.round(project.progress)}%
+        </span>
       </div>
 
       {/* Collapsible streets inside the card */}
@@ -141,17 +145,17 @@ export function ProjectCardWithStreets({
         onToggle={(e) => setExpanded(e.currentTarget.open)}
         className="space-y-2"
       >
-        <summary className="cursor-pointer rounded border-2 border-border bg-surface px-3 py-2 text-sm font-bold uppercase tracking-wide text-text-muted flex items-center min-h-[44px] hover:text-text">
+        <summary className="flex min-h-[44px] cursor-pointer items-center rounded-lg border border-border bg-surface px-4 py-3 text-sm font-semibold uppercase tracking-wide text-text-muted hover:text-text">
           Streets ({leftToComplete} to complete)
         </summary>
         {expanded && (
-          <Card padding="sm" className="mt-1 max-h-[40vh] space-y-1 overflow-y-auto">
+          <div className="mt-2 max-h-[40vh] overflow-y-auto border border-border bg-surface">
             {streetsLoading ? (
-              <p className="text-text-muted text-sm">Loading streets…</p>
+              <p className="px-4 py-3 text-sm text-text-muted">Loading streets…</p>
             ) : grouped.length === 0 ? (
-              <p className="text-text-muted text-sm">No streets found</p>
+              <p className="px-4 py-3 text-sm text-text-muted">No streets found</p>
             ) : (
-              <ul className="list-none divide-y divide-border space-y-0 p-0">
+              <ul className="list-none divide-y divide-border p-0">
                 {filtered.map((row) => (
                   <StreetListItem
                     key={row.name}
@@ -162,18 +166,18 @@ export function ProjectCardWithStreets({
                   />
                 ))}
                 {filtered.length === 0 && (
-                  <li className="px-3 py-2 text-sm text-text-muted">
+                  <li className="px-4 py-3 text-sm text-text-muted">
                     {activeFilter === "all" ? "No streets found" : "No streets in this category"}
                   </li>
                 )}
                 {activeFilter === "all" && incompleteCount === 0 && grouped.length > 0 && (
-                  <li className="px-3 py-2 text-sm text-text-muted">
+                  <li className="px-4 py-3 text-sm text-text-muted">
                     All streets completed!
                   </li>
                 )}
               </ul>
             )}
-          </Card>
+          </div>
         )}
       </details>
     </Card>

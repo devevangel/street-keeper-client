@@ -1,10 +1,15 @@
 /**
  * HomePage
  * Unified homepage layout: map, search, sync, suggestions, and project cards.
+ * Handles geolocation, map street fetching, and delegates to ReturningUserHomepage when data is ready.
+ * Shows LocationPrompt when location is needed and EmptyState when street fetch fails.
+ *
+ * @example
+ * <Route path="/" element={<HomePage />} />
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Card } from "../components/common";
+import { EmptyState } from "../components/common";
 import { ReturningUserHomepage } from "../components/homepage";
 import { LocationPrompt } from "../components/map";
 import { useAnalytics } from "../contexts/AnalyticsContext";
@@ -165,12 +170,12 @@ export function HomePage() {
 
   if (fetchError) {
     return (
-      <Card>
-        <h2 className="mb-2 text-xl font-bold">Could not load streets</h2>
-        <p className="text-text-muted" role="alert">
-          {fetchError}
-        </p>
-      </Card>
+      <EmptyState
+        title="Could not load streets"
+        description={`${fetchError} Try again or move the map to refresh.`}
+        action="Try again"
+        onAction={refetchMapStreets}
+      />
     );
   }
 

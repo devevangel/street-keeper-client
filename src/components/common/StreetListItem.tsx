@@ -1,9 +1,9 @@
 /**
- * StreetListItem – Reusable street list item with hover/click highlight support.
+ * StreetListItem – Reusable street list item with click-to-highlight support.
  * Used in HomePage project cards and ProjectCreatePage preview.
+ * Highlight is triggered only on click (not hover) so the map does not jump when moving the cursor.
  */
 
-import { useMediaQuery } from "../../hooks";
 import { usePreferences } from "../../contexts/PreferencesContext";
 
 export interface StreetListItemData {
@@ -30,40 +30,37 @@ export function StreetListItem({
   onClearHighlight,
   variant = "homepage",
 }: StreetListItemProps) {
-  const hasHover = useMediaQuery("(hover: hover)");
   const preferences = usePreferences();
   const formatDistance = preferences?.formatDistance ?? ((m: number, p = 1) => `${(m / 1000).toFixed(p)} km`);
 
-  const handleAction = () => {
+  const handleClick = () => {
     onHighlight(street);
   };
 
+  const segmentLabel =
+    variant === "homepage" && street.segmentCount != null
+      ? street.segmentCount === 1
+        ? "1 segment"
+        : `${street.segmentCount} segments`
+      : null;
+
   return (
     <li
-      className="cursor-pointer px-3 py-2 text-sm hover:bg-border/10 even:bg-border/5"
-      onClick={hasHover ? undefined : handleAction}
-      onMouseEnter={hasHover ? handleAction : undefined}
-      onMouseLeave={hasHover ? onClearHighlight : undefined}
+      className="flex min-h-[56px] cursor-pointer flex-col justify-center px-4 py-3 text-sm hover:bg-border/10 even:bg-border/5"
+      onClick={handleClick}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          handleAction();
+          handleClick();
         }
       }}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-medium text-text">
-          {street.name}
-          {variant !== "minimal" && street.segmentCount && street.segmentCount > 1 && (
-            <span className="ml-1.5 text-text-muted text-xs font-normal">
-              ({street.segmentCount} parts)
-            </span>
-          )}
-        </span>
+        <span className="font-medium text-text">{street.name}</span>
         {variant === "homepage" && street.percentage !== undefined && (
-          <span className="text-text-muted">{Math.round(street.percentage)}%</span>
+          <span className="shrink-0 text-text-muted">{Math.round(street.percentage)}%</span>
         )}
         {variant === "preview" && (
           <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -78,6 +75,12 @@ export function StreetListItem({
           </div>
         )}
       </div>
+      {variant === "homepage" && segmentLabel && (
+        <div className="mt-0.5 text-sm text-text-muted">
+          {segmentLabel}
+          {street.completed && " · Complete"}
+        </div>
+      )}
     </li>
   );
 }

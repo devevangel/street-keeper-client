@@ -65,12 +65,12 @@ export function ProjectHeatmapPage() {
 
   if (error && !heatmapData) {
     return (
-      <Card className="max-w-md">
-        <p className="text-danger">{error}</p>
-        <Button variant="secondary" onClick={fetchData} className="mt-2">
+      <Card className="m-4 max-w-md space-y-4">
+        <p className="text-sm text-danger">{error}</p>
+        <Button variant="secondary" onClick={fetchData}>
           Retry
         </Button>
-        <Link to={`/projects/${id}`} className="mt-3 block">
+        <Link to={`/projects/${id}`} className="block text-sm text-text-muted hover:underline">
           Back to project
         </Link>
       </Card>
@@ -87,23 +87,23 @@ export function ProjectHeatmapPage() {
 
   return (
     <div className="flex flex-col p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <Link
             to={`/projects/${id}`}
             className="text-sm text-text-muted hover:underline"
           >
-            Back to project
+            ← Back to project
           </Link>
           <h1 className="text-xl font-bold text-text">
             {projectName ?? "Project"} – Heatmap
           </h1>
         </div>
       </div>
-      <p className="mb-3 text-text-muted text-sm">
+      <p className="mb-4 text-sm text-text-muted">
         Activity density: brighter areas = more runs through that spot.
       </p>
-      <div className="w-full overflow-hidden rounded border-2 border-border" style={{ minHeight: "400px", height: "70vh" }}>
+      <div className="w-full overflow-hidden rounded-lg border border-border" style={{ minHeight: "400px", height: "70vh" }}>
         <UnifiedMap
           center={center}
           zoom={DEFAULT_ZOOM}

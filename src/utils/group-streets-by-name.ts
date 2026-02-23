@@ -6,6 +6,8 @@ export interface GroupedStreet {
   percentage: number;
   completed: boolean;
   osmIds: string[];
+  /** Number of segments (ways) grouped under this street name */
+  segmentCount: number;
 }
 
 /** Group streets by name and include all osmIds for highlighting all segments. */
@@ -36,6 +38,7 @@ export function groupStreetsByName(streets: SnapshotStreet[]): GroupedStreet[] {
       percentage: Math.round(weightedPct),
       completed,
       osmIds: ways.map((w) => w.osmId),
+      segmentCount: ways.length,
     });
   }
   result.sort((a, b) => a.name.localeCompare(b.name));
@@ -72,6 +75,7 @@ export function groupProjectMapStreetsByName(
       percentage: Math.round(weightedPct),
       completed,
       osmIds: ways.map((w) => w.osmId),
+      segmentCount: ways.length,
     });
   }
   result.sort((a, b) => a.name.localeCompare(b.name));

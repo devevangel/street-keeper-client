@@ -46,7 +46,7 @@ export function LoginPage() {
 
         {errorMessage && (
           <p
-            className="mb-4 border-2 border-danger bg-danger/10 p-2 text-danger"
+            className="mb-4 border border-danger bg-danger/10 p-3 text-sm text-danger"
             role="alert"
           >
             {errorMessage}
@@ -63,7 +63,7 @@ export function LoginPage() {
             Login with Strava
           </Button>
 
-          <div className="border-t-2 border-border pt-3">
+          <div className="border-t border-border pt-4">
             <p className="mb-2 text-sm text-text-muted">
               Development: use a user ID to bypass OAuth
             </p>
@@ -73,16 +73,15 @@ export function LoginPage() {
                 value={devUserId}
                 onChange={(e) => setDevUserId(e.target.value)}
                 placeholder="User UUID"
-                className="flex-1 border-2 border-border bg-surface px-3 py-2 text-text"
+                className="min-h-[44px] flex-1 border border-border bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-primary/50"
                 aria-label="Dev user ID"
               />
               <Button
                 type="button"
                 variant="secondary"
-                size="sm"
                 onClick={handleDevLogin}
               >
-                Use Dev User
+                Use dev user
               </Button>
             </div>
           </div>

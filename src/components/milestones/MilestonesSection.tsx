@@ -74,13 +74,13 @@ export function MilestonesSection({ projectId }: MilestonesSectionProps) {
   if (loading) {
     return (
       <details className="mb-4">
-        <summary className="cursor-pointer rounded border-2 border-border bg-surface px-3 py-2 text-sm font-bold uppercase tracking-wide text-text-muted min-h-[44px] flex items-center">
+        <summary className="cursor-pointer rounded-lg border border-border bg-surface px-4 py-3 text-sm font-semibold uppercase tracking-wide text-text-muted min-h-[44px] flex items-center">
           Your Goals
         </summary>
         <Card className="mt-1">
           <div className="space-y-3 p-2">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="p-4 border-2 border-border rounded-lg bg-surface animate-pulse">
+              <div key={i} className="p-4 border border-border rounded-lg bg-surface animate-pulse">
                 <div className="h-4 w-32 bg-muted rounded mb-2" />
                 <div className="h-2 bg-muted rounded" />
               </div>
@@ -98,7 +98,7 @@ export function MilestonesSection({ projectId }: MilestonesSectionProps) {
   return (
     <>
       <details className="mb-4">
-        <summary className="cursor-pointer rounded border-2 border-border bg-surface px-3 py-2 text-sm font-bold uppercase tracking-wide text-text-muted min-h-[44px] flex items-center">
+        <summary className="cursor-pointer rounded-lg border border-border bg-surface px-4 py-3 text-sm font-semibold uppercase tracking-wide text-text-muted min-h-[44px] flex items-center">
           Your Goals {totalMilestones > 0 && `(${milestones!.active.length} active${milestones!.completed.length > 0 ? `, ${milestones!.completed.length} completed` : ""})`}
         </summary>
         <Card className="mt-1">

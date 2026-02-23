@@ -34,10 +34,9 @@ export function DocsPage() {
           <Button
             type="button"
             variant="secondary"
-            size="sm"
             onClick={() => setSidebarOpen((o) => !o)}
           >
-            {sidebarOpen ? "Hide" : "Show"} menu
+            {sidebarOpen ? "Hide menu" : "Show menu"}
           </Button>
         </div>
         <main id="docs-main" className="max-w-4xl">

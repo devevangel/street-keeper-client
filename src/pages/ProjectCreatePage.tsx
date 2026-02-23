@@ -372,15 +372,15 @@ export function ProjectCreatePage() {
       </Link>
       <h2 className="text-2xl font-bold text-text">Create project</h2>
 
-      <div className="rounded border-2 border-border bg-surface/50 p-2">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
+      <div className="rounded-lg border border-border bg-surface/50 p-4">
+        <p className="mb-3 text-sm font-medium uppercase tracking-wide text-text-muted">
           Map tools
         </p>
         <div className="flex w-full justify-evenly gap-2">
           <button
             type="button"
             title="Pan / Select"
-            className={`flex h-9 w-9 items-center justify-center rounded border transition-all ${
+            className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border transition-all ${
               activeTool === "cursor"
                 ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
                 : "border-border bg-surface text-text hover:border-primary/50 hover:bg-border/20"
@@ -392,7 +392,7 @@ export function ProjectCreatePage() {
           <button
             type="button"
             title="Draw polygon area"
-            className={`flex h-9 w-9 items-center justify-center rounded border transition-all ${
+            className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border transition-all ${
               activeTool === "polygon"
                 ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
                 : "border-border bg-surface text-text hover:border-primary/50 hover:bg-border/20"
@@ -410,7 +410,7 @@ export function ProjectCreatePage() {
           <button
             type="button"
             title="Place marker pin"
-            className={`flex h-9 w-9 items-center justify-center rounded border transition-all ${
+            className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border transition-all ${
               activeTool === "marker"
                 ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
                 : "border-border bg-surface text-text hover:border-primary/50 hover:bg-border/20"
@@ -422,7 +422,7 @@ export function ProjectCreatePage() {
           <button
             type="button"
             title="Delete shape"
-            className={`flex h-9 w-9 items-center justify-center rounded border-2 transition-all ${
+            className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border transition-all ${
               !activeShape && !markerPosition
                 ? "cursor-not-allowed border-border bg-surface text-text opacity-50"
                 : "border-danger bg-danger/10 text-danger hover:bg-danger hover:text-surface hover:shadow-md"
@@ -531,27 +531,26 @@ export function ProjectCreatePage() {
             const isOpen = e.currentTarget.open;
             setShowStreetsList(isOpen);
             if (!isOpen) {
-              setStreetSearch(""); // Clear search when closing
+              setStreetSearch("");
             }
           }}
         >
-          <summary className="cursor-pointer rounded border-2 border-border bg-surface px-3 py-2 text-sm font-bold uppercase tracking-wide text-text-muted min-h-[44px] flex items-center">
+          <summary className="flex min-h-[44px] cursor-pointer items-center rounded-lg border border-border bg-surface px-4 py-3 text-sm font-semibold uppercase tracking-wide text-text-muted">
             Preview streets ({preview.totalStreetNames})
           </summary>
           {showStreetsList && (
             <>
               {streetListItems.length > 0 ? (
-                <Card className="mt-1">
-                  <div className="space-y-3">
-                    <input
+                <Card className="mt-2">
+                  <div className="space-y-4">
+                    <Input
                       type="search"
                       placeholder="Search by name…"
                       value={streetSearch}
                       onChange={(e) => setStreetSearch(e.target.value)}
-                      className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text placeholder:text-text-muted focus:outline-none focus:ring-0 focus:ring-offset-0"
                       aria-label="Search streets"
                     />
-                    <div className="max-h-[40vh] overflow-y-auto rounded border-2 border-border">
+                    <div className="max-h-[40vh] overflow-y-auto rounded-lg border border-border">
                       <ul className="list-none divide-y divide-border p-0">
                         {streetListItems
                           .filter((s) =>
@@ -586,8 +585,8 @@ export function ProjectCreatePage() {
                   </div>
                 </Card>
               ) : (
-                <Card className="mt-1">
-                  <p className="text-text-muted text-sm p-4">
+                <Card className="mt-2">
+                  <p className="p-4 text-sm text-text-muted">
                     Loading street list…
                   </p>
                 </Card>
@@ -756,7 +755,7 @@ export function ProjectCreatePage() {
         <div className="order-1 min-h-[40vh] w-full flex-1 md:order-1 md:min-h-[calc(100vh-120px)]">
           {mapSection}
         </div>
-        <aside className="order-2 w-full shrink-0 border-border bg-surface md:order-2 md:h-auto md:min-h-[calc(100vh-120px)] md:w-[380px] md:overflow-y-auto md:border-l-2">
+        <aside className="order-2 w-full shrink-0 border-border bg-surface md:order-2 md:h-auto md:min-h-[calc(100vh-120px)] md:w-[380px] md:overflow-y-auto md:border-l">
           {formPanel}
         </aside>
       </div>

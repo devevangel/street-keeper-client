@@ -37,14 +37,12 @@ export function SuggestionCard({
   };
 
   return (
-    <Card>
-      <h2 className="text-text font-semibold text-base">{suggestion.title}</h2>
-      <p className="text-text-muted text-sm mt-1">{suggestion.shortCopy}</p>
+    <Card className="space-y-3">
+      <h2 className="text-base font-semibold text-text">{suggestion.title}</h2>
+      <p className="text-sm text-text-muted">{suggestion.shortCopy}</p>
       <Button
         type="button"
         variant="primary"
-        size="md"
-        className="mt-3"
         onClick={handleClick}
       >
         Show on map

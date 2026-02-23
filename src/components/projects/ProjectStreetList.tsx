@@ -9,6 +9,7 @@ import { useState, useMemo } from "react";
 import type { SnapshotStreet } from "../../types/api.types";
 import { normalizeStreetName } from "../../utils/normalize-street-name";
 import { usePreferences } from "../../contexts/PreferencesContext";
+import { Input } from "../common";
 
 interface ProjectStreetListProps {
   streets: SnapshotStreet[];
@@ -106,16 +107,15 @@ export function ProjectStreetList({
         {overallProgressPercent != null &&
           ` · Overall: ${Math.round(overallProgressPercent)}% complete`}
       </p>
-      <input
+      <Input
         type="search"
         placeholder="Search by name…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text placeholder:text-text-muted focus:outline-none focus:ring-0 focus:ring-offset-0"
         aria-label="Search streets"
       />
       <div
-        className="max-h-[60vh] overflow-y-auto rounded border-2 border-border"
+        className="max-h-[60vh] overflow-y-auto rounded-lg border border-border"
         aria-label="All streets in this project"
       >
         <ul className="list-none divide-y divide-border p-0">

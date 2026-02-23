@@ -45,9 +45,9 @@ export function ProjectsPage() {
 
   if (error) {
     return (
-      <Card className="max-w-md">
-        <p className="text-danger">{error}</p>
-        <Button variant="secondary" onClick={fetchProjects} className="mt-2">
+      <Card className="m-4 max-w-md space-y-4">
+        <p className="text-sm text-danger">{error}</p>
+        <Button variant="secondary" onClick={fetchProjects}>
           Retry
         </Button>
       </Card>
@@ -56,24 +56,24 @@ export function ProjectsPage() {
 
   return (
     <div className="p-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-text">Projects</h1>
         <Link to="/projects/new" className="shrink-0">
-          <Button>New Project</Button>
+          <Button variant="primary" size="md">Create new project</Button>
         </Link>
       </div>
 
       {projects.length === 0 ? (
-        <Card>
-          <p className="text-text-muted">
+        <Card className="space-y-4">
+          <p className="text-sm text-text-muted">
             No projects yet. Create a project to track streets in an area.
           </p>
-          <Link to="/projects/new" className="mt-3 inline-block">
-            <Button>Create your first project</Button>
+          <Link to="/projects/new" className="inline-block">
+            <Button variant="primary" size="md">Create your first project</Button>
           </Link>
         </Card>
       ) : (
-        <ul className="grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
             <li key={project.id}>
               <ProjectCard project={project} />

@@ -61,19 +61,19 @@ export function Modal({
     >
       <div
         className={[
-          "w-full bg-surface border-2 border-border p-4",
+          "w-full bg-surface border border-border rounded-lg p-4",
           sizeStyles[size],
         ].join(" ")}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between gap-4 border-b-2 border-border pb-2 mb-4">
+        <div className="flex items-center justify-between gap-4 border-b border-border pb-2 mb-4">
           <h2 id={titleId} className="text-xl font-bold text-text">
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-text hover:opacity-70 px-2 py-1 border-2 border-border"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center border-2 border-border px-2 text-text hover:opacity-70"
             aria-label="Close modal"
           >
             ×

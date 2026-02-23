@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Button, Card, StreetListItem, type StreetListItemData } from "../components/common";
+import { Button, Card, Input, StreetListItem, type StreetListItemData } from "../components/common";
 import { UnifiedMap } from "../components/map";
 import { MAP_ZOOM } from "../components/map/mapConstants";
 import { MilestonesSection } from "../components/milestones/MilestonesSection";
@@ -244,8 +244,8 @@ export function ProjectDetailPage() {
   return (
     <div className="flex h-screen flex-col">
       {/* Header */}
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-border bg-surface px-4 py-3">
-        <div className="flex items-center gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-surface px-4 py-3">
+        <div className="flex items-center gap-4">
           <Link to={ROUTES.PROJECTS_LIST} className="text-sm text-text-muted hover:underline">
             ← Projects
           </Link>
@@ -253,12 +253,10 @@ export function ProjectDetailPage() {
         </div>
         <Button
           variant="danger"
-          size="sm"
           onClick={handleArchive}
           disabled={archiving}
-          className="min-h-[44px]"
         >
-          {archiving ? "Archiving…" : "Archive"}
+          {archiving ? "Archiving…" : "Archive project"}
         </Button>
       </header>
 
@@ -282,7 +280,7 @@ export function ProjectDetailPage() {
         </div>
 
         {/* Sidebar */}
-        <aside className="flex w-full shrink-0 flex-col border-border bg-surface md:w-[380px] md:border-l-2">
+        <aside className="flex w-full shrink-0 flex-col border-border bg-surface md:w-[380px] md:border-l">
           <div className="flex flex-col gap-4 overflow-y-auto p-4">
             {/* Progress summary */}
             <div className="text-sm text-text-muted">
@@ -293,18 +291,17 @@ export function ProjectDetailPage() {
 
             {/* Streets tab */}
             <details className="group">
-              <summary className="flex min-h-[44px] cursor-pointer items-center rounded border-2 border-border bg-surface px-3 py-2 text-sm font-bold uppercase tracking-wide text-text-muted hover:bg-border/30">
+              <summary className="flex min-h-[44px] cursor-pointer items-center rounded-lg border border-border bg-surface px-4 py-3 text-sm font-semibold uppercase tracking-wide text-text-muted hover:bg-border/30">
                 Streets ({groupedStreets.length})
               </summary>
-              <div className="mt-2 flex flex-col gap-3">
+              <div className="mt-2 flex flex-col gap-4">
                 {/* Filter pills */}
-                <div className="flex gap-1.5" role="group" aria-label="Filter streets">
-                  {/* Only show "All" if it's active OR if we have any bin counts */}
+                <div className="flex gap-2" role="group" aria-label="Filter streets">
                   {(activeFilter === "all" || Object.values(binCounts).some(c => c > 0)) && (
                     <button
                       type="button"
                       onClick={() => setActiveFilter("all")}
-                      className={`flex-[0.95] rounded-full border px-1.5 py-1 text-xs font-medium transition-all ${
+                      className={`min-h-[44px] flex-[0.95] rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
                         activeFilter === "all"
                           ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
                           : "border-border bg-surface text-text-muted hover:bg-border/50 hover:border-text-muted"
@@ -316,20 +313,19 @@ export function ProjectDetailPage() {
                   {FILTER_PILLS.map(({ key, label, dotColor }) => {
                     const count = binCounts[key];
                     const isActive = activeFilter === key;
-                    // Always show the active filter pill, hide others with count === 0
                     if (count === 0 && !isActive) return null;
                     return (
                       <button
                         key={key}
                         type="button"
                         onClick={() => setActiveFilter(key)}
-                        className={`flex-[0.95] inline-flex items-center justify-center gap-1 rounded-full border px-1.5 py-1 text-xs font-medium transition-all ${
+                        className={`min-h-[44px] flex-[0.95] inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
                           isActive
                             ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
                             : "border-border bg-surface text-text-muted hover:bg-border/50 hover:border-text-muted"
                         }`}
                       >
-                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`} aria-hidden />
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`} aria-hidden />
                         {count > 0 ? count : label}
                       </button>
                     );
@@ -337,17 +333,16 @@ export function ProjectDetailPage() {
                 </div>
 
                 {/* Search */}
-                <input
+                <Input
                   type="search"
                   placeholder="Search streets…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50"
                   aria-label="Search streets"
                 />
 
                 {/* Street list */}
-                <div className="max-h-[50vh] overflow-y-auto rounded border-2 border-border">
+                <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-border">
                   {filteredStreets.length === 0 ? (
                     <p className="p-4 text-center text-sm text-text-muted">
                       {search.trim() ? "No streets match your search." : "No streets in this category."}

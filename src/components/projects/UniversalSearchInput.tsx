@@ -102,7 +102,7 @@ export function UniversalSearchInput({
           aria-controls="geocode-results"
           aria-autocomplete="list"
           id="geocode-search"
-          className="h-8 min-h-8 w-full flex-1 border-2 border-border bg-surface px-3 py-1.5 pr-10 text-sm text-text placeholder:text-text-muted focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-50"
+          className="min-h-[44px] w-full flex-1 border border-border bg-surface px-3 py-2 pr-10 text-sm text-text placeholder:text-text-muted rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
         />
         {loading && (
           <span
@@ -122,14 +122,14 @@ export function UniversalSearchInput({
         <ul
           id="geocode-results"
           role="listbox"
-          className="absolute top-full left-0 right-0 z-[1000] mt-1 max-h-60 overflow-auto border-2 border-border bg-surface shadow-lg"
+          className="absolute top-full left-0 right-0 z-[1000] mt-1 max-h-60 overflow-auto border border-border bg-surface shadow-lg rounded-lg"
         >
           {results.map((r) => (
             <li
               key={r.placeId}
               role="option"
               tabIndex={0}
-              className="cursor-pointer px-3 py-2 text-text hover:bg-border focus:bg-border focus:outline-none"
+              className="flex min-h-[44px] cursor-pointer items-center px-4 py-3 text-text hover:bg-border focus:bg-border focus:outline-none"
               onClick={() => handleSelect(r)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
