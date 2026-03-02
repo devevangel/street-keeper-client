@@ -92,9 +92,9 @@ export function ProjectSuggestionsMapPage() {
   const boundaryBbox = computeBoundaryBbox(mapData.boundary);
 
   return (
-    <div className="flex h-full flex-col md:flex-row">
-      {/* Map section - full height */}
-      <div className="min-h-[40vh] w-full flex-1 md:min-h-0">
+    <div className="flex flex-col md:h-full md:flex-row">
+      {/* Map section */}
+      <div className="h-[50vh] w-full md:h-full md:min-h-0 md:flex-1">
         <div className="h-full w-full">
           <UnifiedMap
             center={center}
@@ -111,7 +111,7 @@ export function ProjectSuggestionsMapPage() {
       </div>
 
       {/* Info panel - right side */}
-      <aside className="flex h-full w-full shrink-0 flex-col border-border bg-surface md:w-[380px] md:border-l">
+      <aside className="w-full border-border bg-surface md:flex md:h-full md:w-[380px] md:shrink-0 md:flex-col md:border-l">
         <div className="p-4">
           <div className="flex flex-wrap items-center gap-4 mb-4">
             <Link

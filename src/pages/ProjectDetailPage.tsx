@@ -175,9 +175,9 @@ export function ProjectDetailPage() {
       </header>
 
       {/* Main content: Map + Sidebar */}
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+      <div className="flex flex-col md:min-h-0 md:flex-1 md:flex-row">
         {/* Map */}
-        <div className="min-h-[40vh] flex-1 md:min-h-0">
+        <div className="h-[50vh] w-full md:h-full md:min-h-0 md:flex-1">
           <UnifiedMap
             center={center}
             zoom={MAP_ZOOM.PROJECT_DETAIL}
@@ -192,7 +192,7 @@ export function ProjectDetailPage() {
         </div>
 
         {/* Sidebar */}
-        <aside className="flex h-full w-full shrink-0 flex-col border-border bg-surface md:w-[380px] md:border-l">
+        <aside className="w-full border-border bg-surface md:flex md:h-full md:w-[380px] md:shrink-0 md:flex-col md:border-l">
           {/* Fixed progress summary */}
           <div className="border-b border-border p-4">
             <div className="text-sm text-text-muted">
@@ -203,7 +203,7 @@ export function ProjectDetailPage() {
           </div>
 
           {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="p-4 md:flex-1 md:overflow-y-auto">
             {/* Streets section */}
             <div className="space-y-4">
               {/* Search */}

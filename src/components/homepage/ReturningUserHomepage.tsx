@@ -308,9 +308,9 @@ export function ReturningUserHomepage({
   }, [featuredProjects]);
 
   return (
-    <div className="flex h-full flex-col md:flex-row">
+    <div className="flex flex-col md:h-full md:flex-row">
       {/* Map section - left side */}
-      <div className="order-1 min-h-[40vh] w-full flex-1 md:order-1 md:min-h-0">
+      <div className="order-1 h-[50vh] w-full md:order-1 md:h-full md:min-h-0 md:flex-1">
         <div ref={mapRef} className="relative h-full w-full">
           <UnifiedMap
             center={effectiveMapCenter}
@@ -351,7 +351,7 @@ export function ReturningUserHomepage({
       </div>
 
       {/* Sidebar - right side */}
-      <aside className="order-2 flex h-full w-full shrink-0 flex-col border-border bg-surface md:order-2 md:w-[380px] md:border-l">
+      <aside className="order-2 w-full border-border bg-surface md:flex md:h-full md:w-[380px] md:shrink-0 md:flex-col md:border-l">
         {/* Mobile: Suggestion at top - fixed section */}
         <div className="block border-b border-border md:hidden">
           {data.primarySuggestion && (
@@ -421,7 +421,7 @@ export function ReturningUserHomepage({
         </div>
 
         {/* Scrollable content section */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="p-4 md:flex-1 md:overflow-y-auto">
           {/* Desktop: Suggestion */}
           <div className="hidden md:block">
             {data.primarySuggestion && (

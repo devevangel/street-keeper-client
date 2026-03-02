@@ -4,6 +4,7 @@
  * Uses MAP_COLORS for consistent styling across homepage and project maps.
  */
 
+import { useState } from "react";
 import { MAP_COLORS } from "./mapConstants";
 import type { FilterStatus } from "../../utils/street-filters";
 
@@ -102,62 +103,92 @@ export function MapLegendFilterBins({
 }: MapLegendFilterBinsProps) {
   const allVisible = AVAILABLE_BINS.every((bin) => visibleBins.has(bin));
   const hasHiddenBins = !allVisible;
+  const [isOpen, setIsOpen] = useState(true);
 
   return (
     <div
-      className="absolute bottom-4 left-4 z-[1000] rounded border border-border bg-bg/95 px-3 py-2 text-xs shadow"
+      className="absolute bottom-4 left-4 z-[1000] rounded border border-border bg-bg/95 text-xs shadow"
       aria-label="Map legend"
       role="group"
     >
-      {AVAILABLE_BINS.map((bin) => {
-        const config = BIN_CONFIG[bin];
-        const isVisible = visibleBins.has(bin);
-        const count = counts?.[bin];
-        const countText = count !== undefined ? ` (${count})` : "";
+      {/* Toggle header — visible on all screen sizes */}
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-2"
+        aria-expanded={isOpen}
+        aria-label={isOpen ? "Collapse legend" : "Expand legend"}
+      >
+        {/* Mini color dots indicating current visibility */}
+        <span className="flex items-center gap-1">
+          {AVAILABLE_BINS.map((bin) => {
+            const cfg = BIN_CONFIG[bin];
+            const visible = visibleBins.has(bin);
+            return (
+              <span
+                key={bin}
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ backgroundColor: cfg.color, opacity: visible ? 1 : 0.3 }}
+              />
+            );
+          })}
+        </span>
+        <span className="font-medium text-text">Filters</span>
+        <span className="ml-auto text-text-muted" aria-hidden="true">
+          {isOpen ? "▲" : "▼"}
+        </span>
+      </button>
 
-        return (
-          <button
-            key={bin}
-            type="button"
-            onClick={() => onToggle(bin)}
-            className={`mt-1.5 flex w-full min-h-[32px] cursor-pointer items-center gap-2 rounded px-1 py-1.5 text-left transition first:mt-0 hover:bg-border/20 focus:outline-none focus:ring-1 focus:ring-border ${
-              isVisible ? "opacity-100" : "opacity-50"
-            }`}
-            aria-pressed={isVisible}
-            aria-label={`${config.label}${countText}: ${isVisible ? "visible" : "hidden"}. Click to toggle.`}
-          >
-            <span
-              className={`inline-block w-6 shrink-0 self-center ${
-                config.dashed ? "h-0 border-b-2" : "h-1.5 rounded"
+      {/* Legend rows — shown when open */}
+      <div className={`px-3 pb-2 ${isOpen ? "block" : "hidden"}`}>
+        {AVAILABLE_BINS.map((bin) => {
+          const config = BIN_CONFIG[bin];
+          const isVisible = visibleBins.has(bin);
+          const count = counts?.[bin];
+          const countText = count !== undefined ? ` (${count})` : "";
+
+          return (
+            <button
+              key={bin}
+              type="button"
+              onClick={() => onToggle(bin)}
+              className={`mt-1.5 flex w-full min-h-[32px] cursor-pointer items-center gap-2 rounded px-1 py-1.5 text-left transition first:mt-0 hover:bg-border/20 focus:outline-none focus:ring-1 focus:ring-border ${
+                isVisible ? "opacity-100" : "opacity-50"
               }`}
-              style={
-                config.dashed
-                  ? {
-                      borderColor: config.color,
-                      borderStyle: "dashed",
-                      opacity: isVisible ? 0.9 : 0.5,
-                    }
-                  : { backgroundColor: config.color }
-              }
-            />
-            <span
-              className={`text-text ${!isVisible ? "line-through" : ""}`}
+              aria-pressed={isVisible}
+              aria-label={`${config.label}${countText}: ${isVisible ? "visible" : "hidden"}. Click to toggle.`}
             >
-              {config.label}{countText}
-            </span>
+              <span
+                className={`inline-block w-6 shrink-0 self-center ${
+                  config.dashed ? "h-0 border-b-2" : "h-1.5 rounded"
+                }`}
+                style={
+                  config.dashed
+                    ? {
+                        borderColor: config.color,
+                        borderStyle: "dashed",
+                        opacity: isVisible ? 0.9 : 0.5,
+                      }
+                    : { backgroundColor: config.color }
+                }
+              />
+              <span className={`text-text ${!isVisible ? "line-through" : ""}`}>
+                {config.label}{countText}
+              </span>
+            </button>
+          );
+        })}
+        {hasHiddenBins && onShowAll && (
+          <button
+            type="button"
+            onClick={onShowAll}
+            className="mt-2 w-full rounded border border-border bg-surface px-2 py-1.5 text-xs font-medium text-text transition hover:bg-border/20 focus:outline-none focus:ring-1 focus:ring-border"
+            aria-label="Show all street statuses"
+          >
+            Show all
           </button>
-        );
-      })}
-      {hasHiddenBins && onShowAll && (
-        <button
-          type="button"
-          onClick={onShowAll}
-          className="mt-2 w-full rounded border border-border bg-surface px-2 py-1.5 text-xs font-medium text-text transition hover:bg-border/20 focus:outline-none focus:ring-1 focus:ring-border"
-          aria-label="Show all street statuses"
-        >
-          Show all
-        </button>
-      )}
+        )}
+      </div>
     </div>
   );
 }
