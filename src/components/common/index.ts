@@ -15,6 +15,8 @@ export { Textarea } from "./Textarea";
 export type { TextareaProps } from "./Textarea";
 export { Modal } from "./Modal";
 export type { ModalProps } from "./Modal";
+export { ConfirmModal } from "./ConfirmModal";
+export type { ConfirmModalProps } from "./ConfirmModal";
 export { ThemeToggle } from "./ThemeToggle";
 export { StreetListItem } from "./StreetListItem";
 export type { StreetListItemData } from "./StreetListItem";

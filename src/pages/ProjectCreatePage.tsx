@@ -18,6 +18,7 @@ import { ApiError } from "../lib/api-client";
 import { useGeolocation } from "../hooks";
 import { ROUTES, DEFAULT_PROJECT_RADIUS_METERS } from "../config/constants";
 import { usePreferences } from "../contexts/PreferencesContext";
+import { useToast } from "../contexts/ToastContext";
 import type {
   ProjectPreview,
   ProjectMapStreet,
@@ -100,6 +101,7 @@ export function ProjectCreatePage() {
     isLoading: geoLoading,
   } = useGeolocation();
   const preferences = usePreferences();
+  const toast = useToast();
   const formatRadius = preferences?.formatRadius ?? ((m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`));
   const formatDistance = preferences?.formatDistance ?? ((m: number, p = 1) => `${(m / 1000).toFixed(p)} km`);
 
@@ -307,18 +309,18 @@ export function ProjectCreatePage() {
           totalLengthMeters: project.totalLengthMeters ?? 0,
         });
       } else {
-        setCreateError(
-          "Project was created but the response was invalid. Check your projects list.",
-        );
+        const msg = "Project was created but the response was invalid. Check your projects list.";
+        setCreateError(msg);
+        toast?.showToast(msg, "warning");
       }
     } catch (err) {
-      setCreateError(
-        err instanceof ApiError ? err.message : "Failed to create project",
-      );
+      const msg = err instanceof ApiError ? err.message : "Failed to create project";
+      setCreateError(msg);
+      toast?.showToast(msg, "error");
     } finally {
       setCreateLoading(false);
     }
-  }, [preview, name, activeShape, boundaryMode, includePreviousRuns]);
+  }, [preview, name, activeShape, boundaryMode, includePreviousRuns, toast]);
 
   const canCreate = Boolean(
     hasValidShape && preview?.cacheKey && name.trim() && !createLoading,
@@ -363,7 +365,7 @@ export function ProjectCreatePage() {
   }, []);
 
   const formPanel = (
-    <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 md:p-6">
+    <div className="flex flex-col gap-4 p-4 pb-8 md:min-h-0 md:flex-1 md:overflow-y-auto md:p-6 md:pb-6">
       <Link
         to={ROUTES.PROJECTS_LIST}
         className="text-sm text-text-muted hover:underline"
@@ -748,14 +750,14 @@ export function ProjectCreatePage() {
   );
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       {/* Full-width layout so map and form card share the same width (no jump). */}
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         {/* Mobile: map on top. Desktop: map left, form right */}
-        <div className="order-1 min-h-[40vh] w-full flex-1 md:order-1 md:min-h-0">
+        <div className="h-[45vh] w-full shrink-0 md:h-full md:min-h-0 md:flex-1 md:shrink">
           {mapSection}
         </div>
-        <aside className="order-2 flex h-full w-full shrink-0 flex-col border-border bg-surface md:order-2 md:w-[380px] md:border-l">
+        <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-surface md:w-[380px] md:flex-none md:border-l">
           {formPanel}
         </aside>
       </div>

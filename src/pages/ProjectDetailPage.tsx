@@ -6,13 +6,14 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Button, Card, Input, StreetListItem, type StreetListItemData } from "../components/common";
+import { Button, Card, ConfirmModal, Input, StreetListItem, type StreetListItemData } from "../components/common";
 import { UnifiedMap } from "../components/map";
 import { MAP_ZOOM } from "../components/map/mapConstants";
 import { MilestonesSection } from "../components/milestones/MilestonesSection";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
 import { ROUTES } from "../config/constants";
+import { useToast } from "../contexts/ToastContext";
 import type { ProjectDetail, ProjectMapData } from "../types/api.types";
 import { groupProjectMapStreetsByName } from "../utils/group-streets-by-name";
 import {
@@ -30,6 +31,10 @@ export function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const toast = useToast();
 
   // Street list state
   const [search, setSearch] = useState("");
@@ -62,18 +67,50 @@ export function ProjectDetailPage() {
     fetchData();
   }, [fetchData]);
 
-  const handleArchive = async () => {
+  const doArchive = useCallback(async () => {
     if (!id) return;
-    if (!window.confirm("Archive this project? It will be hidden from your list.")) return;
     setArchiving(true);
     try {
-      await projectsService.delete(id);
+      await projectsService.archive(id);
+      toast?.showToast("Project archived", "success");
       navigate(ROUTES.PROJECTS_LIST);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to archive project");
+      const msg = err instanceof ApiError ? err.message : "Failed to archive project";
+      setError(msg);
+      toast?.showToast(msg, "error");
       setArchiving(false);
     }
-  };
+  }, [id, navigate, toast]);
+
+  const doRestore = useCallback(async () => {
+    if (!id) return;
+    setRestoring(true);
+    try {
+      await projectsService.restore(id);
+      toast?.showToast("Project restored", "success");
+      await fetchData();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to restore project";
+      toast?.showToast(msg, "error");
+    } finally {
+      setRestoring(false);
+    }
+  }, [id, fetchData, toast]);
+
+  const doDelete = useCallback(async () => {
+    if (!id) return;
+    try {
+      await projectsService.deletePermanently(id);
+      toast?.showToast("Project permanently deleted", "success");
+      navigate(ROUTES.PROJECTS_LIST);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to delete project";
+      toast?.showToast(msg, "error");
+    }
+  }, [id, navigate, toast]);
+
+  const handleArchiveClick = () => setArchiveConfirmOpen(true);
+  const handleDeleteClick = () => setDeleteConfirmOpen(true);
 
   // Group streets by name for display
   const groupedStreets = useMemo(() => {
@@ -156,28 +193,75 @@ export function ProjectDetailPage() {
         : null;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex flex-shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-surface px-4 py-3">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-surface px-4 py-3">
         <div className="flex items-center gap-4">
           <Link to={ROUTES.PROJECTS_LIST} className="text-sm text-text-muted hover:underline">
             ← Projects
           </Link>
           <h1 className="text-xl font-bold text-text">{project.name}</h1>
+          {project.isArchived && (
+            <span className="rounded bg-warning/20 px-2 py-0.5 text-xs font-medium text-warning">
+              Archived
+            </span>
+          )}
         </div>
-        <Button
-          variant="danger"
-          onClick={handleArchive}
-          disabled={archiving}
-        >
-          {archiving ? "Archiving…" : "Archive project"}
-        </Button>
+        <div className="flex gap-2">
+          {project.isArchived ? (
+            <>
+              <Button
+                variant="secondary"
+                onClick={doRestore}
+                disabled={restoring}
+              >
+                {restoring ? "Restoring…" : "Restore project"}
+              </Button>
+              <Button variant="danger" onClick={handleDeleteClick}>
+                Delete permanently
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                onClick={handleArchiveClick}
+                disabled={archiving}
+              >
+                {archiving ? "Archiving…" : "Archive"}
+              </Button>
+              <Button variant="danger" onClick={handleDeleteClick}>
+                Delete
+              </Button>
+            </>
+          )}
+        </div>
       </header>
 
+      <ConfirmModal
+        isOpen={archiveConfirmOpen}
+        onClose={() => setArchiveConfirmOpen(false)}
+        title="Archive project?"
+        message="It will be hidden from your list. You can view or restore it later from your projects list."
+        confirmLabel="Archive"
+        variant="danger"
+        onConfirm={doArchive}
+      />
+
+      <ConfirmModal
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        title="Permanently delete project?"
+        message="This action cannot be undone. All project data, including progress and milestones, will be permanently deleted. Your activity data (runs) will NOT be affected."
+        confirmLabel="Delete permanently"
+        variant="danger"
+        onConfirm={doDelete}
+      />
+
       {/* Main content: Map + Sidebar */}
-      <div className="flex flex-col md:min-h-0 md:flex-1 md:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         {/* Map */}
-        <div className="h-[50vh] w-full md:h-full md:min-h-0 md:flex-1">
+        <div className="h-[45vh] w-full shrink-0 md:h-full md:min-h-0 md:flex-1 md:shrink">
           <UnifiedMap
             center={center}
             zoom={MAP_ZOOM.PROJECT_DETAIL}
@@ -192,7 +276,7 @@ export function ProjectDetailPage() {
         </div>
 
         {/* Sidebar */}
-        <aside className="w-full border-border bg-surface md:flex md:h-full md:w-[380px] md:shrink-0 md:flex-col md:border-l">
+        <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-surface md:w-[380px] md:flex-none md:border-l">
           {/* Fixed progress summary */}
           <div className="border-b border-border p-4">
             <div className="text-sm text-text-muted">
@@ -203,7 +287,7 @@ export function ProjectDetailPage() {
           </div>
 
           {/* Scrollable content */}
-          <div className="p-4 md:flex-1 md:overflow-y-auto">
+          <div className="p-4 pb-8 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-4">
             {/* Streets section */}
             <div className="space-y-4">
               {/* Search */}

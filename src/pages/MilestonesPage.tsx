@@ -11,7 +11,7 @@ import {
   deleteMilestone,
 } from "../services/milestones.service";
 import { projectsService } from "../services/projects.service";
-import { Button, Input, Select } from "../components/common";
+import { Button, ConfirmModal, Input, Select } from "../components/common";
 import { CreateMilestoneModal } from "../components/projects/CreateMilestoneModal";
 import { ROUTES } from "../config/constants";
 import type { MilestoneWithProgress } from "../types/api.types";
@@ -107,6 +107,7 @@ export function MilestonesPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -159,10 +160,12 @@ export function MilestonesPage() {
     );
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Delete this milestone?")) return;
-    await deleteMilestone(id);
-    setMilestones((prev) => prev.filter((m) => m.id !== id));
+  const handleDeleteRequest = (id: string) => setDeleteConfirmId(id);
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmId) return;
+    await deleteMilestone(deleteConfirmId);
+    setMilestones((prev) => prev.filter((m) => m.id !== deleteConfirmId));
   };
 
   if (loading && milestones.length === 0) {
@@ -174,7 +177,7 @@ export function MilestonesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl p-4">
+    <div className="mx-auto max-w-2xl p-4 pb-8">
       <h1 className="text-2xl font-bold text-text mb-2">Milestones</h1>
       <p className="text-text-muted text-sm mb-4">
         Track and complete goals. Filter to find easy wins or ones you’re close to finishing.
@@ -239,7 +242,7 @@ export function MilestonesPage() {
               m={m}
               projectName={m.projectId ? (projectById.get(m.projectId)?.name ?? null) : "Global"}
               onPinChange={handlePinChange}
-              onDelete={handleDelete}
+              onDelete={handleDeleteRequest}
             />
           ))}
         </div>
@@ -262,6 +265,20 @@ export function MilestonesPage() {
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onCreated={fetchData}
+      />
+
+      <ConfirmModal
+        isOpen={deleteConfirmId !== null}
+        onClose={() => setDeleteConfirmId(null)}
+        title="Delete milestone?"
+        message={
+          deleteConfirmId
+            ? `"${milestones.find((m) => m.id === deleteConfirmId)?.name ?? "This milestone"}" will be permanently deleted.`
+            : ""
+        }
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDeleteConfirm}
       />
     </div>
   );

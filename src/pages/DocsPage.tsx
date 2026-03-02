@@ -29,7 +29,7 @@ export function DocsPage() {
         isOpen={sidebarOpen}
         onNavigate={() => setSidebarOpen(false)}
       />
-      <div className="flex-1 p-4 md:p-6">
+      <div className="flex-1 p-4 pb-8 md:p-6">
         <div className="mb-4 flex items-center gap-2 md:hidden">
           <Button
             type="button"

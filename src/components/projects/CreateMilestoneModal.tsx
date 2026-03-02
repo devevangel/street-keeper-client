@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Modal, Button, Input, Select } from "../common";
+import { useToast } from "../../contexts/ToastContext";
 import { getMilestoneTypes, createMilestone } from "../../services/milestones.service";
 import type { MilestoneType } from "../../types/api.types";
 import type { CreateMilestoneInput } from "../../types/api.types";
@@ -47,6 +48,7 @@ export function CreateMilestoneModal({
   const [name, setName] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const loadTypes = useCallback(async () => {
     setLoadingTypes(true);
@@ -106,7 +108,9 @@ export function CreateMilestoneModal({
       onCreated();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create milestone");
+      const msg = e instanceof Error ? e.message : "Failed to create milestone";
+      setError(msg);
+      toast?.showToast(msg, "error");
     } finally {
       setSubmitLoading(false);
     }

@@ -17,6 +17,7 @@ import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
 import { computeBboxFromStreets } from "../../utils/map-utils";
 import { useAnalytics } from "../../contexts/AnalyticsContext";
 import { usePreferences } from "../../contexts/PreferencesContext";
+import { useToast } from "../../contexts/ToastContext";
 import { activitiesService } from "../../services/activities.service";
 import { projectsService } from "../../services/projects.service";
 import { invalidateHomepageCache } from "../../services/homepage.service";
@@ -112,6 +113,7 @@ export function ReturningUserHomepage({
   );
   const mapRef = useRef<HTMLDivElement>(null);
   const projectMapCache = useRef(new Map<string, ProjectMapData>());
+  const toast = useToast();
 
   // Sync visibleBins with user preference once loaded
   const prefStreetFilter = preferences?.preferences?.defaultStreetFilter;
@@ -279,20 +281,24 @@ export function ReturningUserHomepage({
     setSyncResult(null);
     try {
       const result = await activitiesService.syncFromStrava();
-      setSyncResult({ synced: result.synced + result.processed });
+      const synced = result.synced + result.processed;
+      setSyncResult({ synced });
       invalidateHomepageCache();
       onClearSegments();
       onRefetchMapStreets();
       await onRefetch();
+      toast?.showToast(
+        synced > 0 ? `Synced ${synced} activity${synced === 1 ? "" : "ies"}.` : "Activities synced.",
+        "success",
+      );
     } catch (err) {
-      setSyncResult({
-        synced: 0,
-        error: err instanceof Error ? err.message : "Sync failed",
-      });
+      const msg = err instanceof Error ? err.message : "Sync failed";
+      setSyncResult({ synced: 0, error: msg });
+      toast?.showToast(msg, "error");
     } finally {
       setSyncing(false);
     }
-  }, [track, onRefetch, onClearSegments, onRefetchMapStreets]);
+  }, [track, onRefetch, onClearSegments, onRefetchMapStreets, toast]);
 
   const featuredProjects = projects.slice(0, 3);
 
@@ -308,9 +314,9 @@ export function ReturningUserHomepage({
   }, [featuredProjects]);
 
   return (
-    <div className="flex flex-col md:h-full md:flex-row">
+    <div className="flex h-full flex-col overflow-hidden md:flex-row">
       {/* Map section - left side */}
-      <div className="order-1 h-[50vh] w-full md:order-1 md:h-full md:min-h-0 md:flex-1">
+      <div className="h-[45vh] w-full shrink-0 md:h-full md:min-h-0 md:flex-1 md:shrink">
         <div ref={mapRef} className="relative h-full w-full">
           <UnifiedMap
             center={effectiveMapCenter}
@@ -351,7 +357,7 @@ export function ReturningUserHomepage({
       </div>
 
       {/* Sidebar - right side */}
-      <aside className="order-2 w-full border-border bg-surface md:flex md:h-full md:w-[380px] md:shrink-0 md:flex-col md:border-l">
+      <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-surface md:w-[380px] md:flex-none md:border-l">
         {/* Mobile: Suggestion at top - fixed section */}
         <div className="block border-b border-border md:hidden">
           {data.primarySuggestion && (
@@ -421,7 +427,7 @@ export function ReturningUserHomepage({
         </div>
 
         {/* Scrollable content section */}
-        <div className="p-4 md:flex-1 md:overflow-y-auto">
+        <div className="p-4 pb-8 md:flex-1 md:overflow-y-auto md:pb-4">
           {/* Desktop: Suggestion */}
           <div className="hidden md:block">
             {data.primarySuggestion && (

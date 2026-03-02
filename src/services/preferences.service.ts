@@ -16,6 +16,7 @@ export interface UserPreferences {
   distanceUnit: string;
   theme: string;
   dateFormat: string;
+  mapStyle: string;
   defaultMapZoom: number;
   defaultProjectRadius: number;
   defaultStreetFilter: string;
@@ -32,6 +33,7 @@ export type UpdatePreferencesInput = Partial<{
   distanceUnit: string;
   theme: string;
   dateFormat: string;
+  mapStyle: string;
   defaultMapZoom: number;
   defaultProjectRadius: number;
   defaultStreetFilter: string;

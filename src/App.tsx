@@ -14,6 +14,7 @@ import {
 import { AuthProvider } from "./contexts/AuthContext";
 import { PreferencesProvider } from "./contexts/PreferencesContext";
 import { AnalyticsProvider } from "./contexts/AnalyticsContext";
+import { ToastProvider } from "./contexts/ToastContext";
 import { ProtectedRoute } from "./components/routing";
 import { AppLayout } from "./components/layout";
 import {
@@ -36,6 +37,7 @@ function App() {
   return (
     <AuthProvider>
       <PreferencesProvider>
+      <ToastProvider>
       <AnalyticsProvider>
       <BrowserRouter>
         <Routes>
@@ -70,6 +72,7 @@ function App() {
         </Routes>
       </BrowserRouter>
       </AnalyticsProvider>
+      </ToastProvider>
       </PreferencesProvider>
     </AuthProvider>
   );

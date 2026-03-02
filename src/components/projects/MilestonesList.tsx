@@ -9,7 +9,7 @@ import {
   pinMilestone,
   deleteMilestone,
 } from "../../services/milestones.service";
-import { Button } from "../common";
+import { Button, ConfirmModal } from "../common";
 import { CreateMilestoneModal } from "./CreateMilestoneModal";
 import type { MilestoneWithProgress } from "../../types/api.types";
 
@@ -87,6 +87,7 @@ export function MilestonesList({
   const [milestones, setMilestones] = useState<MilestoneWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const fetchMilestones = useCallback(async () => {
     setLoading(true);
@@ -109,10 +110,12 @@ export function MilestonesList({
     );
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Delete this milestone?")) return;
-    await deleteMilestone(id);
-    setMilestones((prev) => prev.filter((m) => m.id !== id));
+  const handleDeleteRequest = (id: string) => setDeleteConfirmId(id);
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmId) return;
+    await deleteMilestone(deleteConfirmId);
+    setMilestones((prev) => prev.filter((m) => m.id !== deleteConfirmId));
   };
 
   if (loading) {
@@ -164,7 +167,7 @@ export function MilestonesList({
           key={m.id}
           m={m}
           onPinChange={handlePinChange}
-          onDelete={handleDelete}
+          onDelete={handleDeleteRequest}
         />
       ))}
       <div className="mt-3 border-t border-border pt-3">
@@ -184,6 +187,20 @@ export function MilestonesList({
         projectId={projectId}
         projectName={projectName}
         onCreated={fetchMilestones}
+      />
+
+      <ConfirmModal
+        isOpen={deleteConfirmId !== null}
+        onClose={() => setDeleteConfirmId(null)}
+        title="Delete milestone?"
+        message={
+          deleteConfirmId
+            ? `"${milestones.find((m) => m.id === deleteConfirmId)?.name ?? "This milestone"}" will be permanently deleted.`
+            : ""
+        }
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDeleteConfirm}
       />
     </div>
   );

@@ -15,8 +15,12 @@ import type {
 } from "../types/api.types";
 
 export const projectsService = {
-  async getAll(): Promise<ProjectsListResponse> {
-    return apiClient.get<ProjectsListResponse>("/projects");
+  async getAll(options?: {
+    includeArchived?: boolean;
+  }): Promise<ProjectsListResponse> {
+    const params: Record<string, string> = {};
+    if (options?.includeArchived) params.includeArchived = "true";
+    return apiClient.get<ProjectsListResponse>("/projects", params);
   },
 
   async getById(
@@ -67,8 +71,18 @@ export const projectsService = {
     return apiClient.post<ProjectDetailResponse>("/projects", data);
   },
 
-  async delete(projectId: string): Promise<{ success: true; message: string }> {
+  async archive(projectId: string): Promise<{ success: true; message: string }> {
     return apiClient.delete(`/projects/${projectId}`);
+  },
+
+  async restore(projectId: string): Promise<{ success: true; message: string }> {
+    return apiClient.post(`/projects/${projectId}/restore`);
+  },
+
+  async deletePermanently(
+    projectId: string
+  ): Promise<{ success: true; message: string }> {
+    return apiClient.delete(`/projects/${projectId}/permanent`);
   },
 
   async refresh(projectId: string): Promise<ProjectDetailResponse> {

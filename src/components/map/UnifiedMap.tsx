@@ -64,6 +64,8 @@ import { MapLegendFilterBins, MapLegendGuide } from "./MapLegend";
 import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
 import { MapLoadingOverlay } from "./MapLoadingOverlay";
 import { MAP_ZOOM } from "./mapConstants";
+import { getMapTheme, getMapTileUrl, getMapAttribution } from "../../config/map-themes";
+import { usePreferences } from "../../contexts/PreferencesContext";
 import type { ShapeData } from "./DrawingToolbar";
 import type { ProjectMapBoundary, MapStreet, ProjectMapStreet } from "../../types/api.types";
 
@@ -301,7 +303,12 @@ export function UnifiedMap(props: UnifiedMapProps) {
     helperText,
   } = props;
 
-  // Validate center - use fallback if invalid
+  const prefsCtx = usePreferences();
+  const mapTheme = getMapTheme(prefsCtx?.preferences?.mapStyle);
+  const tileUrl = getMapTileUrl(mapTheme);
+  const attribution = getMapAttribution(mapTheme);
+  const isMapbox = tileUrl.includes("mapbox.com");
+
   const safeCenter = {
     lat: Number.isFinite(center?.lat) ? center.lat : 50.8,
     lng: Number.isFinite(center?.lng) ? center.lng : -1.09,
@@ -318,8 +325,9 @@ export function UnifiedMap(props: UnifiedMapProps) {
         style={{ height: "100%", width: "100%", minHeight: "400px" }}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={attribution}
+          url={tileUrl}
+          {...(isMapbox ? { tileSize: 512, zoomOffset: -1 } : {})}
         />
         <MapContent {...props} />
       </MapContainer>
