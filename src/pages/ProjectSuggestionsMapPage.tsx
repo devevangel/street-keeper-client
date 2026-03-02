@@ -13,47 +13,7 @@ import { suggestionsService } from "../services/suggestions.service";
 import { ApiError } from "../lib/api-client";
 import { ROUTES } from "../config/constants";
 import type { ProjectMapData } from "../types/api.types";
-
-function projectMapCenter(mapData: ProjectMapData): { lat: number; lng: number } {
-  const b = mapData.boundary;
-  if (b.type === "circle") return b.center;
-  const coords = b.coordinates;
-  if (!coords.length) return { lat: 50.8, lng: -1.09 };
-  const sum = coords.reduce(
-    (a, p) => [a[0] + p[0], a[1] + p[1]],
-    [0, 0]
-  );
-  return { lat: sum[1] / coords.length, lng: sum[0] / coords.length };
-}
-
-/** Compute bounding box from boundary for fitting map view */
-function computeBoundaryBbox(boundary: ProjectMapData["boundary"]): [number, number, number, number] | null {
-  if (boundary.type === "circle") {
-    const { center, radiusMeters } = boundary;
-    const latDeg = radiusMeters / 111320;
-    const lngDeg = radiusMeters / (111320 * Math.cos((center.lat * Math.PI) / 180));
-    return [
-      center.lat - latDeg,
-      center.lng - lngDeg,
-      center.lat + latDeg,
-      center.lng + lngDeg,
-    ];
-  }
-  // Polygon boundary
-  const coords = boundary.coordinates;
-  if (!coords.length) return null;
-  let minLat = coords[0][1];
-  let maxLat = coords[0][1];
-  let minLng = coords[0][0];
-  let maxLng = coords[0][0];
-  for (const [lng, lat] of coords) {
-    if (lat < minLat) minLat = lat;
-    if (lat > maxLat) maxLat = lat;
-    if (lng < minLng) minLng = lng;
-    if (lng > maxLng) maxLng = lng;
-  }
-  return [minLat, minLng, maxLat, maxLng];
-}
+import { projectMapCenter, computeBoundaryBbox } from "../utils/map-utils";
 
 export function ProjectSuggestionsMapPage() {
   const { id } = useParams<{ id: string }>();
@@ -132,38 +92,43 @@ export function ProjectSuggestionsMapPage() {
   const boundaryBbox = computeBoundaryBbox(mapData.boundary);
 
   return (
-    <div className="flex min-h-screen flex-col p-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <Link
-            to={`/projects/${id}`}
-            className="text-sm text-text-muted hover:underline"
-          >
-            ← Back to project
-          </Link>
-          <h1 className="text-xl font-bold text-text">
-            {mapData.name} — Suggestions
-          </h1>
+    <div className="flex h-full flex-col md:flex-row">
+      {/* Map section - full height */}
+      <div className="min-h-[40vh] w-full flex-1 md:min-h-0">
+        <div className="h-full w-full">
+          <UnifiedMap
+            center={center}
+            zoom={MAP_ZOOM.PROJECT_DETAIL}
+            streets={mapData.streets}
+            boundary={mapData.boundary}
+            showBoundaryOutline
+            highlightFocus={boundaryBbox ? { bbox: boundaryBbox } : null}
+            highlightOsmIds={Array.from(suggestedOsmIds)}
+            showLegend
+            className="h-full w-full"
+          />
         </div>
       </div>
-      <p className="mb-4 text-sm text-text-muted">
-        {suggestedOsmIds.size} suggested street(s) highlighted in blue
-      </p>
-      <div className="flex-1" style={{ minHeight: "500px", height: "70vh" }}>
-        <UnifiedMap
-          center={center}
-          zoom={MAP_ZOOM.PROJECT_DETAIL}
-          streets={mapData.streets}
-          defaultVisibleStatuses={new Set(["completed", "partial", "not_started"])}
-          availableStatuses={["completed", "partial", "not_started"]}
-          boundary={mapData.boundary}
-          showBoundaryOutline
-          highlightFocus={boundaryBbox ? { bbox: boundaryBbox } : null}
-          highlightOsmIds={Array.from(suggestedOsmIds)}
-          showLegend
-          className="h-full w-full"
-        />
-      </div>
+
+      {/* Info panel - right side */}
+      <aside className="flex h-full w-full shrink-0 flex-col border-border bg-surface md:w-[380px] md:border-l">
+        <div className="p-4">
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <Link
+              to={`/projects/${id}`}
+              className="text-sm text-text-muted hover:underline"
+            >
+              ← Back to project
+            </Link>
+          </div>
+          <h1 className="text-xl font-bold text-text mb-2">
+            {mapData.name} — Suggestions
+          </h1>
+          <p className="text-sm text-text-muted">
+            {suggestedOsmIds.size} suggested street(s) highlighted in blue
+          </p>
+        </div>
+      </aside>
     </div>
   );
 }

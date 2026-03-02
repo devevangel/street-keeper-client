@@ -363,7 +363,7 @@ export function ProjectCreatePage() {
   }, []);
 
   const formPanel = (
-    <div className="flex flex-col gap-4 p-4 md:p-6">
+    <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 md:p-6">
       <Link
         to={ROUTES.PROJECTS_LIST}
         className="text-sm text-text-muted hover:underline"
@@ -748,14 +748,14 @@ export function ProjectCreatePage() {
   );
 
   return (
-    <>
+    <div className="flex h-full flex-col">
       {/* Full-width layout so map and form card share the same width (no jump). */}
-      <div className="-mx-4 w-[calc(100%+2rem)] flex min-h-0 flex-1 flex-col md:mx-0 md:w-full md:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         {/* Mobile: map on top. Desktop: map left, form right */}
-        <div className="order-1 min-h-[40vh] w-full flex-1 md:order-1 md:min-h-[calc(100vh-120px)]">
+        <div className="order-1 min-h-[40vh] w-full flex-1 md:order-1 md:min-h-0">
           {mapSection}
         </div>
-        <aside className="order-2 w-full shrink-0 border-border bg-surface md:order-2 md:h-auto md:min-h-[calc(100vh-120px)] md:w-[380px] md:overflow-y-auto md:border-l">
+        <aside className="order-2 flex h-full w-full shrink-0 flex-col border-border bg-surface md:order-2 md:w-[380px] md:border-l">
           {formPanel}
         </aside>
       </div>
@@ -768,6 +768,6 @@ export function ProjectCreatePage() {
           totalLengthMeters={successModal.totalLengthMeters}
         />
       )}
-    </>
+    </div>
   );
 }

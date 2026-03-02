@@ -12,14 +12,15 @@ import { MetricBlock } from "../common/MetricBlock";
 import { SuggestionCard } from "./SuggestionCard";
 import { ProjectCardWithStreets } from "./ProjectCardWithStreets";
 import { UniversalSearchInput } from "../projects/UniversalSearchInput";
-import { UnifiedMap, MAP_ZOOM, type MapViewHighlightFocus } from "../map";
+import { UnifiedMap, MAP_ZOOM, MapLegendFilterBins, type MapViewHighlightFocus } from "../map";
+import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
+import { computeBboxFromStreets } from "../../utils/map-utils";
 import { useAnalytics } from "../../contexts/AnalyticsContext";
 import { usePreferences } from "../../contexts/PreferencesContext";
 import { activitiesService } from "../../services/activities.service";
 import { projectsService } from "../../services/projects.service";
 import { invalidateHomepageCache } from "../../services/homepage.service";
 import { ROUTES } from "../../config/constants";
-import { FILTER_PILLS, getStreetBin, type FilterStatus } from "../../utils/street-filters";
 import type { HomepagePayload } from "../../services/homepage.service";
 import type {
   MapStreet,
@@ -49,27 +50,6 @@ interface ReturningUserHomepageProps {
 
 function osmIdToWayId(osmId: string): number {
   return parseInt(osmId.replace("way/", ""), 10);
-}
-
-/** Compute bounding box from street geometries. Returns [minLat, minLng, maxLat, maxLng]. */
-function computeBboxFromStreets(
-  streets: ProjectMapStreet[]
-): [number, number, number, number] {
-  let minLat = Infinity;
-  let minLng = Infinity;
-  let maxLat = -Infinity;
-  let maxLng = -Infinity;
-  for (const s of streets) {
-    const coords = s.geometry?.coordinates ?? [];
-    for (const [lng, lat] of coords) {
-      if (lat < minLat) minLat = lat;
-      if (lng < minLng) minLng = lng;
-      if (lat > maxLat) maxLat = lat;
-      if (lng > maxLng) maxLng = lng;
-    }
-  }
-  if (minLat === Infinity) return [50, -1, 50, -1];
-  return [minLat, minLng, maxLat, maxLng];
 }
 
 /** Convert ProjectMapStreet to MapStreet for rendering (project map has geometry for all streets including not_started). */
@@ -127,17 +107,18 @@ export function ReturningUserHomepage({
   } | null>(null);
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<FilterStatus>("all");
-  const [binCounts, setBinCounts] = useState({ completed: 0, almostThere: 0, inProgress: 0, notStarted: 0 });
-  const binCountsByProjectRef = useRef<Record<string, { completed: number; almostThere: number; inProgress: number; notStarted: number }>>({});
+  const [visibleBins, setVisibleBins] = useState<Set<FilterStatus>>(
+    () => new Set(["completed", "almostThere", "inProgress", "notStarted"])
+  );
   const mapRef = useRef<HTMLDivElement>(null);
   const projectMapCache = useRef(new Map<string, ProjectMapData>());
 
-  // Sync activeFilter with user preference once loaded
+  // Sync visibleBins with user preference once loaded
   const prefStreetFilter = preferences?.preferences?.defaultStreetFilter;
   useEffect(() => {
     if (prefStreetFilter && prefStreetFilter !== "all") {
-      setActiveFilter(prefStreetFilter as FilterStatus);
+      // If user has a preference, show only that bin
+      setVisibleBins(new Set([prefStreetFilter as FilterStatus]));
     }
   }, [prefStreetFilter]);
 
@@ -265,7 +246,18 @@ export function ReturningUserHomepage({
     return [...streets, ...toAdd];
   }, [streets, highlightStreetsFromProject]);
 
-  // Filter map streets by active pill selection (mirror pill behavior on map)
+  // Calculate bin counts directly from map streets
+  const binCounts = useMemo(() => {
+    const counts = { completed: 0, almostThere: 0, inProgress: 0, notStarted: 0 };
+    for (const s of mergedStreets) {
+      const completed = s.status === "completed";
+      const bin = getStreetBin(s.percentage ?? 0, completed);
+      if (bin !== "all") counts[bin]++;
+    }
+    return counts;
+  }, [mergedStreets]);
+
+  // Filter map streets by visible bins (controlled by legend)
   const highlightOsmIdSet = useMemo(
     () => new Set(highlightFocus?.streetIds?.map((id) => `way/${id}`) ?? []),
     [highlightFocus?.streetIds],
@@ -275,11 +267,11 @@ export function ReturningUserHomepage({
     return mergedStreets.filter((s) => {
       const completed = s.status === "completed";
       const bin = getStreetBin(s.percentage ?? 0, completed);
-      const matchesFilter = activeFilter === "all" || bin === activeFilter;
+      const matchesFilter = visibleBins.has(bin);
       const isHighlighted = highlightOsmIdSet.has(s.osmId);
       return matchesFilter || isHighlighted;
     });
-  }, [mergedStreets, activeFilter, highlightOsmIdSet]);
+  }, [mergedStreets, visibleBins, highlightOsmIdSet]);
 
   const handleSync = useCallback(async () => {
     track("sync_clicked", {});
@@ -315,115 +307,125 @@ export function ReturningUserHomepage({
     return { completed, total, percentage };
   }, [featuredProjects]);
 
-  const handleBinCountsReport = useCallback((projectId: string, counts: { completed: number; almostThere: number; inProgress: number; notStarted: number }) => {
-    binCountsByProjectRef.current[projectId] = counts;
-    const totals = Object.values(binCountsByProjectRef.current).reduce(
-      (acc, c) => ({
-        completed: acc.completed + c.completed,
-        almostThere: acc.almostThere + c.almostThere,
-        inProgress: acc.inProgress + c.inProgress,
-        notStarted: acc.notStarted + c.notStarted,
-      }),
-      { completed: 0, almostThere: 0, inProgress: 0, notStarted: 0 }
-    );
-    setBinCounts(totals);
-  }, []);
-
   return (
-    <>
-      {/* Mobile: Suggestion on top */}
-      <div className="block space-y-4 md:hidden">
-        {data.primarySuggestion && (
-          <SuggestionCard
-            suggestion={data.primarySuggestion}
-            isLoading={isLoading}
-            onShowOnMap={handleShowOnMap}
-            onTrack={(action: "show_on_map" | "view_milestones") => {
-              track("primary_action_clicked", { action });
-              if (action === "show_on_map" && data.primarySuggestion) {
-                track("suggestion_opened", {
-                  type: data.primarySuggestion.type,
-                  cooldownKey: data.primarySuggestion.cooldownKey,
-                  context: data.mapContext?.projectId ? "project" : "area",
-                  projectId: data.mapContext?.projectId ?? undefined,
-                });
-              }
-            }}
+    <div className="flex h-full flex-col md:flex-row">
+      {/* Map section - left side */}
+      <div className="order-1 min-h-[40vh] w-full flex-1 md:order-1 md:min-h-0">
+        <div ref={mapRef} className="relative h-full w-full">
+          <UnifiedMap
+            center={effectiveMapCenter}
+            zoom={userLocation ? MAP_ZOOM.USER_LOCATION : (preferences?.preferences?.defaultMapZoom ?? MAP_ZOOM.DEFAULT)}
+            userLocation={userLocation}
+            showUserLocationMarker
+            streets={filteredStreetsForMap}
+            onViewportChange={onViewportChange}
+            highlightFocus={highlightFocus}
+            highlightOsmIds={
+              highlightFocus?.streetIds?.map((id) => `way/${id}`) ?? []
+            }
+            showLegend={false}
+            showLegendGuide={false}
+            className="h-full w-full"
+            isLoading={!userLocation && !mapCenter}
+            loadingMessage="Getting your location…"
           />
-        )}
+          {/* Interactive bin-based legend */}
+          {mergedStreets.length > 0 && (
+            <MapLegendFilterBins
+              visibleBins={visibleBins}
+              onToggle={(bin) => {
+                setVisibleBins((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(bin)) next.delete(bin);
+                  else next.add(bin);
+                  return next;
+                });
+              }}
+              counts={binCounts}
+              onShowAll={() => {
+                setVisibleBins(new Set(["completed", "almostThere", "inProgress", "notStarted"]));
+              }}
+            />
+          )}
+        </div>
       </div>
 
-      {/* Two-column layout: map left, sidebar right */}
-      <div className="-mx-4 w-[calc(100%+2rem)] flex min-h-0 flex-1 flex-col md:mx-0 md:w-full md:flex-row">
-        {/* Map section - left side */}
-        <div className="order-1 min-h-[40vh] w-full flex-1 md:order-1 md:h-auto md:min-h-[calc(100vh-120px)]">
-          <div ref={mapRef} className="h-[40vh] w-full md:h-full">
-            <UnifiedMap
-              center={effectiveMapCenter}
-              zoom={userLocation ? MAP_ZOOM.USER_LOCATION : (preferences?.preferences?.defaultMapZoom ?? MAP_ZOOM.DEFAULT)}
-              userLocation={userLocation}
-              showUserLocationMarker
-              streets={filteredStreetsForMap}
-              onViewportChange={onViewportChange}
-              highlightFocus={highlightFocus}
-              highlightOsmIds={
-                highlightFocus?.streetIds?.map((id) => `way/${id}`) ?? []
-              }
-              showLegend={false}
-              showLegendGuide
-              className="h-full w-full"
-              isLoading={!userLocation && !mapCenter}
-              loadingMessage="Getting your location…"
-            />
-          </div>
-        </div>
-
-        {/* Sidebar - right side */}
-        <aside className="order-2 w-full shrink-0 border-border bg-surface md:order-2 md:h-auto md:min-h-[calc(100vh-120px)] md:w-[380px] md:overflow-y-auto md:border-l-2">
-          <div className="flex flex-col gap-4 p-4 md:p-6">
-            {/* Search bar */}
-            <div>
-              <UniversalSearchInput
-                placeholder="Search area…"
-                onSelect={onSearchSelect}
+      {/* Sidebar - right side */}
+      <aside className="order-2 flex h-full w-full shrink-0 flex-col border-border bg-surface md:order-2 md:w-[380px] md:border-l">
+        {/* Mobile: Suggestion at top - fixed section */}
+        <div className="block border-b border-border md:hidden">
+          {data.primarySuggestion && (
+            <div className="p-4">
+              <SuggestionCard
+                suggestion={data.primarySuggestion}
+                isLoading={isLoading}
+                onShowOnMap={handleShowOnMap}
+                onTrack={(action: "show_on_map" | "view_milestones") => {
+                  track("primary_action_clicked", { action });
+                  if (action === "show_on_map" && data.primarySuggestion) {
+                    track("suggestion_opened", {
+                      type: data.primarySuggestion.type,
+                      cooldownKey: data.primarySuggestion.cooldownKey,
+                      context: data.mapContext?.projectId ? "project" : "area",
+                      projectId: data.mapContext?.projectId ?? undefined,
+                    });
+                  }
+                }}
               />
             </div>
+          )}
+        </div>
 
-            {/* Hero metric: total progress across featured projects */}
-            {featuredProjects.length > 0 && heroMetricTotals.total > 0 && (
-              <Card padding="md" className="space-y-1">
-                <MetricBlock label="Your progress" value={heroMetricTotals.completed} size="md" />
-                <span className="text-sm text-text-muted">
-                  of {heroMetricTotals.total} streets · {heroMetricTotals.percentage}%
-                </span>
-              </Card>
-            )}
+        {/* Fixed header section */}
+        <div className="space-y-4 border-b border-border p-4">
+          {/* Search bar */}
+          <div>
+            <UniversalSearchInput
+              placeholder="Search area…"
+              onSelect={onSearchSelect}
+            />
+          </div>
 
-            {/* Sync button – single secondary action per guide; verb phrase label */}
-            <div className="flex flex-col gap-2">
-              <Button
-                variant="secondary"
-                onClick={handleSync}
-                disabled={syncing}
-                className="w-full"
+          {/* Hero metric: total progress across featured projects */}
+          {featuredProjects.length > 0 && heroMetricTotals.total > 0 && (
+            <Card padding="md" className="space-y-1">
+              <MetricBlock label="Your progress" value={heroMetricTotals.completed} size="md" />
+              <span className="text-sm text-text-muted">
+                of {heroMetricTotals.total} streets · {heroMetricTotals.percentage}%
+              </span>
+            </Card>
+          )}
+
+          {/* Sync button – single secondary action per guide; verb phrase label */}
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleSync}
+              disabled={syncing}
+              className="w-full"
+            >
+              {syncing ? "Syncing activities…" : "Sync activities from Strava"}
+            </Button>
+            {syncResult && (
+              <span
+                className={`text-sm ${syncResult.error ? "text-danger" : "text-success"}`}
               >
-                {syncing ? "Syncing activities…" : "Sync activities from Strava"}
-              </Button>
-              {syncResult && (
-                <span
-                  className={`text-sm ${syncResult.error ? "text-danger" : "text-success"}`}
-                >
-                  {syncResult.error ??
-                    (syncResult.synced > 0
-                      ? `Synced ${syncResult.synced} activit${syncResult.synced !== 1 ? "ies" : "y"}`
-                      : "No new activities")}
-                </span>
-              )}
-            </div>
+                {syncResult.error ??
+                  (syncResult.synced > 0
+                    ? `Synced ${syncResult.synced} activit${syncResult.synced !== 1 ? "ies" : "y"}`
+                    : "No new activities")}
+              </span>
+            )}
+          </div>
 
-            {/* Desktop: Suggestion */}
-            <div className="hidden space-y-4 md:block">
-              {data.primarySuggestion && (
+        </div>
+
+        {/* Scrollable content section */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {/* Desktop: Suggestion */}
+          <div className="hidden md:block">
+            {data.primarySuggestion && (
+              <div className="mb-4">
                 <SuggestionCard
                   suggestion={data.primarySuggestion}
                   isLoading={isLoading}
@@ -440,79 +442,37 @@ export function ReturningUserHomepage({
                     }
                   }}
                 />
-              )}
-            </div>
-
-            {/* Global filter pills - only show once streets are loaded or show just the active filter */}
-            {featuredProjects.length > 0 && (
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Filter streets">
-                {/* Only show "All" if it's active OR if we have any bin counts (streets loaded) */}
-                {(activeFilter === "all" || Object.values(binCounts).some(c => c > 0)) && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveFilter("all")}
-                    className={`min-h-[44px] flex-[0.95] rounded-full border px-3 py-2 text-sm font-medium transition-all ${
-                      activeFilter === "all"
-                        ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
-                        : "border-border bg-surface text-text-muted hover:bg-border/50 hover:border-text-muted"
-                    }`}
-                  >
-                    All
-                  </button>
-                )}
-                {FILTER_PILLS.map(({ key, label, dotColor }) => {
-                  const count = binCounts[key as keyof typeof binCounts];
-                  const isActive = activeFilter === key;
-                  // Always show the active filter pill, hide others with count === 0
-                  if (count === 0 && !isActive) return null;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setActiveFilter(key)}
-                      className={`min-h-[44px] flex-[0.95] inline-flex items-center justify-center gap-1 rounded-full border px-3 py-2 text-sm font-medium transition-all ${
-                        isActive
-                          ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/30"
-                          : "border-border bg-surface text-text-muted hover:bg-border/50 hover:border-text-muted"
-                      }`}
-                    >
-                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`} aria-hidden />
-                      {count > 0 ? count : label}
-                    </button>
-                  );
-                })}
               </div>
             )}
-
-            {/* Featured Projects */}
-            {projectsLoading ? (
-              <Card padding="sm">
-                <p className="text-text-muted text-sm">Loading projects…</p>
-              </Card>
-            ) : featuredProjects.length > 0 ? (
-              <div className="space-y-4">
-                <h3 className="text-base font-semibold text-text">Featured Projects</h3>
-                {featuredProjects.map((project) => (
-                  <ProjectCardWithStreets
-                    key={project.id}
-                    project={project}
-                    activeFilter={activeFilter}
-                    onStreetClick={handleStreetClick}
-                    onStreetBlur={handleStreetBlur}
-                    onBinCountsReport={handleBinCountsReport}
-                  />
-                ))}
-                <Link
-                  to={ROUTES.PROJECTS_LIST}
-                  className="block text-center text-sm text-primary hover:underline"
-                >
-                  View more projects →
-                </Link>
-              </div>
-            ) : null}
           </div>
-        </aside>
-      </div>
-    </>
+
+          {/* Featured Projects */}
+          {projectsLoading ? (
+            <Card padding="sm">
+              <p className="text-sm text-text-muted">Loading projects…</p>
+            </Card>
+          ) : featuredProjects.length > 0 ? (
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-text">Featured Projects</h3>
+              {featuredProjects.map((project) => (
+                <ProjectCardWithStreets
+                  key={project.id}
+                  project={project}
+                  visibleBins={visibleBins}
+                  onStreetClick={handleStreetClick}
+                  onStreetBlur={handleStreetBlur}
+                />
+              ))}
+              <Link
+                to={ROUTES.PROJECTS_LIST}
+                className="block text-center text-sm text-primary hover:underline"
+              >
+                View more projects →
+              </Link>
+            </div>
+          ) : null}
+        </div>
+      </aside>
+    </div>
   );
 }

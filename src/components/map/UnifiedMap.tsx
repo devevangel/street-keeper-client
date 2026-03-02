@@ -60,7 +60,8 @@ import { HeatmapLayer } from "./HeatmapLayer";
 import { MapViewportHandler } from "./MapViewportHandler";
 import { FitBoundsToHighlight } from "./FitBoundsToHighlight";
 import { MapClickHandler } from "./MapClickHandler";
-import { MapLegendFilter, MapLegendGuide, type StreetStatus } from "./MapLegend";
+import { MapLegendFilterBins, MapLegendGuide } from "./MapLegend";
+import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
 import { MapLoadingOverlay } from "./MapLoadingOverlay";
 import { MAP_ZOOM } from "./mapConstants";
 import type { ShapeData } from "./DrawingToolbar";
@@ -81,8 +82,6 @@ export interface UnifiedMapProps {
   showUserLocationMarker?: boolean;
 
   streets?: (MapStreet | ProjectMapStreet)[];
-  defaultVisibleStatuses?: Set<StreetStatus>;
-  availableStatuses?: StreetStatus[];
   highlightOsmIds?: string[];
 
   boundary?: ProjectMapBoundary | null;
@@ -104,7 +103,7 @@ export interface UnifiedMapProps {
   onMarkerClick?: () => void;
 
   showLegend?: boolean;
-  /** Read-only color guide (Completed, Partial, Not run yet). Use on homepage. */
+  /** Read-only color guide (Completed, Almost there, In progress, Not started). Use on homepage. */
   showLegendGuide?: boolean;
   isLoading?: boolean;
   loadingMessage?: string;
@@ -129,6 +128,8 @@ const markerIcon = L.divIcon({
   iconAnchor: [12, 12],
 });
 
+const AVAILABLE_BINS: FilterStatus[] = ["completed", "almostThere", "inProgress", "notStarted"];
+
 function MapContent(props: UnifiedMapProps) {
   const {
     center,
@@ -136,8 +137,6 @@ function MapContent(props: UnifiedMapProps) {
     userLocation,
     showUserLocationMarker,
     streets = [],
-    defaultVisibleStatuses = new Set<StreetStatus>(["completed", "partial", "not_started"]),
-    availableStatuses = ["completed", "partial", "not_started"],
     highlightOsmIds = [],
     boundary,
     showBoundaryOutline,
@@ -163,29 +162,38 @@ function MapContent(props: UnifiedMapProps) {
     lng: Number.isFinite(center?.lng) ? center.lng : -1.09,
   };
 
-  const [visibleStatuses, setVisibleStatuses] = useState<Set<StreetStatus>>(
-    () => new Set(defaultVisibleStatuses)
+  const [visibleBins, setVisibleBins] = useState<Set<FilterStatus>>(
+    () => new Set(AVAILABLE_BINS)
   );
 
   // Create set of highlighted osmIds for quick lookup
   const highlightSet = useMemo(() => new Set(highlightOsmIds), [highlightOsmIds]);
 
+  // Compute bin counts from streets
+  const binCounts = useMemo(() => {
+    const counts: Record<FilterStatus, number> = {
+      all: 0,
+      completed: 0,
+      almostThere: 0,
+      inProgress: 0,
+      notStarted: 0,
+    };
+    for (const s of streets) {
+      const completed = s.status === "completed";
+      const bin = getStreetBin(s.percentage ?? 0, completed);
+      if (bin !== "all") counts[bin]++;
+    }
+    return counts;
+  }, [streets]);
+
   const filteredStreets = useMemo(() => {
     if (!showLegend || !streets.length) return streets;
-    // Always include highlighted streets regardless of status filter
-    return streets.filter(
-      (s) => visibleStatuses.has(s.status) || highlightSet.has(s.osmId)
-    );
-  }, [streets, showLegend, visibleStatuses, highlightSet]);
-
-  const handleToggleLegend = (status: StreetStatus) => {
-    setVisibleStatuses((prev) => {
-      const next = new Set(prev);
-      if (next.has(status)) next.delete(status);
-      else next.add(status);
-      return next;
+    return streets.filter((s) => {
+      const completed = s.status === "completed";
+      const bin = getStreetBin(s.percentage ?? 0, completed);
+      return visibleBins.has(bin) || highlightSet.has(s.osmId);
     });
-  };
+  }, [streets, showLegend, visibleBins, highlightSet]);
 
   return (
     <>
@@ -207,8 +215,9 @@ function MapContent(props: UnifiedMapProps) {
           radius={boundary.radiusMeters}
           pathOptions={{
             color: "#2563eb",
-            fillOpacity: 0.05,
             weight: 2,
+            fill: false,
+            interactive: false,
           }}
         />
       )}
@@ -217,8 +226,9 @@ function MapContent(props: UnifiedMapProps) {
           positions={boundary.coordinates.map(([lng, lat]: [number, number]) => [lat, lng] as LatLngTuple)}
           pathOptions={{
             color: "#2563eb",
-            fillOpacity: 0.05,
             weight: 2,
+            fill: false,
+            interactive: false,
           }}
         />
       )}
@@ -228,8 +238,9 @@ function MapContent(props: UnifiedMapProps) {
           radius={activeShape.radiusMeters}
           pathOptions={{
             color: "#2563eb",
-            fillOpacity: 0.05,
             weight: 2,
+            fill: false,
+            interactive: false,
           }}
         />
       )}
@@ -261,10 +272,18 @@ function MapContent(props: UnifiedMapProps) {
         />
       )}
       {showLegend && (
-        <MapLegendFilter
-          visibleStatuses={visibleStatuses}
-          onToggle={handleToggleLegend}
-          availableStatuses={availableStatuses}
+        <MapLegendFilterBins
+          visibleBins={visibleBins}
+          onToggle={(bin) => {
+            setVisibleBins((prev) => {
+              const next = new Set(prev);
+              if (next.has(bin)) next.delete(bin);
+              else next.add(bin);
+              return next;
+            });
+          }}
+          counts={binCounts}
+          onShowAll={() => setVisibleBins(new Set(AVAILABLE_BINS))}
         />
       )}
       {showLegendGuide && <MapLegendGuide />}

@@ -25,9 +25,9 @@ export function AppLayout() {
   const { user, logout } = useAuth();
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg text-text">
+    <div className="flex h-screen flex-col bg-bg text-text">
       <PendingCelebrationsChecker />
-      <header className="flex items-center justify-between border-b border-border bg-surface px-4 py-3">
+      <header className="flex shrink-0 items-center justify-between border-b border-border bg-surface px-4 py-3">
         <h1 className="text-xl font-bold text-text">Street Keeper</h1>
         <div className="flex items-center gap-4">
           <Link to={ROUTES.DOCS} className={navLinkClass}>
@@ -55,9 +55,11 @@ export function AppLayout() {
         </div>
       </header>
 
-      <TabNav />
+      <div className="shrink-0">
+        <TabNav />
+      </div>
 
-      <main className="flex-1 p-4">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <Outlet />
       </main>
     </div>

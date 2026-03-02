@@ -11,6 +11,7 @@ export { MapCenterSync } from "./MapCenterSync";
 export { MapClickHandler } from "./MapClickHandler";
 export {
   MapLegendFilter,
+  MapLegendFilterBins,
   MapLegendGuide,
   type StreetStatus,
 } from "./MapLegend";

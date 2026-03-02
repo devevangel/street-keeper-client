@@ -17,22 +17,20 @@ import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
 
 interface ProjectCardWithStreetsProps {
   project: ProjectListItem;
-  activeFilter?: FilterStatus;
+  visibleBins?: Set<FilterStatus>;
   onStreetClick: (params: {
     project: ProjectListItem;
     streetName: string;
     osmIds: string[];
   }) => void;
   onStreetBlur?: () => void;
-  onBinCountsReport?: (projectId: string, counts: { completed: number; almostThere: number; inProgress: number; notStarted: number }) => void;
 }
 
 export function ProjectCardWithStreets({
   project,
-  activeFilter = "all",
+  visibleBins = new Set(["completed", "almostThere", "inProgress", "notStarted"]),
   onStreetClick,
   onStreetBlur,
-  onBinCountsReport,
 }: ProjectCardWithStreetsProps) {
   const navigate = useNavigate();
   const [streets, setStreets] = useState<SnapshotStreet[]>([]);
@@ -68,33 +66,10 @@ export function ProjectCardWithStreets({
 
   const grouped = useMemo(() => groupStreetsByName(streets), [streets]);
 
-  // Compute bin counts and report to parent when streets change
-  const binCounts = useMemo(() => {
-    const counts = { completed: 0, almostThere: 0, inProgress: 0, notStarted: 0 };
-    for (const g of grouped) {
-      const bin = getStreetBin(g.percentage, g.completed);
-      if (bin !== "all") counts[bin]++;
-    }
-    return counts;
-  }, [grouped]);
-
-  // Report bin counts to parent only when streets array changes (not on every render)
-  const streetsKey = streets.map(s => s.osmId).join(",");
-  useEffect(() => {
-    if (streets.length > 0 && onBinCountsReport) {
-      const counts = { completed: 0, almostThere: 0, inProgress: 0, notStarted: 0 };
-      const grp = groupStreetsByName(streets);
-      for (const g of grp) {
-        const bin = getStreetBin(g.percentage, g.completed);
-        if (bin !== "all") counts[bin]++;
-      }
-      onBinCountsReport(project.id, counts);
-    }
-  }, [project.id, streetsKey, onBinCountsReport]);
-
-  const filtered = activeFilter === "all"
-    ? grouped
-    : grouped.filter((g) => getStreetBin(g.percentage, g.completed) === activeFilter);
+  const filtered = grouped.filter((g) => {
+    const bin = getStreetBin(g.percentage, g.completed);
+    return visibleBins.has(bin);
+  });
 
   const incomplete = grouped.filter((g) => !g.completed);
   const incompleteCount = incomplete.length;
@@ -167,10 +142,10 @@ export function ProjectCardWithStreets({
                 ))}
                 {filtered.length === 0 && (
                   <li className="px-4 py-3 text-sm text-text-muted">
-                    {activeFilter === "all" ? "No streets found" : "No streets in this category"}
+                    {visibleBins.size === 4 ? "No streets found" : "No streets in selected categories"}
                   </li>
                 )}
-                {activeFilter === "all" && incompleteCount === 0 && grouped.length > 0 && (
+                {visibleBins.size === 4 && incompleteCount === 0 && grouped.length > 0 && (
                   <li className="px-4 py-3 text-sm text-text-muted">
                     All streets completed!
                   </li>

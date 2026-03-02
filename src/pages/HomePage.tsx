@@ -186,18 +186,20 @@ export function HomePage() {
   }
 
   return (
-    <ReturningUserHomepage
-      data={homepage}
-      isLoading={homepageLoading}
-      userLocation={position}
-      mapCenter={mapCenter}
-      streets={accumulatedSegments}
-      onViewportChange={handleViewportChange}
-      onRefetch={refetchHomepage}
-      onClearSegments={clearSegments}
-      onRefetchMapStreets={refetchMapStreets}
-      onSearchSelect={handleSearchSelect}
-      onFocusLocation={handleFocusLocation}
-    />
+    <div className="flex h-full flex-col">
+      <ReturningUserHomepage
+        data={homepage}
+        isLoading={homepageLoading}
+        userLocation={position}
+        mapCenter={mapCenter}
+        streets={accumulatedSegments}
+        onViewportChange={handleViewportChange}
+        onRefetch={refetchHomepage}
+        onClearSegments={clearSegments}
+        onRefetchMapStreets={refetchMapStreets}
+        onSearchSelect={handleSearchSelect}
+        onFocusLocation={handleFocusLocation}
+      />
+    </div>
   );
 }
