@@ -31,6 +31,7 @@ export const mapService = {
     const params: Record<string, string> = {
       lat: String(lat),
       lng: String(lng),
+      minProgress: "0", // Include 0% segments so street aggregation sees full street
     };
     if (radiusMeters != null) {
       params.radius = String(radiusMeters);

@@ -15,11 +15,11 @@ import {
 } from "recharts";
 
 const BAR_COLORS = [
-  "#16a34a",
-  "#ca8a04",
-  "#2563eb",
+  "#10b981",
+  "#f59e0b",
+  "#06b6d4",
   "#7c3aed",
-  "#9ca3af",
+  "#94a3b8",
 ];
 
 export interface StreetTypeBarChartProps {

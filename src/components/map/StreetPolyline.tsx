@@ -11,37 +11,40 @@
 import { Polyline, Popup } from "react-leaflet";
 import type { LatLngTuple } from "leaflet";
 import type { MapStreet } from "../../types/api.types";
+import {
+  MAP_COLORS,
+  MAP_DASH,
+  MAP_WEIGHTS,
+  MAP_OPACITY,
+  HIGHLIGHT_STYLE,
+} from "./mapConstants";
 
-/** Polyline colors: match design tokens (success/warning) for consistency. */
-const COLOR_COMPLETED = "#16a34a";
-const COLOR_PARTIAL = "#ca8a04";
-/** Uncovered portion of partial streets (full street extent not yet run). */
-const COLOR_UNCOVERED = "#9ca3af";
-
-/** Stroke width: completed stands out more. */
-const WEIGHT_COMPLETED = 5;
-const WEIGHT_PARTIAL = 3;
-
-/** Opacity: completed solid, partial slightly transparent. */
-const OPACITY_COMPLETED = 1;
-const OPACITY_PARTIAL = 0.7;
-
-/** Dash pattern for in-progress streets (dash length, gap length in px). */
-const DASH_PARTIAL = "8, 6";
-/** Lighter dash for uncovered portion. */
-const DASH_UNCOVERED = "4, 8";
+/** Opacity for smoother appearance. */
+const OPACITY_COMPLETED = 0.85;
+const OPACITY_PARTIAL = 0.75;
 
 interface StreetPolylineProps {
   /** Street data including geometry (GeoJSON LineString) and status. */
   street: MapStreet;
+  /** When true, draw thicker and brighter (suggestion highlight). */
+  highlight?: boolean;
 }
 
 /**
  * Converts GeoJSON coordinates [lng, lat] to Leaflet [lat, lng].
  * Backend returns GeoJSON; Leaflet expects lat-first.
+ * Filters out any invalid coords to prevent Leaflet crashes.
  */
 function geoJsonToLeaflet(coordinates: [number, number][]): LatLngTuple[] {
-  return coordinates.map(([lng, lat]) => [lat, lng] as LatLngTuple);
+  return coordinates
+    .filter(
+      (c) =>
+        Array.isArray(c) &&
+        c.length >= 2 &&
+        Number.isFinite(c[0]) &&
+        Number.isFinite(c[1])
+    )
+    .map(([lng, lat]) => [lat, lng] as LatLngTuple);
 }
 
 const PopupContent = ({ street }: { street: MapStreet }) => {
@@ -59,17 +62,85 @@ const PopupContent = ({ street }: { street: MapStreet }) => {
   );
 };
 
-export function StreetPolyline({ street }: StreetPolylineProps) {
+const PATH_OPTIONS_BASE = {
+  lineCap: "round" as const,
+  lineJoin: "round" as const,
+  pane: "streetPane",
+};
+
+export function StreetPolyline({ street, highlight = false }: StreetPolylineProps) {
+  // Guard: skip if geometry is missing or empty (prevents Leaflet crash)
+  if (
+    !street.geometry?.coordinates ||
+    street.geometry.coordinates.length < 2
+  ) {
+    return null;
+  }
+
   const fullPositions = geoJsonToLeaflet(street.geometry.coordinates);
+
+  // Guard: ensure at least 2 valid positions after conversion
+  if (fullPositions.length < 2) {
+    return null;
+  }
+
   const isCompleted = street.status === "completed";
+
+  if (highlight) {
+    // Multi-layer highlight approach to maximize label visibility:
+    // 1. Very subtle glow background (provides soft highlight)
+    // 2. White outline/halo (creates contrast, makes labels pop)
+    // 3. Ultra-thin dashed colored line (minimal coverage, gaps show labels)
+    return (
+      <>
+        {/* Layer 1: Very subtle glow background */}
+        <Polyline
+          positions={fullPositions}
+          pathOptions={{
+            ...PATH_OPTIONS_BASE,
+            color: MAP_COLORS.HIGHLIGHT,
+            weight: HIGHLIGHT_STYLE.GLOW_WEIGHT,
+            opacity: HIGHLIGHT_STYLE.GLOW_OPACITY,
+          }}
+        />
+        {/* Layer 2: White outline/halo - creates contrast and makes labels readable */}
+        <Polyline
+          positions={fullPositions}
+          pathOptions={{
+            ...PATH_OPTIONS_BASE,
+            color: HIGHLIGHT_STYLE.OUTLINE_COLOR,
+            weight: HIGHLIGHT_STYLE.OUTLINE_WEIGHT,
+            opacity: HIGHLIGHT_STYLE.OUTLINE_OPACITY,
+            dashArray: HIGHLIGHT_STYLE.DASH_PATTERN,
+          }}
+        />
+        {/* Layer 3: Ultra-thin colored dashed line - minimal coverage, gaps show labels */}
+        <Polyline
+          positions={fullPositions}
+          pathOptions={{
+            ...PATH_OPTIONS_BASE,
+            color: MAP_COLORS.HIGHLIGHT,
+            weight: MAP_WEIGHTS.HIGHLIGHT,
+            opacity: MAP_OPACITY.HIGHLIGHT,
+            dashArray: HIGHLIGHT_STYLE.DASH_PATTERN, // Longer gaps = more label visibility
+          }}
+        >
+          <Popup>
+            <PopupContent street={street} />
+          </Popup>
+        </Polyline>
+      </>
+    );
+  }
 
   if (isCompleted) {
     return (
       <Polyline
         positions={fullPositions}
         pathOptions={{
-          color: COLOR_COMPLETED,
-          weight: WEIGHT_COMPLETED,
+          ...PATH_OPTIONS_BASE,
+          color: MAP_COLORS.COMPLETED,
+          weight: MAP_WEIGHTS.DEFAULT,
           opacity: OPACITY_COMPLETED,
         }}
       >
@@ -87,41 +158,47 @@ export function StreetPolyline({ street }: StreetPolylineProps) {
     const coveredPositions = geoJsonToLeaflet(
       street.coveredGeometry.coordinates
     );
-    return (
-      <>
-        <Polyline
-          positions={fullPositions}
-          pathOptions={{
-            color: COLOR_UNCOVERED,
-            weight: 2,
-            opacity: 0.5,
-            dashArray: DASH_UNCOVERED,
-          }}
-        />
-        <Polyline
-          positions={coveredPositions}
-          pathOptions={{
-            color: COLOR_PARTIAL,
-            weight: WEIGHT_PARTIAL,
-            opacity: OPACITY_PARTIAL,
-          }}
-        >
-          <Popup>
-            <PopupContent street={street} />
-          </Popup>
-        </Polyline>
-      </>
-    );
+    // Only render covered polyline if it has at least 2 valid positions
+    if (coveredPositions.length >= 2) {
+      return (
+        <>
+          <Polyline
+            positions={fullPositions}
+            pathOptions={{
+              ...PATH_OPTIONS_BASE,
+              color: MAP_COLORS.UNCOVERED,
+              weight: 2,
+              opacity: 0.4,
+              dashArray: MAP_DASH.UNCOVERED,
+            }}
+          />
+          <Polyline
+            positions={coveredPositions}
+            pathOptions={{
+              ...PATH_OPTIONS_BASE,
+              color: MAP_COLORS.PARTIAL,
+              weight: MAP_WEIGHTS.DEFAULT,
+              opacity: OPACITY_PARTIAL,
+            }}
+          >
+            <Popup>
+              <PopupContent street={street} />
+            </Popup>
+          </Polyline>
+        </>
+      );
+    }
   }
 
   return (
     <Polyline
       positions={fullPositions}
       pathOptions={{
-        color: COLOR_PARTIAL,
-        weight: WEIGHT_PARTIAL,
+        ...PATH_OPTIONS_BASE,
+        color: MAP_COLORS.PARTIAL,
+        weight: MAP_WEIGHTS.DEFAULT,
         opacity: OPACITY_PARTIAL,
-        dashArray: DASH_PARTIAL,
+        dashArray: MAP_DASH.PARTIAL,
       }}
     >
       <Popup>

@@ -70,9 +70,10 @@ export interface SnapshotStreet {
 export interface ProjectListItem {
   id: string;
   name: string;
-  centerLat: number;
-  centerLng: number;
-  radiusMeters: number;
+  boundaryType: "circle" | "polygon";
+  centerLat: number | null;
+  centerLng: number | null;
+  radiusMeters: number | null;
   progress: number;
   totalStreets: number;
   completedStreets: number;
@@ -81,12 +82,49 @@ export interface ProjectListItem {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
+  totalStreetNames?: number;
+  completedStreetNames?: number;
 }
 
 export interface NextMilestone {
   target: number;
   streetsNeeded: number;
   currentProgress: number;
+}
+
+export interface MilestoneProgress {
+  currentValue: number;
+  targetValue: number;
+  unit: string;
+  ratio: number;
+  isCompleted: boolean;
+}
+
+export interface MilestoneWithProgress {
+  id: string;
+  name: string;
+  typeSlug: string;
+  kind: string;
+  isPinned: boolean;
+  progress: MilestoneProgress;
+  projectId?: string | null;
+}
+
+export interface MilestoneType {
+  id: string;
+  slug: string;
+  scope: "project" | "global";
+  name: string;
+  description: string | null;
+  configSchema: unknown;
+  isEnabled: boolean;
+}
+
+export interface CreateMilestoneInput {
+  typeSlug: string;
+  projectId?: string;
+  config: Record<string, unknown>;
+  name?: string;
 }
 
 export interface StreetsByTypeItem {
@@ -106,12 +144,16 @@ export interface ProjectDetail extends ProjectListItem {
   streets: SnapshotStreet[];
   snapshotDate: string;
   completionBins: CompletionBins;
+  /** Distinct street names (for "X of Y streets completed" – matches list/map). */
+  totalStreetNames: number;
+  completedStreetNames: number;
   inProgressCount: number;
   notStartedCount: number;
   distanceCoveredMeters: number;
   activityCount: number;
   lastActivityDate: string | null;
   nextMilestone: NextMilestone | null;
+  realNextMilestone?: MilestoneWithProgress | null;
   streetsByType: StreetsByTypeItem[];
   refreshNeeded: boolean;
   daysSinceRefresh: number;
@@ -142,25 +184,44 @@ export interface ProjectActivitiesResponse {
 }
 
 export interface ProjectPreview {
-  centerLat: number;
-  centerLng: number;
-  radiusMeters: number;
-  cachedRadiusMeters: number;
+  boundaryType: "circle" | "polygon";
+  centerLat?: number;
+  centerLng?: number;
+  radiusMeters?: number;
+  cachedRadiusMeters?: number;
+  polygonCoordinates?: [number, number][];
   cacheKey: string;
   totalStreets: number;
+  totalStreetNames: number;
   totalLengthMeters: number;
   streetsByType: Record<string, number>;
   warnings: string[];
+  streets?: Array<{
+    name: string;
+    segmentCount: number;
+    totalLengthMeters: number;
+    highwayType: string;
+    /** When present, enables map highlight on hover/click */
+    osmId?: string;
+    geometry?: {
+      type: "LineString";
+      coordinates: [number, number][];
+    };
+  }>;
 }
 
-export type BoundaryMode = "centroid" | "strict";
+export type BoundaryMode = "centroid" | "strict" | "intersects";
 
 export interface CreateProjectRequest {
   name: string;
-  centerLat: number;
-  centerLng: number;
-  radiusMeters: 100 | 200 | 500 | 1000 | 2000 | 5000 | 10000;
+  boundaryType?: "circle" | "polygon";
+  centerLat?: number;
+  centerLng?: number;
+  radiusMeters?: number;
+  polygonCoordinates?: [number, number][];
   boundaryMode?: BoundaryMode;
+  /** Creation-time only. Cannot be changed after project creation. */
+  includePreviousRuns?: boolean;
   deadline?: string;
   cacheKey?: string;
 }
@@ -196,28 +257,32 @@ export interface ProjectMapStreet {
   };
 }
 
-/** Circle boundary for project map centering */
-export interface ProjectMapBoundary {
-  type: "circle";
-  center: { lat: number; lng: number };
-  radiusMeters: number;
-}
+/** Boundary for project map (circle or polygon) */
+export type ProjectMapBoundary =
+  | {
+      type: "circle";
+      center: { lat: number; lng: number };
+      radiusMeters: number;
+    }
+  | { type: "polygon"; coordinates: [number, number][] };
 
-/** Stats for project map view */
+/** Stats for project map view; use *StreetNames for display consistency with list. */
 export interface ProjectMapStats {
   totalStreets: number;
   completedStreets: number;
   partialStreets: number;
   notRunStreets: number;
   completionPercentage: number;
+  totalStreetNames: number;
+  completedStreetNames: number;
 }
 
 export interface ProjectMapData {
   id: string;
   name: string;
-  centerLat: number;
-  centerLng: number;
-  radiusMeters: number;
+  centerLat: number | null;
+  centerLng: number | null;
+  radiusMeters: number | null;
   progress: number;
   boundary: ProjectMapBoundary;
   stats: ProjectMapStats;

@@ -7,6 +7,9 @@
 
 import { useState, useMemo } from "react";
 import type { SnapshotStreet } from "../../types/api.types";
+import { normalizeStreetName } from "../../utils/normalize-street-name";
+import { usePreferences } from "../../contexts/PreferencesContext";
+import { Input } from "../common";
 
 interface ProjectStreetListProps {
   streets: SnapshotStreet[];
@@ -27,14 +30,18 @@ interface GroupedStreet {
 }
 
 function groupStreetsByName(streets: SnapshotStreet[]): GroupedStreet[] {
-  const byName = new Map<string, SnapshotStreet[]>();
+  const byName = new Map<string, { streets: SnapshotStreet[]; displayName: string }>();
   for (const s of streets) {
-    const key = s.name || "Unnamed";
-    if (!byName.has(key)) byName.set(key, []);
-    byName.get(key)!.push(s);
+    const key = normalizeStreetName(s.name || "Unnamed");
+    if (!byName.has(key)) {
+      // Use the first encountered name as display name
+      byName.set(key, { streets: [], displayName: s.name || "Unnamed" });
+    }
+    byName.get(key)!.streets.push(s);
   }
   const result: GroupedStreet[] = [];
-  for (const [name, ways] of byName.entries()) {
+  for (const data of byName.values()) {
+    const ways = data.streets;
     const totalLengthMeters = ways.reduce((sum, w) => sum + w.lengthMeters, 0);
     const weightedPct =
       totalLengthMeters > 0
@@ -43,7 +50,7 @@ function groupStreetsByName(streets: SnapshotStreet[]): GroupedStreet[] {
         : 0;
     const completed = ways.every((w) => w.completed);
     result.push({
-      name,
+      name: data.displayName,
       totalLengthMeters,
       percentage: Math.round(weightedPct),
       completed,
@@ -73,6 +80,8 @@ export function ProjectStreetList({
   overallProgressPercent,
 }: ProjectStreetListProps) {
   const [search, setSearch] = useState("");
+  const preferences = usePreferences();
+  const formatDistance = preferences?.formatDistance ?? ((m: number, p = 1) => `${(m / 1000).toFixed(p)} km`);
 
   const grouped = useMemo(() => groupStreetsByName(streets), [streets]);
 
@@ -82,10 +91,10 @@ export function ProjectStreetList({
     return grouped.filter((g) => g.name.toLowerCase().includes(q));
   }, [grouped, search]);
 
-  const totalKm =
+  const totalMeters =
     totalLengthMeters != null
-      ? totalLengthMeters / 1000
-      : streets.reduce((sum, s) => sum + s.lengthMeters, 0) / 1000;
+      ? totalLengthMeters
+      : streets.reduce((sum, s) => sum + s.lengthMeters, 0);
 
   return (
     <div className="space-y-3">
@@ -94,20 +103,19 @@ export function ProjectStreetList({
         {streets.length !== grouped.length &&
           ` (${streets.length} segments)`}.
         {" · "}
-        Total: {totalKm.toFixed(1)} km
+        Total: {formatDistance(totalMeters, 1)}
         {overallProgressPercent != null &&
           ` · Overall: ${Math.round(overallProgressPercent)}% complete`}
       </p>
-      <input
+      <Input
         type="search"
         placeholder="Search by name…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full rounded border-2 border-border bg-surface px-3 py-2 text-text placeholder:text-text-muted focus:border-primary focus:outline-none"
         aria-label="Search streets"
       />
       <div
-        className="max-h-[60vh] overflow-y-auto rounded border-2 border-border"
+        className="max-h-[60vh] overflow-y-auto rounded-lg border border-border"
         aria-label="All streets in this project"
       >
         <ul className="list-none divide-y divide-border p-0">
@@ -126,7 +134,7 @@ export function ProjectStreetList({
               </span>
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="text-text-muted">
-                  {(row.totalLengthMeters / 1000).toFixed(2)} km
+                  {formatDistance(row.totalLengthMeters, 2)}
                 </span>
                 <span className="text-text-muted">{row.percentage}%</span>
                 <span

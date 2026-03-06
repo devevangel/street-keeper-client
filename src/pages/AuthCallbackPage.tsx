@@ -80,9 +80,9 @@ export function AuthCallbackPage() {
   if (status === "error") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-bg p-4 text-text">
-        <Card className="w-full max-w-md">
-          <h2 className="mb-2 text-xl font-bold">Login failed</h2>
-          <p className="mb-4 text-text-muted" role="alert">
+        <Card className="w-full max-w-md space-y-4">
+          <h2 className="text-base font-semibold">Login failed</h2>
+          <p className="text-sm text-text-muted" role="alert">
             {errorMessage}
           </p>
           <Link to={ROUTES.LOGIN}>

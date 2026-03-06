@@ -12,6 +12,9 @@ import {
   Outlet,
 } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { PreferencesProvider } from "./contexts/PreferencesContext";
+import { AnalyticsProvider } from "./contexts/AnalyticsContext";
+import { ToastProvider } from "./contexts/ToastContext";
 import { ProtectedRoute } from "./components/routing";
 import { AppLayout } from "./components/layout";
 import {
@@ -21,10 +24,10 @@ import {
   ProjectsPage,
   ProjectDetailPage,
   ProjectCreatePage,
-  ProjectMapPage,
-  ProjectHeatmapPage,
   ProjectSuggestionsMapPage,
   CampaignPage,
+  MilestonesPage,
+  PreferencesPage,
   DocsPage,
 } from "./pages";
 import { DocsLayout } from "./components/docs";
@@ -33,6 +36,9 @@ import { ROUTES } from "./config/constants";
 function App() {
   return (
     <AuthProvider>
+      <PreferencesProvider>
+      <ToastProvider>
+      <AnalyticsProvider>
       <BrowserRouter>
         <Routes>
           <Route path={ROUTES.LOGIN} element={<LoginPage />} />
@@ -52,8 +58,6 @@ function App() {
             <Route path="projects" element={<Outlet />}>
               <Route index element={<ProjectsPage />} />
               <Route path="new" element={<ProjectCreatePage />} />
-              <Route path=":id/map" element={<ProjectMapPage />} />
-              <Route path=":id/heatmap" element={<ProjectHeatmapPage />} />
               <Route
                 path=":id/suggestions"
                 element={<ProjectSuggestionsMapPage />}
@@ -61,10 +65,15 @@ function App() {
               <Route path=":id" element={<ProjectDetailPage />} />
             </Route>
             <Route path="campaign" element={<CampaignPage />} />
+            <Route path="milestones" element={<MilestonesPage />} />
+            <Route path="preferences" element={<PreferencesPage />} />
           </Route>
           <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
         </Routes>
       </BrowserRouter>
+      </AnalyticsProvider>
+      </ToastProvider>
+      </PreferencesProvider>
     </AuthProvider>
   );
 }

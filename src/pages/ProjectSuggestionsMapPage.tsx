@@ -6,12 +6,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button, Card } from "../components/common";
-import { ProjectMap } from "../components/projects";
+import { UnifiedMap } from "../components/map";
+import { MAP_ZOOM } from "../components/map/mapConstants";
 import { projectsService } from "../services/projects.service";
 import { suggestionsService } from "../services/suggestions.service";
 import { ApiError } from "../lib/api-client";
 import { ROUTES } from "../config/constants";
 import type { ProjectMapData } from "../types/api.types";
+import { projectMapCenter, computeBoundaryBbox } from "../utils/map-utils";
 
 export function ProjectSuggestionsMapPage() {
   const { id } = useParams<{ id: string }>();
@@ -72,12 +74,12 @@ export function ProjectSuggestionsMapPage() {
 
   if (error && !mapData) {
     return (
-      <Card className="max-w-md">
-        <p className="text-danger">{error}</p>
-        <Button variant="secondary" onClick={fetchData} className="mt-2">
+      <Card className="m-4 max-w-md space-y-4">
+        <p className="text-sm text-danger">{error}</p>
+        <Button variant="secondary" onClick={fetchData}>
           Retry
         </Button>
-        <Link to={`/projects/${id}`} className="mt-3 block">
+        <Link to={`/projects/${id}`} className="block text-sm text-text-muted hover:underline">
           Back to project
         </Link>
       </Card>
@@ -86,30 +88,47 @@ export function ProjectSuggestionsMapPage() {
 
   if (!mapData) return null;
 
+  const center = projectMapCenter(mapData);
+  const boundaryBbox = computeBoundaryBbox(mapData.boundary);
+
   return (
-    <div className="flex flex-col p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            to={`/projects/${id}`}
-            className="text-sm text-text-muted hover:underline"
-          >
-            ← Back to project
-          </Link>
-          <h1 className="text-xl font-bold text-text">
-            {mapData.name} — Suggestions
-          </h1>
+    <div className="flex h-full flex-col overflow-hidden md:flex-row">
+      {/* Map section */}
+      <div className="h-[45vh] w-full shrink-0 md:h-full md:min-h-0 md:flex-1 md:shrink">
+        <div className="h-full w-full">
+          <UnifiedMap
+            center={center}
+            zoom={MAP_ZOOM.PROJECT_DETAIL}
+            streets={mapData.streets}
+            boundary={mapData.boundary}
+            showBoundaryOutline
+            highlightFocus={boundaryBbox ? { bbox: boundaryBbox } : null}
+            highlightOsmIds={Array.from(suggestedOsmIds)}
+            showLegend
+            className="h-full w-full"
+          />
         </div>
       </div>
-      <p className="mb-3 text-sm text-text-muted">
-        {suggestedOsmIds.size} suggested street(s) highlighted in blue
-      </p>
-      <ProjectMap
-        mapData={mapData}
-        suggestedOsmIds={suggestedOsmIds}
-        showSuggestedLegend
-        className="h-[70vh] min-h-[500px] w-full"
-      />
+
+      {/* Info panel - right side */}
+      <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-surface md:w-[380px] md:flex-none md:border-l">
+        <div className="p-4 pb-8 md:pb-4">
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <Link
+              to={`/projects/${id}`}
+              className="text-sm text-text-muted hover:underline"
+            >
+              ← Back to project
+            </Link>
+          </div>
+          <h1 className="text-xl font-bold text-text mb-2">
+            {mapData.name} — Suggestions
+          </h1>
+          <p className="text-sm text-text-muted">
+            {suggestedOsmIds.size} suggested street(s) highlighted in blue
+          </p>
+        </div>
+      </aside>
     </div>
   );
 }

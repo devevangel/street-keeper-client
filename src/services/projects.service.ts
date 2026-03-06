@@ -7,6 +7,7 @@ import { apiClient } from "../lib/api-client";
 import type {
   ProjectsListResponse,
   ProjectDetailResponse,
+  ProjectDetail,
   ProjectPreviewResponse,
   ProjectMapResponse,
   ProjectHeatmapResponse,
@@ -15,8 +16,12 @@ import type {
 } from "../types/api.types";
 
 export const projectsService = {
-  async getAll(): Promise<ProjectsListResponse> {
-    return apiClient.get<ProjectsListResponse>("/projects");
+  async getAll(options?: {
+    includeArchived?: boolean;
+  }): Promise<ProjectsListResponse> {
+    const params: Record<string, string> = {};
+    if (options?.includeArchived) params.includeArchived = "true";
+    return apiClient.get<ProjectsListResponse>("/projects", params);
   },
 
   async getById(
@@ -32,32 +37,68 @@ export const projectsService = {
   },
 
   async preview(
-    centerLat: number,
-    centerLng: number,
-    radiusMeters: 100 | 200 | 500 | 1000 | 2000 | 5000 | 10000,
-    boundaryMode?: "centroid" | "strict",
+    options:
+      | {
+          boundaryType: "circle";
+          centerLat: number;
+          centerLng: number;
+          radiusMeters: number;
+        }
+      | {
+          boundaryType: "polygon";
+          polygonCoordinates: [number, number][];
+        },
+    boundaryMode?: "centroid" | "strict" | "intersects",
+    includeStreets?: boolean,
+    signal?: AbortSignal,
   ): Promise<ProjectPreviewResponse> {
-    const params: Record<string, string> = {
-      lat: centerLat.toString(),
-      lng: centerLng.toString(),
-      radius: radiusMeters.toString(),
-    };
+    const params: Record<string, string> = {};
+    if (options.boundaryType === "circle") {
+      params.lat = options.centerLat.toString();
+      params.lng = options.centerLng.toString();
+      params.radius = options.radiusMeters.toString();
+    } else {
+      params.boundaryType = "polygon";
+      params.polygon = JSON.stringify(options.polygonCoordinates);
+    }
     if (boundaryMode === "strict") params.boundaryMode = "strict";
-    return apiClient.get<ProjectPreviewResponse>("/projects/preview", params);
+    else if (boundaryMode === "centroid") params.boundaryMode = "centroid";
+    else if (boundaryMode === "intersects") params.boundaryMode = "intersects";
+    if (includeStreets === true) params.includeStreets = "true";
+    return apiClient.get<ProjectPreviewResponse>("/projects/preview", params, signal);
   },
 
   async create(data: CreateProjectRequest): Promise<ProjectDetailResponse> {
     return apiClient.post<ProjectDetailResponse>("/projects", data);
   },
 
-  async delete(projectId: string): Promise<{ success: true; message: string }> {
+  async archive(projectId: string): Promise<{ success: true; message: string }> {
     return apiClient.delete(`/projects/${projectId}`);
+  },
+
+  async restore(projectId: string): Promise<{ success: true; message: string }> {
+    return apiClient.post(`/projects/${projectId}/restore`);
+  },
+
+  async deletePermanently(
+    projectId: string
+  ): Promise<{ success: true; message: string }> {
+    return apiClient.delete(`/projects/${projectId}/permanent`);
   },
 
   async refresh(projectId: string): Promise<ProjectDetailResponse> {
     return apiClient.post<ProjectDetailResponse>(
       `/projects/${projectId}/refresh`,
     );
+  },
+
+  async expandStreets(projectId: string): Promise<{
+    success: true;
+    project: ProjectDetail;
+    addedSegments: number;
+    message: string;
+  }> {
+    return apiClient.post(`/projects/${projectId}/expand-streets`);
   },
 
   async resize(

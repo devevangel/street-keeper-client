@@ -1,0 +1,107 @@
+{
+  "cursor_select": {
+    "title": "Cursor / Select",
+    "description": "Default safe mode. Lets the user click/select map items and edit existing shapes.",
+    "icon": "cursor",
+    "usage": "Use this tool to select and edit shapes on the map. Click a shape to select it. Drag points to adjust.",
+    "rules": [
+      "This is the default tool when the map loads.",
+      "Clicking a polygon selects it and shows edit points (vertices).",
+      "Dragging a vertex reshapes the polygon.",
+      "Clicking empty map clears selection (optional).",
+      "After finishing any drawing (polygon), the app auto-switches back to Cursor and selects the new shape."
+    ],
+    "quality_of_life": [
+      "Show a small helper tip: 'Click a shape to edit. Drag points to adjust.'",
+      "Highlight the selected shape so users know what is active."
+    ]
+  },
+
+  "draw_polygon": {
+    "title": "Draw Area (Polygon)",
+    "description": "Draw an area by clicking points on the map. Best for selecting/excluding streets inside an area.",
+    "icon": "polygon",
+    "usage": "Select this tool, then click on the map to add corners. Double-click (or click the first point) to finish the shape. Afterwards, drag points to adjust.",
+    "rules": [
+      "Click to add points (vertices).",
+      "A preview line should appear while drawing to show the next segment.",
+      "Finish drawing by double-clicking OR clicking the first point (choose one main behavior and keep it consistent).",
+      "Polygon must have at least 3 points to be valid.",
+      "Press ESC to cancel the drawing (removes the in-progress polygon).",
+      "After finishing, auto-switch back to Cursor and select the polygon so the user can edit it.",
+      "V1 recommendation: only allow one polygon at a time."
+    ],
+    "if_polygon_already_exists": [
+      "Option A (simple): block new drawing and show message: 'Delete current area to draw a new one.'",
+      "Option B (slightly nicer): ask confirm: 'Replace existing area?' then replace if confirmed."
+    ],
+    "quality_of_life": [
+      "Show helper tip while active: 'Click to add points. Double-click to finish. ESC to cancel.'",
+      "Show an 'Area selected' small panel after finish with quick actions (Edit / Delete)."
+    ]
+  },
+
+  "circle_select": {
+    "title": "Circle Select (Radius)",
+    "description": "Fast selection tool. Click to place a circle and use a slider to change radius.",
+    "icon": "circle",
+    "usage": "Select this tool, click on the map to place the circle center, then adjust radius using the slider.",
+    "rules": [
+      "Click on the map places the circle center.",
+      "Circle appears with default radius (e.g., 200m).",
+      "Slider changes radius live (meters).",
+      "Clicking a new location moves the circle center (simple behavior).",
+      "Optional: allow dragging the center handle to move the circle.",
+      "V1 recommendation: only allow one circle at a time."
+    ],
+    "quality_of_life": [
+      "Add quick radius presets (optional): 100m, 200m, 500m, 1km.",
+      "Show the radius value next to the slider."
+    ]
+  },
+
+  "delete_selected": {
+    "title": "Delete Selected",
+    "description": "Deletes only the currently selected shape (safe delete).",
+    "icon": "trash",
+    "usage": "Select a polygon (or other shape), then click Delete to remove it.",
+    "rules": [
+      "Delete is disabled if nothing is selected.",
+      "Deletes only what is selected (never clears everything by default).",
+      "Optional: keyboard shortcut Delete/Backspace deletes selected shape."
+    ],
+    "quality_of_life": [
+      "If the shape is being used in a workflow (e.g., 'exclude area'), show confirmation: 'Delete this area?'"
+    ]
+  },
+
+  "marker_optional": {
+    "title": "Marker (Single Pin) — Optional",
+    "description": "Place a single pin on the map for point-based actions (only add if you truly need it).",
+    "icon": "pin",
+    "usage": "Select this tool, click on the map to place a pin. Click elsewhere to move it. Click the pin to remove it.",
+    "rules": [
+      "Only one marker at a time (v1).",
+      "Click on map places marker if none exists.",
+      "If marker exists, clicking elsewhere moves marker there.",
+      "Click marker removes it (or opens a small popup with Remove).",
+      "Marker is optional because your main use case is area selection (polygon/circle)."
+    ],
+    "when_to_add": [
+      "If you need actions like 'inspect near this point', 'set meeting point', 'set start location'.",
+      "If you have no clear point-based feature, skip this tool."
+    ]
+  },
+
+  "clear_all_optional": {
+    "title": "Clear All — Optional (Dangerous)",
+    "description": "Removes all shapes and markers. Should be hidden in a menu and always confirmed.",
+    "icon": "broom",
+    "usage": "Open the More (•••) menu and choose Clear All. Confirm to remove everything.",
+    "rules": [
+      "Do NOT place this as a main toolbar button (too easy to misclick).",
+      "Always show a confirmation modal: 'Clear all selections and drawings?'",
+      "After clearing, return to Cursor tool."
+    ]
+  }
+}

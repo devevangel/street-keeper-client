@@ -4,6 +4,7 @@
  * Green dot = completed, yellow dot = partial. Click to expand/collapse stats.
  */
 
+import { usePreferences } from "../../contexts/PreferencesContext";
 import type { MapStreet } from "../../types/api.types";
 
 interface StreetCardProps {
@@ -13,6 +14,8 @@ interface StreetCardProps {
 }
 
 export function StreetCard({ street, isExpanded, onToggle }: StreetCardProps) {
+  const preferences = usePreferences();
+  const formatDate = preferences?.formatDate ?? ((d: Date | string) => new Date(d).toLocaleDateString());
   const isCompleted = street.status === "completed";
 
   return (
@@ -57,13 +60,13 @@ export function StreetCard({ street, isExpanded, onToggle }: StreetCardProps) {
           {street.stats.firstRunDate && (
             <p>
               First run:{" "}
-              {new Date(street.stats.firstRunDate).toLocaleDateString()}
+              {formatDate(street.stats.firstRunDate)}
             </p>
           )}
           {street.stats.lastRunDate && (
             <p>
               Last run:{" "}
-              {new Date(street.stats.lastRunDate).toLocaleDateString()}
+              {formatDate(street.stats.lastRunDate)}
             </p>
           )}
         </div>

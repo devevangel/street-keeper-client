@@ -1,31 +1,30 @@
 /**
  * HomePage
- * Map view: user location or search result, streets with progress, hero stats, and top streets.
- * Accumulates segments on pan (GTA-style); only fetches when center moves > MIN_FETCH_DISTANCE_M.
+ * Unified homepage layout: map, search, sync, suggestions, and project cards.
+ * Handles geolocation, map street fetching, and delegates to ReturningUserHomepage when data is ready.
+ * Shows LocationPrompt when location is needed and EmptyState when street fetch fails.
+ *
+ * @example
+ * <Route path="/" element={<HomePage />} />
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Button, Card } from "../components/common";
-import {
-  LocationPrompt,
-  MapStats,
-  MapView,
-} from "../components/map";
-import { UniversalSearchInput } from "../components/projects/UniversalSearchInput";
-import { useGeolocation, useMapStreets } from "../hooks";
-import { activitiesService } from "../services/activities.service";
-import type { GeocodingResult, MapStreet } from "../types/api.types";
+import { EmptyState } from "../components/common";
+import { ReturningUserHomepage } from "../components/homepage";
+import { LocationPrompt } from "../components/map";
+import { useAnalytics } from "../contexts/AnalyticsContext";
+import { useGeolocation, useHomepageData, useMapStreets } from "../hooks";
+import type { MapStreet } from "../types/api.types";
+import type { GeocodingResult } from "../types/api.types";
 
 const DEFAULT_RADIUS = 1000;
-const TOP_STREETS_COUNT = 5;
 const MIN_FETCH_DISTANCE_M = 200;
 
-/** Approximate distance in meters between two WGS84 points (Haversine). */
 function haversineDistance(
   a: { lat: number; lng: number },
-  b: { lat: number; lng: number }
+  b: { lat: number; lng: number },
 ): number {
-  const R = 6371000; // Earth radius in m
+  const R = 6371000;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
   const x =
@@ -43,20 +42,31 @@ export function HomePage() {
     isLoading: locationLoading,
     requestPermission,
   } = useGeolocation({ watch: true });
+  const { track } = useAnalytics();
 
   const [mapCenter, setMapCenter] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
-  /** Center used for API fetch; only updated when mapCenter moves > MIN_FETCH_DISTANCE_M or on search/location. */
   const [fetchCenter, setFetchCenter] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
-  /** Accumulated segments (GTA-style); keyed by osmId. */
   const [allSegments, setAllSegments] = useState<Map<string, MapStreet>>(
-    new Map()
+    new Map(),
   );
+
+  const {
+    data: homepage,
+    isLoading: homepageLoading,
+    refetch: refetchHomepage,
+  } = useHomepageData({
+    lat: mapCenter?.lat,
+    lng: mapCenter?.lng,
+    userLat: position?.lat,
+    userLng: position?.lng,
+    radius: DEFAULT_RADIUS,
+  });
 
   useEffect(() => {
     if (position) {
@@ -66,16 +76,32 @@ export function HomePage() {
     }
   }, [position?.lat, position?.lng]);
 
-  const {
-    data,
-    isLoading: fetchLoading,
-    error: fetchError,
-    refetch,
-  } = useMapStreets(
+  const { data, error: fetchError, refetch: refetchMapStreets } = useMapStreets(
     fetchCenter?.lat ?? null,
     fetchCenter?.lng ?? null,
-    DEFAULT_RADIUS
+    DEFAULT_RADIUS,
   );
+
+  const clearSegments = useCallback(() => {
+    setAllSegments(new Map());
+  }, []);
+
+  useEffect(() => {
+    if (homepage) {
+      track("homepage_viewed", {
+        stateKey: homepage.hero.stateKey,
+        isNewUser: homepage.isNewUser,
+        hasSuggestion: !!homepage.primarySuggestion,
+        hasFirstStreet: !!homepage.firstStreet,
+      });
+    }
+  }, [
+    homepage?.hero.stateKey,
+    homepage?.isNewUser,
+    homepage?.primarySuggestion,
+    homepage?.firstStreet,
+    track,
+  ]);
 
   useEffect(() => {
     if (!data?.segments.length) return;
@@ -90,14 +116,17 @@ export function HomePage() {
 
   const handleViewportChange = useCallback(
     (center: { lat: number; lng: number }) => {
-      setMapCenter(center);
+      // Only update fetchCenter when panning past threshold (for loading new streets).
+      // Do not update mapCenter here — that would re-render the page and feed the
+      // panned center back into MapView, causing MapCenterSync to run and the map to twitch.
       setFetchCenter((prev) => {
         if (!prev) return center;
-        if (haversineDistance(prev, center) > MIN_FETCH_DISTANCE_M) return center;
+        if (haversineDistance(prev, center) > MIN_FETCH_DISTANCE_M)
+          return center;
         return prev;
       });
     },
-    []
+    [],
   );
 
   const handleSearchSelect = useCallback((result: GeocodingResult) => {
@@ -106,40 +135,14 @@ export function HomePage() {
     setFetchCenter(center);
   }, []);
 
-  const handleUseMyLocation = useCallback(() => {
-    if (position) {
-      const center = { lat: position.lat, lng: position.lng };
+  const handleFocusLocation = useCallback(
+    (center: { lat: number; lng: number }) => {
       setMapCenter(center);
       setFetchCenter(center);
-    } else {
-      requestPermission();
-    }
-  }, [position, requestPermission]);
+    },
+    []
+  );
 
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<{
-    synced: number;
-    error?: string;
-  } | null>(null);
-
-  const handleSync = async () => {
-    setSyncing(true);
-    setSyncResult(null);
-    try {
-      const result = await activitiesService.syncFromStrava();
-      setSyncResult({
-        synced: result.synced + result.processed,
-      });
-      refetch();
-    } catch (err) {
-      setSyncResult({
-        synced: 0,
-        error: err instanceof Error ? err.message : "Sync failed",
-      });
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   useEffect(() => {
     requestPermission();
@@ -157,169 +160,46 @@ export function HomePage() {
 
   if (locationError && !mapCenter && !position) {
     return (
-      <div className="space-y-4">
-        <LocationPrompt
-          isLoading={false}
-          error={locationError}
-          onRetry={requestPermission}
-        />
-        <p className="text-sm text-text-muted">
-          Or search for an area below to see streets you&apos;ve run there.
-        </p>
-        <UniversalSearchInput
-          placeholder="Search area: city, address, place…"
-          onSelect={handleSearchSelect}
-        />
-      </div>
-    );
-  }
-
-  if (fetchLoading && !data) {
-    return (
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="min-w-[200px] flex-1">
-            <UniversalSearchInput
-              placeholder="Search area: city, address, place…"
-              onSelect={handleSearchSelect}
-            />
-          </div>
-          <Button variant="secondary" size="sm" onClick={handleUseMyLocation}>
-            Use my location
-          </Button>
-        </div>
-        <div className="py-8" role="status" aria-label="Loading streets">
-          <p className="text-text-muted">Loading streets…</p>
-        </div>
-      </div>
+      <LocationPrompt
+        isLoading={false}
+        error={locationError}
+        onRetry={requestPermission}
+      />
     );
   }
 
   if (fetchError) {
     return (
-      <Card>
-        <h2 className="mb-2 text-xl font-bold">Could not load streets</h2>
-        <p className="text-text-muted" role="alert">
-          {fetchError}
-        </p>
-      </Card>
+      <EmptyState
+        title="Could not load streets"
+        description={`${fetchError} Try again or move the map to refresh.`}
+        action="Try again"
+        onAction={refetchMapStreets}
+      />
     );
   }
 
-  const segmentsForView = data?.segments ?? [];
-  const streets = data?.streets ?? [];
   const accumulatedSegments = Array.from(allSegments.values());
-  const totalLengthMeters = segmentsForView.reduce(
-    (sum, s) => sum + s.lengthMeters,
-    0
-  );
-  const topStreets = streets
-    .slice()
-    .sort((a, b) => b.percentage - a.percentage)
-    .slice(0, TOP_STREETS_COUNT);
+
+  if (!homepage) {
+    return null;
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-[200px] flex-1">
-          <UniversalSearchInput
-            placeholder="Search area: city, address, place…"
-            onSelect={handleSearchSelect}
-          />
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleUseMyLocation}
-          className="shrink-0"
-        >
-          Use my location
-        </Button>
-      </div>
-      <MapView
-        mapCenter={mapCenter}
+    <div className="flex h-full flex-col">
+      <ReturningUserHomepage
+        data={homepage}
+        isLoading={homepageLoading}
         userLocation={position}
+        mapCenter={mapCenter}
         streets={accumulatedSegments}
         onViewportChange={handleViewportChange}
+        onRefetch={refetchHomepage}
+        onClearSegments={clearSegments}
+        onRefetchMapStreets={refetchMapStreets}
+        onSearchSelect={handleSearchSelect}
+        onFocusLocation={handleFocusLocation}
       />
-      <div className="flex flex-wrap items-center gap-4">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleSync}
-          disabled={syncing}
-        >
-          {syncing ? "Syncing..." : "Sync from Strava"}
-        </Button>
-        {syncResult && (
-          <span
-            className={
-              syncResult.error
-                ? "text-red-500"
-                : "text-green-600 dark:text-green-400"
-            }
-          >
-            {syncResult.error ??
-              (syncResult.synced > 0
-                ? `Synced ${syncResult.synced} activit${
-                    syncResult.synced !== 1 ? "ies" : "y"
-                  }`
-                : "No new activities to sync")}
-          </span>
-        )}
-      </div>
-      <MapStats
-        totalStreets={data?.totalStreets ?? 0}
-        completedCount={data?.completedCount ?? 0}
-        partialCount={data?.partialCount ?? 0}
-        totalLengthMeters={totalLengthMeters}
-      />
-
-      {streets.length === 0 ? (
-        <Card className="border-primary/30 bg-primary/5">
-          <p className="mb-2 text-text">
-            {!mapCenter
-              ? "Search an area or use your location to see streets you've run."
-              : "No streets with progress in this area yet."}
-          </p>
-          <p className="text-sm text-text-muted">
-            {!mapCenter
-              ? "Choose a place above or click \"Use my location\"."
-              : "Sync from Strava to import your runs, or search another area."}
-          </p>
-        </Card>
-      ) : (
-        <section aria-label="Top streets in this area">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">
-            Top streets in this area
-          </h2>
-          <ul className="list-none space-y-1 rounded border-2 border-border bg-surface p-2">
-            {topStreets.map((street) => (
-              <li
-                key={street.osmId}
-                className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm"
-              >
-                <span className="font-medium text-text">
-                  {street.name || "Unnamed"}
-                </span>
-                <span className="text-text-muted">
-                  {street.percentage}% ·{" "}
-                  {street.status === "completed" ? (
-                    <span className="text-success">Completed</span>
-                  ) : (
-                    <span className="text-warning">In progress</span>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {streets.length > TOP_STREETS_COUNT && (
-            <p className="mt-1 text-sm text-text-muted">
-              and {streets.length - TOP_STREETS_COUNT} more in this area
-            </p>
-          )}
-        </section>
-      )}
     </div>
   );
 }

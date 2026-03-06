@@ -26,9 +26,9 @@ export function Textarea({
   const errorId = error ? `${id}-error` : undefined;
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2">
       {label && (
-        <label htmlFor={id} className="text-text font-bold">
+        <label htmlFor={id} className="font-medium text-text">
           {label}
           {required && <span className="text-danger" aria-hidden> *</span>}
         </label>
@@ -40,8 +40,9 @@ export function Textarea({
         aria-invalid={error ? true : undefined}
         aria-describedby={errorId}
         className={[
-          "w-full border-2 border-border bg-surface px-3 py-2 text-text resize-y",
+          "w-full border border-border bg-surface px-3 py-2 text-text resize-y rounded-lg",
           "disabled:opacity-50 disabled:cursor-not-allowed",
+          "focus:outline-none focus:ring-2 focus:ring-primary/50",
           error ? "border-danger" : "",
           className,
         ].join(" ")}

@@ -10,6 +10,9 @@ export const API = {
 /** GPX analysis engine: "v1" (runs/analyze-gpx) or "v2" (engine-v2/analyze). Default v1. */
 export const GPX_ENGINE = (import.meta.env.VITE_GPX_ENGINE ?? "v1") as "v1" | "v2";
 
+/** Default project radius (meters) used when creating a project or setting preferences. */
+export const DEFAULT_PROJECT_RADIUS_METERS = 300;
+
 /** App route paths. Used by React Router and navigation. */
 export const ROUTES = {
   HOME: "/",
@@ -17,10 +20,10 @@ export const ROUTES = {
   AUTH_CALLBACK: "/auth/callback",
   PROJECTS_LIST: "/projects",
   PROJECT_DETAIL: "/projects/:id",
-  PROJECT_MAP: "/projects/:id/map",
-  PROJECT_HEATMAP: "/projects/:id/heatmap",
   PROJECT_SUGGESTIONS: "/projects/:id/suggestions",
   CAMPAIGN: "/campaign",
+  MILESTONES: "/milestones",
+  PREFERENCES: "/preferences",
   ACTIVITIES: "/activities",
   GPX_UPLOAD: "/gpx",
   DOCS: "/docs",

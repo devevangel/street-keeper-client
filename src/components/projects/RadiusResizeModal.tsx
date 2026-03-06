@@ -1,20 +1,11 @@
 /**
  * RadiusResizeModal
- * Modal to change project radius. Pill buttons for radius options; confirmation when reducing.
+ * Modal to change project radius. Slider (100m–10km); confirmation when reducing.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal, Button } from "../common";
-
-const RADIUS_OPTIONS: { value: number; label: string }[] = [
-  { value: 100, label: "100 m" },
-  { value: 200, label: "200 m" },
-  { value: 500, label: "500 m" },
-  { value: 1000, label: "1 km" },
-  { value: 2000, label: "2 km" },
-  { value: 5000, label: "5 km" },
-  { value: 10000, label: "10 km" },
-];
+import { usePreferences } from "../../contexts/PreferencesContext";
 
 export interface RadiusResizeModalProps {
   isOpen: boolean;
@@ -29,9 +20,15 @@ export function RadiusResizeModal({
   currentRadiusMeters,
   onResize,
 }: RadiusResizeModalProps) {
+  const preferences = usePreferences();
+  const formatRadius = preferences?.formatRadius ?? ((m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`));
   const [selected, setSelected] = useState(currentRadiusMeters);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) setSelected(currentRadiusMeters);
+  }, [isOpen, currentRadiusMeters]);
 
   const isReducing = selected < currentRadiusMeters;
 
@@ -61,36 +58,28 @@ export function RadiusResizeModal({
     >
       <div className="flex flex-col gap-4">
         <p className="text-text text-sm">
-          Current radius:{" "}
-          {currentRadiusMeters >= 1000
-            ? `${currentRadiusMeters / 1000} km`
-            : `${currentRadiusMeters} m`}
+          Current radius: {formatRadius(currentRadiusMeters)}
         </p>
         <div>
-          <span className="mb-2 block text-sm font-medium text-text">
-            New radius
-          </span>
-          <div
-            className="flex flex-wrap gap-2"
-            role="radiogroup"
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-text">New radius</span>
+            <span className="rounded bg-success/20 px-2 py-1 text-sm font-bold text-success">
+              {formatRadius(selected)}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={100}
+            max={10000}
+            step={100}
+            value={selected}
+            onChange={(e) => setSelected(Number(e.target.value))}
+            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-border accent-success"
             aria-label="Project radius"
-          >
-            {RADIUS_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                role="radio"
-                aria-checked={selected === opt.value}
-                onClick={() => setSelected(opt.value)}
-                className={`min-h-[44px] min-w-[44px] rounded-full border-2 px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary ${
-                  selected === opt.value
-                    ? "border-primary bg-primary text-surface"
-                    : "border-border bg-surface text-text hover:border-primary/70"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+          />
+          <div className="mt-1 flex justify-between text-xs text-text-muted">
+            <span>{formatRadius(100)}</span>
+            <span>{formatRadius(10000)}</span>
           </div>
         </div>
         {isReducing && (

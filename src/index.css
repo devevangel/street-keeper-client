@@ -49,6 +49,13 @@ body {
   outline: none;
 }
 
+/* Inputs: no outer focus ring so border stays clean when clicked */
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
+
 /* Map controls: use theme tokens so zoom/attribution match site (light/dark) */
 .leaflet-map-theme.leaflet-container .leaflet-control-zoom {
   border: var(--border-width) solid var(--color-border) !important;
@@ -72,6 +79,17 @@ body {
   color: var(--color-text-muted) !important;
   border-top: 1px solid var(--color-border);
   font-size: 0.7rem;
+}
+
+/* Drawing mode: use default arrow cursor instead of grab/grabbing */
+.drawing-mode,
+.drawing-mode *,
+.drawing-mode.leaflet-grab,
+.drawing-mode.leaflet-touch-drag {
+  cursor: default !important;
+}
+.drawing-mode .leaflet-marker-icon {
+  cursor: pointer !important;
 }
 
 /* User location marker: Google Maps–style blue dot (solid center, white ring, soft halo) + pulse */
@@ -159,4 +177,35 @@ body {
 [data-theme="dark"] .docs-prose .hljs {
   background: var(--color-surface);
   color: var(--color-text);
+}
+
+/* Toast: smooth fade-in and fade-out */
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toast-exit {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+}
+
+.toast-enter {
+  animation: toast-enter 0.3s ease-out forwards;
+}
+
+.toast-exit {
+  animation: toast-exit 0.3s ease-in forwards;
 }

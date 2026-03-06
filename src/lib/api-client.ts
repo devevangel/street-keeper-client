@@ -81,7 +81,11 @@ class ApiClient {
     return data as T;
   }
 
-  async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
+  async get<T>(
+    endpoint: string,
+    params?: Record<string, string>,
+    signal?: AbortSignal,
+  ): Promise<T> {
     const url = new URL(`${this.baseUrl}${endpoint}`);
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -93,6 +97,7 @@ class ApiClient {
       method: "GET",
       headers: this.getHeaders(),
       credentials: "include",
+      signal,
     });
 
     return this.handleResponse<T>(response);

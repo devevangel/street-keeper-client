@@ -4,6 +4,7 @@
  * Pace and projected finish are server-computed to avoid frontend numeric bugs.
  */
 
+import { usePreferences } from "../../contexts/PreferencesContext";
 import { getDistanceEquivalent } from "../../utils/distanceEquivalent";
 
 export interface StatCardsProps {
@@ -48,6 +49,8 @@ export function StatCards({
   completedStreets,
   totalStreets,
 }: StatCardsProps) {
+  const preferences = usePreferences();
+  const formatDistance = preferences?.formatDistance ?? ((m: number, p = 1) => `${(m / 1000).toFixed(p)} km`);
   const distanceKm = distanceCoveredMeters / 1000;
   const equivalent = getDistanceEquivalent(distanceKm);
   const { paceLabel, paceSubtitle, finishLabel } = formatPaceAndFinish(
@@ -67,7 +70,7 @@ export function StatCards({
       </div>
       <div className="rounded border-2 border-border bg-surface p-3 text-center">
         <div className="text-xl font-bold text-text">
-          {distanceKm.toFixed(1)} km
+          {formatDistance(distanceCoveredMeters, 1)}
         </div>
         {equivalent && (
           <div className="text-[10px] text-text-muted">

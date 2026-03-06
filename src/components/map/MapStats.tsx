@@ -4,6 +4,8 @@
  * summary counts, and a small completed vs in-progress bar.
  */
 
+import { usePreferences } from "../../contexts/PreferencesContext";
+
 interface MapStatsProps {
   /** Total streets returned in the area */
   totalStreets: number;
@@ -21,11 +23,12 @@ export function MapStats({
   partialCount,
   totalLengthMeters = 0,
 }: MapStatsProps) {
+  const preferences = usePreferences();
+  const formatDistance = preferences?.formatDistance ?? ((m: number, p = 1) => `${(m / 1000).toFixed(p)} km`);
   const completionPercent =
     totalStreets > 0
       ? Math.round((completedCount / totalStreets) * 100)
       : 0;
-  const totalKm = totalLengthMeters / 1000;
 
   return (
     <div
@@ -41,10 +44,10 @@ export function MapStats({
             of streets in this area completed
           </p>
         </div>
-        {totalKm > 0 && (
+        {totalLengthMeters > 0 && (
           <div>
             <p className="text-2xl font-bold text-text tabular-nums">
-              {totalKm.toFixed(1)} km
+              {formatDistance(totalLengthMeters, 1)}
             </p>
             <p className="text-sm text-text-muted">
               of streets with progress

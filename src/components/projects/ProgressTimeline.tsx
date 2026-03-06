@@ -138,8 +138,8 @@ export function ProgressTimeline({
           <Area
             type="monotone"
             dataKey="completed"
-            stroke="#16a34a"
-            fill="#16a34a"
+            stroke="#10b981"
+            fill="#10b981"
             fillOpacity={0.4}
             name="Completed"
           />

@@ -99,14 +99,14 @@ export function RunImpactChart({
           <Bar
             dataKey="completed"
             stackId="impact"
-            fill="#16a34a"
+            fill="#10b981"
             name="completed"
             radius={[0, 0, 0, 0]}
           />
           <Bar
             dataKey="improved"
             stackId="impact"
-            fill="#ca8a04"
+            fill="#f59e0b"
             name="improved"
             radius={[0, 0, 0, 0]}
           />

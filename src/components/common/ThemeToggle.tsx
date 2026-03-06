@@ -18,7 +18,7 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={handleClick}
-      className="border-2 border-border bg-surface px-3 py-2 text-text font-bold hover:opacity-90"
+      className="h-8 min-h-8 cursor-pointer shrink-0 border-2 border-border bg-surface px-3 py-1 text-text text-sm font-bold transition-opacity hover:opacity-90"
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >
