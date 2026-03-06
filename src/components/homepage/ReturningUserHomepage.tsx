@@ -15,6 +15,7 @@ import { UniversalSearchInput } from "../projects/UniversalSearchInput";
 import { UnifiedMap, MAP_ZOOM, MapLegendFilterBins, type MapViewHighlightFocus } from "../map";
 import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
 import { computeBboxFromStreets } from "../../utils/map-utils";
+import { normalizeStreetName } from "../../utils/normalize-street-name";
 import { useAnalytics } from "../../contexts/AnalyticsContext";
 import { usePreferences } from "../../contexts/PreferencesContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -163,7 +164,7 @@ export function ReturningUserHomepage({
   const handleStreetClick = useCallback(
     async ({
       project,
-      osmIds,
+      streetName,
     }: {
       project: ProjectListItem;
       streetName: string;
@@ -171,9 +172,6 @@ export function ReturningUserHomepage({
     }) => {
       onFocusLocation?.({ lat: project.centerLat, lng: project.centerLng });
       mapRef.current?.scrollIntoView({ behavior: "smooth" });
-
-      const wayIds = osmIds.map(osmIdToWayId).filter((id) => !Number.isNaN(id));
-      if (wayIds.length === 0) return;
 
       let mapData = projectMapCache.current.get(project.id);
       if (!mapData) {
@@ -186,24 +184,20 @@ export function ReturningUserHomepage({
         }
       }
 
-      const osmIdSet = new Set(osmIds);
-      const matchingStreets = mapData.streets.filter((s) => osmIdSet.has(s.osmId));
+      // Match by normalized name - same logic as completion coloring uses
+      // This ensures ALL segments of the street are highlighted, not just pre-grouped ones
+      const targetName = normalizeStreetName(streetName);
+      const matchingStreets = mapData.streets.filter(
+        (s) => normalizeStreetName(s.name || "Unnamed") === targetName
+      );
 
-      const bbox =
-        matchingStreets.length > 0
-          ? computeBboxFromStreets(matchingStreets)
-          : ([
-              project.centerLat - project.radiusMeters / 111000,
-              project.centerLng -
-                project.radiusMeters /
-                  111000 /
-                  (Math.cos((project.centerLat * Math.PI) / 180) || 1),
-              project.centerLat + project.radiusMeters / 111000,
-              project.centerLng +
-                project.radiusMeters /
-                  111000 /
-                  (Math.cos((project.centerLat * Math.PI) / 180) || 1),
-            ] as [number, number, number, number]);
+      if (matchingStreets.length === 0) return;
+
+      const wayIds = matchingStreets
+        .map((s) => osmIdToWayId(s.osmId))
+        .filter((id) => !Number.isNaN(id));
+
+      const bbox = computeBboxFromStreets(matchingStreets);
 
       setHighlightProjectId(project.id);
       setHighlightStreetsFromProject(

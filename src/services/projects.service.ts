@@ -7,6 +7,7 @@ import { apiClient } from "../lib/api-client";
 import type {
   ProjectsListResponse,
   ProjectDetailResponse,
+  ProjectDetail,
   ProjectPreviewResponse,
   ProjectMapResponse,
   ProjectHeatmapResponse,
@@ -89,6 +90,15 @@ export const projectsService = {
     return apiClient.post<ProjectDetailResponse>(
       `/projects/${projectId}/refresh`,
     );
+  },
+
+  async expandStreets(projectId: string): Promise<{
+    success: true;
+    project: ProjectDetail;
+    addedSegments: number;
+    message: string;
+  }> {
+    return apiClient.post(`/projects/${projectId}/expand-streets`);
   },
 
   async resize(

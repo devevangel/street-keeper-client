@@ -21,26 +21,26 @@ export interface CompletionFunnelProps {
 }
 
 const BINS = [
-  { label: "Completed", min: 90, max: 100, color: "#16a34a", hint: "Done!" },
+  { label: "Completed", min: 90, max: 100, color: "#10b981", hint: "Done!" },
   {
     label: "Almost there",
     min: 50,
     max: 89,
-    color: "#ca8a04",
+    color: "#f59e0b",
     hint: "One more run through and they're done!",
   },
   {
     label: "In progress",
     min: 1,
     max: 49,
-    color: "#2563eb",
+    color: "#06b6d4",
     hint: "You've started these streets.",
   },
   {
     label: "Not started",
     min: 0,
     max: 0,
-    color: "#9ca3af",
+    color: "#d1d5db",
     hint: "Not run yet.",
   },
 ];

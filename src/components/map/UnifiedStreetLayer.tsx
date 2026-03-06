@@ -10,11 +10,11 @@ import {
   MAP_COLORS,
   MAP_DASH,
   MAP_WEIGHTS,
+  MAP_OPACITY,
+  HIGHLIGHT_STYLE,
 } from "./mapConstants";
 import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
-
-const OPACITY = 0.85;
-const OPACITY_PARTIAL = 0.75;
+import { normalizeOsmId } from "../../utils/map-utils";
 
 /** Normalized street for rendering (common fields from MapStreet and ProjectMapStreet) */
 export interface UnifiedStreetItem {
@@ -105,28 +105,57 @@ function UnifiedStreetPolyline({
   const statusLabel = BIN_LABELS[bin];
 
   if (highlight) {
+    // Multi-layer highlight approach to maximize label visibility:
+    // 1. Very subtle glow background (provides soft highlight)
+    // 2. White outline/halo (creates contrast, makes labels pop)
+    // 3. Ultra-thin dashed colored line (minimal coverage, gaps show labels)
     return (
-      <Polyline
-        positions={fullPositions}
-        pathOptions={{
-          ...PATH_OPTIONS_BASE,
-          color: MAP_COLORS.HIGHLIGHT,
-          weight: MAP_WEIGHTS.HIGHLIGHT,
-          opacity: 0.9,
-        }}
-      >
-        <Popup>
-          <div className="min-w-[140px] text-left text-neutral-800">
-            <p className="font-bold text-neutral-900">{street.name}</p>
-            <p className="text-sm text-neutral-600">
-              {street.percentage.toFixed(0)}% · {statusLabel}
-              {street.runCount != null &&
-                street.runCount > 0 &&
-                ` · ${street.runCount} run${street.runCount !== 1 ? "s" : ""}`}
-            </p>
-          </div>
-        </Popup>
-      </Polyline>
+      <>
+        {/* Layer 1: Very subtle glow background */}
+        <Polyline
+          positions={fullPositions}
+          pathOptions={{
+            ...PATH_OPTIONS_BASE,
+            color: MAP_COLORS.HIGHLIGHT,
+            weight: HIGHLIGHT_STYLE.GLOW_WEIGHT,
+            opacity: HIGHLIGHT_STYLE.GLOW_OPACITY,
+          }}
+        />
+        {/* Layer 2: White outline/halo - creates contrast and makes labels readable */}
+        <Polyline
+          positions={fullPositions}
+          pathOptions={{
+            ...PATH_OPTIONS_BASE,
+            color: HIGHLIGHT_STYLE.OUTLINE_COLOR,
+            weight: HIGHLIGHT_STYLE.OUTLINE_WEIGHT,
+            opacity: HIGHLIGHT_STYLE.OUTLINE_OPACITY,
+            dashArray: HIGHLIGHT_STYLE.DASH_PATTERN,
+          }}
+        />
+        {/* Layer 3: Ultra-thin colored dashed line - minimal coverage, gaps show labels */}
+        <Polyline
+          positions={fullPositions}
+          pathOptions={{
+            ...PATH_OPTIONS_BASE,
+            color: MAP_COLORS.HIGHLIGHT,
+            weight: MAP_WEIGHTS.HIGHLIGHT,
+            opacity: MAP_OPACITY.HIGHLIGHT,
+            dashArray: HIGHLIGHT_STYLE.DASH_PATTERN, // Longer gaps = more label visibility
+          }}
+        >
+          <Popup>
+            <div className="min-w-[140px] text-left text-neutral-800">
+              <p className="font-bold text-neutral-900">{street.name}</p>
+              <p className="text-sm text-neutral-600">
+                {street.percentage.toFixed(0)}% · {statusLabel}
+                {street.runCount != null &&
+                  street.runCount > 0 &&
+                  ` · ${street.runCount} run${street.runCount !== 1 ? "s" : ""}`}
+              </p>
+            </div>
+          </Popup>
+        </Polyline>
+      </>
     );
   }
 
@@ -138,7 +167,7 @@ function UnifiedStreetPolyline({
           ...PATH_OPTIONS_BASE,
           color: MAP_COLORS.NOT_RUN,
           weight: MAP_WEIGHTS.DEFAULT,
-          opacity: OPACITY,
+          opacity: MAP_OPACITY.NOT_RUN,
           dashArray: MAP_DASH.NOT_RUN,
         }}
       >
@@ -162,7 +191,7 @@ function UnifiedStreetPolyline({
           ...PATH_OPTIONS_BASE,
           color: MAP_COLORS.COMPLETED,
           weight: MAP_WEIGHTS.DEFAULT,
-          opacity: OPACITY,
+          opacity: MAP_OPACITY.COMPLETED,
         }}
       >
         <Popup>
@@ -180,8 +209,10 @@ function UnifiedStreetPolyline({
     );
   }
 
-  const polyColor = bin === "almostThere" ? MAP_COLORS.ALMOST_THERE : MAP_COLORS.IN_PROGRESS;
-  const polyDash = bin === "almostThere" ? MAP_DASH.ALMOST_THERE : MAP_DASH.IN_PROGRESS;
+  const isAlmostThere = bin === "almostThere";
+  const polyColor = isAlmostThere ? MAP_COLORS.ALMOST_THERE : MAP_COLORS.IN_PROGRESS;
+  const polyDash = isAlmostThere ? MAP_DASH.ALMOST_THERE : MAP_DASH.IN_PROGRESS;
+  const polyOpacity = isAlmostThere ? MAP_OPACITY.ALMOST_THERE : MAP_OPACITY.IN_PROGRESS;
 
   const hasCoveredGeometry = street.coveredGeometry?.coordinates?.length;
   if (hasCoveredGeometry && street.coveredGeometry) {
@@ -196,7 +227,7 @@ function UnifiedStreetPolyline({
               ...PATH_OPTIONS_BASE,
               color: MAP_COLORS.UNCOVERED,
               weight: 2,
-              opacity: 0.4,
+              opacity: MAP_OPACITY.UNCOVERED,
               dashArray: MAP_DASH.UNCOVERED,
             }}
           />
@@ -206,7 +237,7 @@ function UnifiedStreetPolyline({
               ...PATH_OPTIONS_BASE,
               color: polyColor,
               weight: MAP_WEIGHTS.DEFAULT,
-              opacity: OPACITY_PARTIAL,
+              opacity: polyOpacity,
             }}
           >
             <Popup>
@@ -233,7 +264,7 @@ function UnifiedStreetPolyline({
         ...PATH_OPTIONS_BASE,
         color: polyColor,
         weight: MAP_WEIGHTS.DEFAULT,
-        opacity: OPACITY_PARTIAL,
+        opacity: polyOpacity,
         dashArray: polyDash,
       }}
     >
@@ -262,7 +293,8 @@ export function UnifiedStreetLayer({
   highlightOsmIds = [],
 }: UnifiedStreetLayerProps) {
   if (!streets.length) return null;
-  const highlightSet = new Set(highlightOsmIds);
+  // Normalize all osmIds for consistent comparison (handles "way/123" vs "123" format differences)
+  const highlightSet = new Set(highlightOsmIds.map(normalizeOsmId));
   const normalized = streets.map(toUnified);
 
   return (
@@ -271,7 +303,7 @@ export function UnifiedStreetLayer({
         <UnifiedStreetPolyline
           key={street.osmId}
           street={street}
-          highlight={highlightSet.has(street.osmId)}
+          highlight={highlightSet.has(normalizeOsmId(street.osmId))}
         />
       ))}
     </>

@@ -17,8 +17,8 @@ export const FILTER_PILLS: Array<{
   label: string;
   dotColor: string;
 }> = [
-  { key: "completed", label: "Completed", dotColor: "bg-[#16a34a]" },
-  { key: "almostThere", label: "Almost there", dotColor: "bg-[#ca8a04]" },
-  { key: "inProgress", label: "In progress", dotColor: "bg-[#2563eb]" },
-  { key: "notStarted", label: "Not started", dotColor: "bg-[#9ca3af]" },
+  { key: "completed", label: "Completed", dotColor: "bg-[#10b981]" },
+  { key: "almostThere", label: "Almost there", dotColor: "bg-[#f59e0b]" },
+  { key: "inProgress", label: "In progress", dotColor: "bg-[#06b6d4]" },
+  { key: "notStarted", label: "Not started", dotColor: "bg-[#d1d5db]" },
 ];

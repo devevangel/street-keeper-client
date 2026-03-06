@@ -62,6 +62,7 @@ import { FitBoundsToHighlight } from "./FitBoundsToHighlight";
 import { MapClickHandler } from "./MapClickHandler";
 import { MapLegendFilterBins, MapLegendGuide } from "./MapLegend";
 import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
+import { normalizeOsmId } from "../../utils/map-utils";
 import { MapLoadingOverlay } from "./MapLoadingOverlay";
 import { MAP_ZOOM } from "./mapConstants";
 import { getMapTheme, getMapTileUrl, getMapAttribution } from "../../config/map-themes";
@@ -116,11 +117,11 @@ export interface UnifiedMapProps {
 
 const DEFAULT_ZOOM = MAP_ZOOM.DEFAULT;
 
-/** Blue marker icon for project create pin (matches highlight blue) */
+/** Purple marker icon for project create pin (distinct from street status colors) */
 const markerIcon = L.divIcon({
   html: `<div style="
     width:24px;height:24px;
-    background:#2563eb;
+    background:#7c3aed;
     border:3px solid white;
     border-radius:50%;
     box-shadow:0 1px 4px rgba(0,0,0,0.4);
@@ -168,8 +169,11 @@ function MapContent(props: UnifiedMapProps) {
     () => new Set(AVAILABLE_BINS)
   );
 
-  // Create set of highlighted osmIds for quick lookup
-  const highlightSet = useMemo(() => new Set(highlightOsmIds), [highlightOsmIds]);
+  // Create set of highlighted osmIds for quick lookup (normalized for consistent comparison)
+  const highlightSet = useMemo(
+    () => new Set(highlightOsmIds.map(normalizeOsmId)),
+    [highlightOsmIds]
+  );
 
   // Compute bin counts from streets
   const binCounts = useMemo(() => {
@@ -193,7 +197,7 @@ function MapContent(props: UnifiedMapProps) {
     return streets.filter((s) => {
       const completed = s.status === "completed";
       const bin = getStreetBin(s.percentage ?? 0, completed);
-      return visibleBins.has(bin) || highlightSet.has(s.osmId);
+      return visibleBins.has(bin) || highlightSet.has(normalizeOsmId(s.osmId));
     });
   }, [streets, showLegend, visibleBins, highlightSet]);
 
@@ -216,7 +220,7 @@ function MapContent(props: UnifiedMapProps) {
           center={[boundary.center.lat, boundary.center.lng]}
           radius={boundary.radiusMeters}
           pathOptions={{
-            color: "#2563eb",
+            color: "#7c3aed",
             weight: 2,
             fill: false,
             interactive: false,
@@ -227,7 +231,7 @@ function MapContent(props: UnifiedMapProps) {
         <Polygon
           positions={boundary.coordinates.map(([lng, lat]: [number, number]) => [lat, lng] as LatLngTuple)}
           pathOptions={{
-            color: "#2563eb",
+            color: "#7c3aed",
             weight: 2,
             fill: false,
             interactive: false,
@@ -239,7 +243,7 @@ function MapContent(props: UnifiedMapProps) {
           center={[activeShape.center.lat, activeShape.center.lng]}
           radius={activeShape.radiusMeters}
           pathOptions={{
-            color: "#2563eb",
+            color: "#7c3aed",
             weight: 2,
             fill: false,
             interactive: false,

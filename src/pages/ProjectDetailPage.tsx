@@ -16,8 +16,8 @@ import { ROUTES } from "../config/constants";
 import { useToast } from "../contexts/ToastContext";
 import type { ProjectDetail, ProjectMapData } from "../types/api.types";
 import { groupProjectMapStreetsByName } from "../utils/group-streets-by-name";
+import { normalizeStreetName } from "../utils/normalize-street-name";
 import {
-  normalizeOsmId,
   computeBboxFromStreets,
   computeBoundaryBbox,
   projectMapCenter,
@@ -109,6 +109,25 @@ export function ProjectDetailPage() {
     }
   }, [id, navigate, toast]);
 
+  const [expanding, setExpanding] = useState(false);
+  
+  const doExpand = useCallback(async () => {
+    if (!id) return;
+    setExpanding(true);
+    try {
+      const result = await projectsService.expandStreets(id);
+      toast?.showToast(result.message, result.addedSegments > 0 ? "success" : "info");
+      if (result.addedSegments > 0) {
+        await fetchData();
+      }
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to expand streets";
+      toast?.showToast(msg, "error");
+    } finally {
+      setExpanding(false);
+    }
+  }, [id, fetchData, toast]);
+
   const handleArchiveClick = () => setArchiveConfirmOpen(true);
   const handleDeleteClick = () => setDeleteConfirmOpen(true);
 
@@ -132,14 +151,25 @@ export function ProjectDetailPage() {
   }, [groupedStreets, search]);
 
   // Handle street hover/click to highlight on map
+  // Find ALL segments with matching normalized name from mapData.streets
+  // This uses the exact same approach as completion coloring - iterate through all streets
   const handleStreetHighlight = useCallback(
     (streetData: StreetListItemData) => {
-      if (!mapData?.streets) return;
-      const osmIdSet = new Set(streetData.osmIds.map((id) => normalizeOsmId(id)));
-      const matching = mapData.streets.filter((s) => osmIdSet.has(normalizeOsmId(s.osmId)));
-      if (matching.length === 0) return;
-      setStreetHighlightBbox(computeBboxFromStreets(matching));
-      setHighlightOsmIds(matching.map((s) => s.osmId));
+      if (!mapData?.streets?.length) return;
+      
+      // Find ALL streets in mapData.streets that have the same normalized name
+      // This is the same logic used for completion coloring - each segment is checked individually
+      const targetName = normalizeStreetName(streetData.name);
+      const allMatchingStreets = mapData.streets.filter(
+        (s) => normalizeStreetName(s.name || "Unnamed") === targetName
+      );
+      
+      if (allMatchingStreets.length === 0) return;
+      
+      // Use ALL matching osmIds for highlighting
+      const allOsmIds = allMatchingStreets.map((s) => s.osmId);
+      setHighlightOsmIds(allOsmIds);
+      setStreetHighlightBbox(computeBboxFromStreets(allMatchingStreets));
     },
     [mapData?.streets]
   );
@@ -223,6 +253,14 @@ export function ProjectDetailPage() {
             </>
           ) : (
             <>
+              <Button
+                variant="secondary"
+                onClick={doExpand}
+                disabled={expanding}
+                title="Find additional street segments outside the boundary"
+              >
+                {expanding ? "Expanding…" : "Expand streets"}
+              </Button>
               <Button
                 variant="secondary"
                 onClick={handleArchiveClick}
@@ -314,6 +352,8 @@ export function ProjectDetailPage() {
                           name: street.name,
                           osmIds: street.osmIds,
                           percentage: street.percentage,
+                          segmentCount: street.segmentCount,
+                          completed: street.completed,
                         }}
                         onHighlight={handleStreetHighlight}
                         onClearHighlight={handleStreetClear}
