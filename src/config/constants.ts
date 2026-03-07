@@ -15,7 +15,10 @@ export const DEFAULT_PROJECT_RADIUS_METERS = 300;
 
 /** App route paths. Used by React Router and navigation. */
 export const ROUTES = {
-  HOME: "/",
+  /** Public landing page (unauthenticated). Authenticated users are redirected to HOME. */
+  LANDING: "/",
+  /** Authenticated app home. */
+  HOME: "/home",
   LOGIN: "/login",
   AUTH_CALLBACK: "/auth/callback",
   PROJECTS_LIST: "/projects",

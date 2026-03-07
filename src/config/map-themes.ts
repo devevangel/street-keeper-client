@@ -76,19 +76,33 @@ export function getMapTheme(themeId: string | undefined | null): MapTheme {
   return MAP_THEMES.find((t) => t.id === themeId) ?? MAP_THEMES[0];
 }
 
-/** Build the Mapbox raster tile URL for a given theme */
+/** Build the Mapbox raster tile URL for a given theme. When no token, uses free tiles with excellent label visibility. */
 export function getMapTileUrl(theme: MapTheme): string {
   const token = import.meta.env.VITE_MAPBOX_TOKEN;
   if (!token) {
-    return "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+    if (theme.id === "dark") {
+      // CartoDB Dark Matter - has light labels on dark background
+      return "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+    }
+    // CartoDB Positron - white background with dark labels, excellent readability
+    // Much better label visibility than standard OSM tiles
+    return "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+  }
+  // Mapbox tiles with @2x for better label rendering
+  // Use satellite-streets for best label visibility if available
+  if (theme.id === "satellite") {
+    return `https://api.mapbox.com/styles/v1/${theme.styleId}/tiles/512/{z}/{x}/{y}@2x?access_token=${token}`;
   }
   return `https://api.mapbox.com/styles/v1/${theme.styleId}/tiles/512/{z}/{x}/{y}@2x?access_token=${token}`;
 }
 
-/** Attribution string (Mapbox requires this) */
+/** Attribution string (Mapbox/Carto/OSM as appropriate) */
 export function getMapAttribution(theme: MapTheme): string {
   const token = import.meta.env.VITE_MAPBOX_TOKEN;
   if (!token) {
+    if (theme.id === "dark") {
+      return '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+    }
     return '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
   }
   return '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';

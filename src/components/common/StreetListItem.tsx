@@ -5,6 +5,20 @@
  */
 
 import { usePreferences } from "../../contexts/PreferencesContext";
+import { getStreetStatusMessage } from "../../utils/motivational-copy";
+
+function formatLastRun(iso: string): string {
+  try {
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000));
+    if (days === 0) return "Last: today";
+    if (days === 1) return "Last: yesterday";
+    if (days < 7) return `Last: ${days} days ago`;
+    if (days < 14) return "Last: 1 week ago";
+    return `Last: ${Math.floor(days / 7)} weeks ago`;
+  } catch {
+    return "";
+  }
+}
 
 export interface StreetListItemData {
   name: string;
@@ -14,6 +28,8 @@ export interface StreetListItemData {
   highwayType?: string;
   segmentCount?: number;
   completed?: boolean;
+  runCount?: number;
+  lastRunDate?: string | null;
 }
 
 interface StreetListItemProps {
@@ -37,8 +53,21 @@ export function StreetListItem({
     onHighlight(street);
   };
 
+  const statusMessage =
+    variant === "homepage" && street.percentage !== undefined
+      ? getStreetStatusMessage(street.percentage)
+      : null;
+  const runInfo =
+    variant === "homepage" && (street.runCount != null || street.lastRunDate)
+      ? [
+          street.runCount != null && street.runCount > 0 ? `Ran ${street.runCount}×` : null,
+          street.lastRunDate ? formatLastRun(street.lastRunDate) : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : null;
   const segmentLabel =
-    variant === "homepage" && street.segmentCount != null
+    variant === "homepage" && street.segmentCount != null && !runInfo
       ? street.segmentCount === 1
         ? "1 segment"
         : `${street.segmentCount} segments`
@@ -75,10 +104,10 @@ export function StreetListItem({
           </div>
         )}
       </div>
-      {variant === "homepage" && segmentLabel && (
+      {variant === "homepage" && (statusMessage || runInfo || segmentLabel) && (
         <div className="mt-0.5 text-sm text-text-muted">
-          {segmentLabel}
-          {street.completed && " · Complete"}
+          {statusMessage}
+          {runInfo ? ` · ${runInfo}` : segmentLabel ? ` · ${segmentLabel}` : ""}
         </div>
       )}
     </li>

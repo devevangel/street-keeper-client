@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button, Card, Select } from "../components/common";
+import { Button, Card, Select, ProgressLoader } from "../components/common";
 import { usePreferences } from "../contexts/PreferencesContext";
 import { useToast } from "../contexts/ToastContext";
 import { ROUTES, DEFAULT_PROJECT_RADIUS_METERS } from "../config/constants";
@@ -63,8 +63,8 @@ export function PreferencesPage() {
 
   if (isLoading && !preferences) {
     return (
-      <div className="p-4">
-        <p className="text-text-muted">Loading preferences…</p>
+      <div className="flex min-h-[60vh] items-center justify-center p-4">
+        <ProgressLoader type="preferences" size="md" />
       </div>
     );
   }

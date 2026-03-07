@@ -6,10 +6,10 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button } from "../common/Button";
-import { Card } from "../common/Card";
-import { MetricBlock } from "../common/MetricBlock";
-import { SuggestionCard } from "./SuggestionCard";
+import { Button, Card, ProgressLoader, ProgressRing } from "../common";
+import { NextRunCard } from "./NextRunCard";
+import { LastRunCard } from "./LastRunCard";
+import { HighlightsCard } from "./HighlightsCard";
 import { ProjectCardWithStreets } from "./ProjectCardWithStreets";
 import { UniversalSearchInput } from "../projects/UniversalSearchInput";
 import { UnifiedMap, MAP_ZOOM, MapLegendFilterBins, type MapViewHighlightFocus } from "../map";
@@ -126,7 +126,17 @@ export function ReturningUserHomepage({
   }, [prefStreetFilter]);
 
   // Effective map center: use focused location when set, otherwise user location
-  const effectiveMapCenter = mapCenter ?? userLocation;
+  // Memoize to prevent unnecessary re-renders of UnifiedMap
+  const effectiveMapCenter = useMemo(
+    () => mapCenter ?? userLocation,
+    [mapCenter?.lat, mapCenter?.lng, userLocation?.lat, userLocation?.lng]
+  );
+
+  // Memoize zoom to prevent re-renders when preferences object reference changes
+  const mapZoom = useMemo(
+    () => userLocation ? MAP_ZOOM.USER_LOCATION : (preferences?.preferences?.defaultMapZoom ?? MAP_ZOOM.DEFAULT),
+    [userLocation, preferences?.preferences?.defaultMapZoom]
+  );
 
   // Fetch projects on mount
   useEffect(() => {
@@ -170,7 +180,9 @@ export function ReturningUserHomepage({
       streetName: string;
       osmIds: string[];
     }) => {
-      onFocusLocation?.({ lat: project.centerLat, lng: project.centerLng });
+      const lat = project.centerLat ?? 0;
+      const lng = project.centerLng ?? 0;
+      onFocusLocation?.({ lat, lng });
       mapRef.current?.scrollIntoView({ behavior: "smooth" });
 
       let mapData = projectMapCache.current.get(project.id);
@@ -206,7 +218,7 @@ export function ReturningUserHomepage({
       setHighlightFocus({
         bbox,
         streetIds: wayIds,
-        startPoint: { lat: project.centerLat, lng: project.centerLng },
+        startPoint: { lat, lng },
       });
     },
     [onFocusLocation],
@@ -313,8 +325,8 @@ export function ReturningUserHomepage({
       <div className="h-[45vh] w-full shrink-0 md:h-full md:min-h-0 md:flex-1 md:shrink">
         <div ref={mapRef} className="relative h-full w-full">
           <UnifiedMap
-            center={effectiveMapCenter}
-            zoom={userLocation ? MAP_ZOOM.USER_LOCATION : (preferences?.preferences?.defaultMapZoom ?? MAP_ZOOM.DEFAULT)}
+            center={effectiveMapCenter ?? { lat: 50.8, lng: -1.09 }}
+            zoom={mapZoom}
             userLocation={userLocation}
             showUserLocationMarker
             streets={filteredStreetsForMap}
@@ -329,8 +341,12 @@ export function ReturningUserHomepage({
             isLoading={!userLocation && !mapCenter}
             loadingMessage="Getting your location…"
           />
+          {/* Sync progress overlay */}
+          {syncing && (
+            <ProgressLoader type="sync" overlay title="Syncing with Strava" />
+          )}
           {/* Interactive bin-based legend */}
-          {mergedStreets.length > 0 && (
+          {mergedStreets.length > 0 && !syncing && (
             <MapLegendFilterBins
               visibleBins={visibleBins}
               onToggle={(bin) => {
@@ -352,59 +368,92 @@ export function ReturningUserHomepage({
 
       {/* Sidebar - right side */}
       <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-surface md:w-[380px] md:flex-none md:border-l">
-        {/* Mobile: Suggestion at top - fixed section */}
-        <div className="block border-b border-border md:hidden">
-          {data.primarySuggestion && (
-            <div className="p-4">
-              <SuggestionCard
-                suggestion={data.primarySuggestion}
-                isLoading={isLoading}
-                onShowOnMap={handleShowOnMap}
-                onTrack={(action: "show_on_map" | "view_milestones") => {
-                  track("primary_action_clicked", { action });
-                  if (action === "show_on_map" && data.primarySuggestion) {
-                    track("suggestion_opened", {
-                      type: data.primarySuggestion.type,
-                      cooldownKey: data.primarySuggestion.cooldownKey,
-                      context: data.mapContext?.projectId ? "project" : "area",
-                      projectId: data.mapContext?.projectId ?? undefined,
-                    });
-                  }
-                }}
-              />
-            </div>
-          )}
+        {/* Fixed header: welcome + search */}
+        <div className="space-y-3 border-b border-border p-4">
+          <div>
+            <h2 className="text-lg font-bold text-text">
+              Welcome back{data.userName ? `, ${data.userName}` : ""}!
+            </h2>
+            {data.streak.currentWeeks > 0 && (
+              <span className="text-sm text-success font-medium">
+                {data.streak.currentWeeks}-week streak
+              </span>
+            )}
+          </div>
+          <UniversalSearchInput
+            placeholder="Search area…"
+            onSelect={onSearchSelect}
+          />
         </div>
 
-        {/* Fixed header section */}
-        <div className="space-y-4 border-b border-border p-4">
-          {/* Search bar */}
-          <div>
-            <UniversalSearchInput
-              placeholder="Search area…"
-              onSelect={onSearchSelect}
-            />
-          </div>
+        {/* Scrollable content section */}
+        <div className="space-y-4 p-4 pb-8 md:flex-1 md:overflow-y-auto md:pb-4">
+          {/* Your next run */}
+          <NextRunCard data={data} onShowOnMap={handleShowOnMap} />
 
-          {/* Hero metric: total progress across featured projects */}
-          {featuredProjects.length > 0 && heroMetricTotals.total > 0 && (
-            <Card padding="md" className="space-y-1">
-              <MetricBlock label="Your progress" value={heroMetricTotals.completed} size="md" />
-              <span className="text-sm text-text-muted">
-                of {heroMetricTotals.total} streets · {heroMetricTotals.percentage}%
-              </span>
+          {/* Your progress (ring) */}
+          {heroMetricTotals.total > 0 && (
+            <Card padding="md">
+              <h3 className="text-sm font-semibold text-text-muted mb-2">Your progress</h3>
+              <ProgressRing value={heroMetricTotals.percentage} animated size={72} strokeWidth={8}>
+                <div>
+                  <p className="text-base font-bold text-text">
+                    {heroMetricTotals.completed} streets conquered!
+                  </p>
+                  <p className="text-sm text-text-muted">
+                    {heroMetricTotals.percentage}% of this area explored
+                  </p>
+                  {data.nextMilestone && !data.nextMilestone.progress.isCompleted && (
+                    <p className="text-xs text-text-muted mt-1">
+                      Next: {data.nextMilestone.name} ({data.nextMilestone.progress.targetValue - data.nextMilestone.progress.currentValue} to go)
+                    </p>
+                  )}
+                </div>
+              </ProgressRing>
             </Card>
           )}
 
-          {/* Sync button – single secondary action per guide; verb phrase label */}
-          <div className="flex flex-col gap-2">
+          {/* Last run */}
+          <LastRunCard data={data} />
+
+          {/* Highlights */}
+          <HighlightsCard data={data} />
+
+          {/* Focus project (first featured) */}
+          {projectsLoading ? (
+            <Card padding="sm">
+              <ProgressLoader type="projects" size="sm" />
+            </Card>
+          ) : featuredProjects.length > 0 ? (
+            <div className="space-y-2">
+              <h3 className="text-base font-semibold text-text">Focus project</h3>
+              <ProjectCardWithStreets
+                key={featuredProjects[0].id}
+                project={featuredProjects[0]}
+                visibleBins={visibleBins}
+                onStreetClick={handleStreetClick}
+                onStreetBlur={handleStreetBlur}
+              />
+              {featuredProjects.length > 1 && (
+                <Link
+                  to={ROUTES.PROJECTS_LIST}
+                  className="block text-center text-sm text-primary hover:underline"
+                >
+                  View all projects →
+                </Link>
+              )}
+            </div>
+          ) : null}
+
+          {/* Actions */}
+          <div className="flex flex-col gap-2 pt-2">
             <Button
               variant="secondary"
               onClick={handleSync}
               disabled={syncing}
               className="w-full"
             >
-              {syncing ? "Syncing activities…" : "Sync activities from Strava"}
+              {syncing ? "Syncing…" : "Find my latest runs"}
             </Button>
             {syncResult && (
               <span
@@ -416,61 +465,12 @@ export function ReturningUserHomepage({
                     : "No new activities")}
               </span>
             )}
+            <Link to={ROUTES.PROJECTS_LIST} className="block">
+              <Button variant="ghost" className="w-full" type="button">
+                View all projects
+              </Button>
+            </Link>
           </div>
-
-        </div>
-
-        {/* Scrollable content section */}
-        <div className="p-4 pb-8 md:flex-1 md:overflow-y-auto md:pb-4">
-          {/* Desktop: Suggestion */}
-          <div className="hidden md:block">
-            {data.primarySuggestion && (
-              <div className="mb-4">
-                <SuggestionCard
-                  suggestion={data.primarySuggestion}
-                  isLoading={isLoading}
-                  onShowOnMap={handleShowOnMap}
-                  onTrack={(action: "show_on_map" | "view_milestones") => {
-                    track("primary_action_clicked", { action });
-                    if (action === "show_on_map" && data.primarySuggestion) {
-                      track("suggestion_opened", {
-                        type: data.primarySuggestion.type,
-                        cooldownKey: data.primarySuggestion.cooldownKey,
-                        context: data.mapContext?.projectId ? "project" : "area",
-                        projectId: data.mapContext?.projectId ?? undefined,
-                      });
-                    }
-                  }}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Featured Projects */}
-          {projectsLoading ? (
-            <Card padding="sm">
-              <p className="text-sm text-text-muted">Loading projects…</p>
-            </Card>
-          ) : featuredProjects.length > 0 ? (
-            <div className="space-y-4">
-              <h3 className="text-base font-semibold text-text">Featured Projects</h3>
-              {featuredProjects.map((project) => (
-                <ProjectCardWithStreets
-                  key={project.id}
-                  project={project}
-                  visibleBins={visibleBins}
-                  onStreetClick={handleStreetClick}
-                  onStreetBlur={handleStreetBlur}
-                />
-              ))}
-              <Link
-                to={ROUTES.PROJECTS_LIST}
-                className="block text-center text-sm text-primary hover:underline"
-              >
-                View more projects →
-              </Link>
-            </div>
-          ) : null}
         </div>
       </aside>
     </div>

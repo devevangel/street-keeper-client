@@ -52,7 +52,7 @@ export function useMapStreets(
   const [data, setData] = useState<MapStreetsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  
   const fetchStreets = useCallback(() => {
     if (lat == null || lng == null) return undefined;
 
@@ -69,7 +69,7 @@ export function useMapStreets(
     setIsLoading(true);
 
     mapService
-      .getStreets(lat, lng, radiusMeters)
+      .getStreets(lat, lng, radius)
       .then((res) => {
         if (!cancelled) {
           setData(res);
@@ -88,7 +88,7 @@ export function useMapStreets(
     return () => {
       cancelled = true;
     };
-  }, [lat, lng, radius, radiusMeters]);
+  }, [lat, lng, radius]);
 
   useEffect(() => {
     const cleanup = fetchStreets();

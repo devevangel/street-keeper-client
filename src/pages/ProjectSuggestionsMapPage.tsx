@@ -5,7 +5,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Button, Card } from "../components/common";
+import { Button, Card, ProgressLoader } from "../components/common";
 import { UnifiedMap } from "../components/map";
 import { MAP_ZOOM } from "../components/map/mapConstants";
 import { projectsService } from "../services/projects.service";
@@ -66,8 +66,8 @@ export function ProjectSuggestionsMapPage() {
 
   if (loading && !mapData) {
     return (
-      <div className="p-4">
-        <p className="text-text-muted">Loading map…</p>
+      <div className="flex min-h-[60vh] items-center justify-center p-4">
+        <ProgressLoader type="map" size="md" />
       </div>
     );
   }

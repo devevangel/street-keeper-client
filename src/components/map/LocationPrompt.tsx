@@ -9,6 +9,7 @@
 
 import { Button } from "../common/Button";
 import { EmptyState } from "../common/EmptyState";
+import { ProgressLoader } from "../common/ProgressLoader";
 
 interface LocationPromptProps {
   /** True while waiting for geolocation permission/result */
@@ -27,14 +28,15 @@ export function LocationPrompt({
   if (isLoading) {
     return (
       <div
-        className="flex flex-col items-center justify-center gap-4 py-8"
+        className="flex min-h-[60vh] items-center justify-center"
         role="status"
         aria-label="Requesting location"
       >
-        <p className="text-base text-text-muted">Requesting your location…</p>
-        <p className="text-sm text-text-muted">
-          Allow access to show streets near you.
-        </p>
+        <ProgressLoader 
+          type="location" 
+          size="lg" 
+          title="Allow access to show streets near you"
+        />
       </div>
     );
   }

@@ -1,14 +1,18 @@
 /**
  * AuthCallbackPage
- * Handles redirect from backend after Strava OAuth. Backend redirects here with userId.
- * Sets auth state (and x-user-id header), fetches user, then navigates home.
+ * Handles redirect from backend after Strava OAuth.
+ * Renders AnimatedMapDemo as a live background so the loading, onboarding,
+ * and celebration states all feel immersive instead of floating on a void.
  */
 
 import { useEffect, useState } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { authService } from "../services/auth.service";
-import { Button, Card } from "../components/common";
+import { Button, Card, CelebrationModal } from "../components/common";
+import { OnboardingModal } from "../components/onboarding/OnboardingModal";
+import { AnimatedMapDemo } from "../components/landing/AnimatedMapDemo";
+import { useFirstTimeUser } from "../hooks/useFirstTimeUser";
 import { ROUTES } from "../config/constants";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -21,11 +25,12 @@ const ERROR_MESSAGES: Record<string, string> = {
 export function AuthCallbackPage() {
   const { setUser } = useAuth();
   const navigate = useNavigate();
+  const { isFirstTime, markComplete } = useFirstTimeUser();
   const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState<"loading" | "success" | "error">(
-    "loading"
-  );
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [celebrationCount, setCelebrationCount] = useState<number | null>(null);
 
   const userId = searchParams.get("userId");
   const errorParam = searchParams.get("error");
@@ -34,7 +39,7 @@ export function AuthCallbackPage() {
     if (errorParam) {
       setStatus("error");
       setErrorMessage(
-        ERROR_MESSAGES[errorParam] ?? "Something went wrong. Please try again."
+        ERROR_MESSAGES[errorParam] ?? "Something went wrong. Please try again.",
       );
       return;
     }
@@ -54,7 +59,6 @@ export function AuthCallbackPage() {
         if (!cancelled && res.user) {
           setUser(res.user);
           setStatus("success");
-          navigate(ROUTES.HOME, { replace: true });
         }
       })
       .catch((err) => {
@@ -67,33 +71,91 @@ export function AuthCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [userId, errorParam, setUser, navigate]);
+  }, [userId, errorParam, setUser, navigate, isFirstTime]);
 
-  if (status === "loading") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-bg text-text">
-        <p className="text-text-muted">Completing login...</p>
+  useEffect(() => {
+    if (status !== "success" || isFirstTime === null) return;
+    if (isFirstTime) setShowOnboarding(true);
+    else navigate(ROUTES.HOME, { replace: true });
+  }, [status, isFirstTime, navigate]);
+
+  const handleOnboardingComplete = (syncedCount?: number) => {
+    setShowOnboarding(false);
+    markComplete();
+    if (syncedCount != null && syncedCount > 0) {
+      setCelebrationCount(syncedCount);
+    } else {
+      navigate(ROUTES.HOME, { replace: true });
+    }
+  };
+
+  const handleCelebrationClose = () => {
+    setCelebrationCount(null);
+    navigate(ROUTES.HOME, { replace: true });
+  };
+
+  return (
+    <div className="relative h-[100dvh] w-screen overflow-hidden">
+      {/* Live map background */}
+      <div className="absolute inset-0" style={{ zIndex: 0 }}>
+        <AnimatedMapDemo />
       </div>
-    );
-  }
 
-  if (status === "error") {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-bg p-4 text-text">
-        <Card className="w-full max-w-md space-y-4">
-          <h2 className="text-base font-semibold">Login failed</h2>
-          <p className="text-sm text-text-muted" role="alert">
-            {errorMessage}
-          </p>
-          <Link to={ROUTES.LOGIN}>
-            <Button type="button" variant="primary">
-              Try again
-            </Button>
-          </Link>
-        </Card>
+      {/* Gradient for readability */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          zIndex: 5,
+          background: "linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.5) 100%)",
+        }}
+      />
+
+      {/* Content layer */}
+      <div className="relative flex h-full w-full items-center justify-center" style={{ zIndex: 10 }}>
+        {/* Loading state */}
+        {status === "loading" && (
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            <p className="text-sm text-white/80">Completing login…</p>
+          </div>
+        )}
+
+        {/* Error state */}
+        {status === "error" && (
+          <Card className="mx-4 w-full max-w-md space-y-4 border border-white/15 bg-black/85 backdrop-blur-xl">
+            <h2 className="text-base font-semibold text-white">Login failed</h2>
+            <p className="text-sm text-white/70" role="alert">
+              {errorMessage}
+            </p>
+            <Link to={ROUTES.LANDING}>
+              <Button type="button" variant="primary">
+                Try again
+              </Button>
+            </Link>
+          </Card>
+        )}
       </div>
-    );
-  }
 
-  return null;
+      {/* Onboarding overlay (renders over the map) */}
+      {showOnboarding && (
+        <OnboardingModal
+          isOpen={showOnboarding}
+          onComplete={handleOnboardingComplete}
+        />
+      )}
+
+      {/* Celebration overlay */}
+      {celebrationCount != null && (
+        <CelebrationModal
+          isOpen={true}
+          onClose={handleCelebrationClose}
+          title="You've already conquered some streets!"
+          count={celebrationCount}
+          countSuffix=" activities synced"
+          message="Your map is ready. Head home to explore."
+          autoDismissMs={0}
+        />
+      )}
+    </div>
+  );
 }

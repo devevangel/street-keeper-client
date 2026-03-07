@@ -7,7 +7,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import type { LatLngTuple } from "leaflet";
 import { MousePointer2, Hexagon, MapPin, Trash2 } from "lucide-react";
-import { Button, Card, Input, StreetListItem, type StreetListItemData } from "../components/common";
+import { Button, Card, Input, StreetListItem, InlineLoader, type StreetListItemData } from "../components/common";
 import {
   UniversalSearchInput,
   ProjectCreatedModal,
@@ -498,7 +498,9 @@ export function ProjectCreatePage() {
       {hasValidShape && (
         <Card padding="sm">
           {previewLoading ? (
-            <p className="text-text-muted text-sm">Loading preview…</p>
+            <div className="flex items-center justify-center py-2">
+              <InlineLoader className="text-text-muted text-sm" />
+            </div>
           ) : previewError ? (
             <p className="text-danger text-sm">{previewError}</p>
           ) : preview ? (
@@ -588,9 +590,9 @@ export function ProjectCreatePage() {
                 </Card>
               ) : (
                 <Card className="mt-2">
-                  <p className="p-4 text-sm text-text-muted">
-                    Loading street list…
-                  </p>
+                  <div className="flex items-center justify-center p-4">
+                    <InlineLoader className="text-text-muted text-sm" />
+                  </div>
                 </Card>
               )}
             </>

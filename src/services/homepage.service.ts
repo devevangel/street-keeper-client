@@ -56,6 +56,15 @@ export interface HomepagePayload {
     geometry: Array<{ lat: number; lng: number }>;
     bbox: [number, number, number, number];
   };
+  /** User-level stats for sidebar (favorites, exploration style, totals) */
+  userStats?: {
+    totalActivities: number;
+    totalDistanceKm: number;
+    accountCreatedAt: string;
+    favoriteStreets: Array<{ name: string; runCount: number }>;
+    explorationStyle: "trailblazer" | "balanced" | "habitual";
+    newVsRevisitRatio: number;
+  };
 }
 
 export interface HomepageSuggestion {

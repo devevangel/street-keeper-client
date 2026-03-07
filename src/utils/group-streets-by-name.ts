@@ -8,6 +8,10 @@ export interface GroupedStreet {
   osmIds: string[];
   /** Number of segments (ways) grouped under this street name */
   segmentCount: number;
+  /** From UserStreetProgress (max across segments) */
+  runCount?: number;
+  /** From UserStreetProgress (latest across segments) */
+  lastRunDate?: string | null;
 }
 
 /** Group streets by name and include all osmIds for highlighting all segments. */
@@ -70,12 +74,24 @@ export function groupProjectMapStreetsByName(
           totalLengthMeters
         : 0;
     const completed = ways.every((w) => w.status === "completed");
+    const runCount = ways.some((w) => w.runCount != null)
+      ? Math.max(...ways.map((w) => w.runCount ?? 0))
+      : undefined;
+    const lastRunDate = ways.some((w) => w.lastRunDate != null)
+      ? ways
+          .map((w) => w.lastRunDate)
+          .filter((d): d is string => d != null)
+          .sort()
+          .pop() ?? null
+      : undefined;
     result.push({
       name: data.displayName,
       percentage: Math.round(weightedPct),
       completed,
       osmIds: ways.map((w) => w.osmId),
       segmentCount: ways.length,
+      runCount,
+      lastRunDate,
     });
   }
   result.sort((a, b) => a.name.localeCompare(b.name));

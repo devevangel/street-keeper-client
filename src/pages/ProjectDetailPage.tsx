@@ -6,9 +6,11 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Button, Card, ConfirmModal, Input, StreetListItem, type StreetListItemData } from "../components/common";
+import { Button, Card, ConfirmModal, Input, StreetListItem, ProgressLoader, ProgressRing, Skeleton, SkeletonStreetRow, type StreetListItemData } from "../components/common";
 import { UnifiedMap } from "../components/map";
 import { MAP_ZOOM } from "../components/map/mapConstants";
+import { QuickStatsCard } from "../components/project/QuickStatsCard";
+import { QuickWinsSection } from "../components/project/QuickWinsSection";
 import { MilestonesSection } from "../components/milestones/MilestonesSection";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
@@ -45,7 +47,7 @@ export function ProjectDetailPage() {
     [number, number, number, number] | null
   >(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (signal?: AbortSignal) => {
     if (!id) return;
     setLoading(true);
     setError(null);
@@ -54,17 +56,21 @@ export function ProjectDetailPage() {
         projectsService.getById(id, { includeStreets: true }),
         projectsService.getMap(id),
       ]);
+      if (signal?.aborted) return;
       setProject(projectRes.project);
       setMapData(mapRes.map);
     } catch (err) {
+      if (signal?.aborted) return;
       setError(err instanceof ApiError ? err.message : "Failed to load project");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
-    fetchData();
+    const controller = new AbortController();
+    fetchData(controller.signal);
+    return () => controller.abort();
   }, [fetchData]);
 
   const doArchive = useCallback(async () => {
@@ -179,6 +185,16 @@ export function ProjectDetailPage() {
     setStreetHighlightBbox(null);
   }, []);
 
+  const handleQuickWinShowOnMap = useCallback(
+    (osmId: string) => {
+      const street = mapData?.streets?.find((s) => s.osmId === osmId);
+      if (!street) return;
+      setHighlightOsmIds([osmId]);
+      setStreetHighlightBbox(computeBboxFromStreets([street]));
+    },
+    [mapData?.streets]
+  );
+
   if (!id) {
     return (
       <div className="p-4">
@@ -190,8 +206,31 @@ export function ProjectDetailPage() {
 
   if (loading && !project) {
     return (
-      <div className="p-4">
-        <p className="text-text-muted">Loading project…</p>
+      <div className="flex h-full flex-col overflow-hidden">
+        {/* Skeleton header */}
+        <header className="flex shrink-0 items-center gap-4 border-b border-border bg-surface px-4 py-3">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-6 w-48" />
+        </header>
+        {/* Skeleton content */}
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+          <div className="relative h-[45vh] w-full shrink-0 md:h-full md:flex-1">
+            <ProgressLoader type="project" overlay />
+          </div>
+          <aside className="flex min-h-0 flex-1 flex-col border-border bg-surface md:w-[380px] md:flex-none md:border-l">
+            <div className="border-b border-border p-4">
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+            <div className="p-4">
+              <Skeleton className="mb-4 h-10 w-full rounded-lg" />
+              <div className="rounded-lg border border-border">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <SkeletonStreetRow key={i} />
+                ))}
+              </div>
+            </div>
+          </aside>
+        </div>
       </div>
     );
   }
@@ -200,7 +239,7 @@ export function ProjectDetailPage() {
     return (
       <Card className="m-4 max-w-md">
         <p className="text-danger">{error}</p>
-        <Button variant="secondary" onClick={fetchData} className="mt-2">
+        <Button variant="secondary" onClick={() => void fetchData()} className="mt-2">
           Retry
         </Button>
         <Link to={ROUTES.PROJECTS_LIST} className="mt-3 block">
@@ -315,19 +354,39 @@ export function ProjectDetailPage() {
 
         {/* Sidebar */}
         <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-surface md:w-[380px] md:flex-none md:border-l">
-          {/* Fixed progress summary */}
-          <div className="border-b border-border p-4">
-            <div className="text-sm text-text-muted">
-              {mapData.stats.completedStreetNames ?? mapData.stats.completedStreets} of{" "}
-              {project.totalStreetNames ?? project.totalStreets} streets completed ·{" "}
-              {Math.round(project.progress)}%
-            </div>
-          </div>
-
           {/* Scrollable content */}
-          <div className="p-4 pb-8 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-4">
+          <div className="space-y-4 p-4 pb-8 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-4">
+            {/* Your progress (ring) */}
+            <Card padding="md">
+              <h3 className="text-sm font-semibold text-text-muted mb-2">Your progress</h3>
+              <ProgressRing value={Math.round(project.progress)} animated size={72} strokeWidth={8}>
+                <div>
+                  <p className="text-base font-bold text-text">
+                    {mapData.stats.completedStreetNames ?? mapData.stats.completedStreets} streets conquered!
+                  </p>
+                  <p className="text-sm text-text-muted">
+                    {Math.round(project.progress)}% complete
+                  </p>
+                </div>
+              </ProgressRing>
+            </Card>
+
+            {/* Quick stats */}
+            {mapData.projectStats && (
+              <QuickStatsCard stats={mapData.projectStats} />
+            )}
+
+            {/* Quick wins */}
+            {mapData.quickWins && mapData.quickWins.length > 0 && (
+              <QuickWinsSection
+                quickWins={mapData.quickWins}
+                onShowOnMap={handleQuickWinShowOnMap}
+              />
+            )}
+
             {/* Streets section */}
             <div className="space-y-4">
+              <h3 className="text-base font-semibold text-text">All streets</h3>
               {/* Search */}
               <Input
                 type="search"
@@ -354,6 +413,8 @@ export function ProjectDetailPage() {
                           percentage: street.percentage,
                           segmentCount: street.segmentCount,
                           completed: street.completed,
+                          runCount: street.runCount,
+                          lastRunDate: street.lastRunDate,
                         }}
                         onHighlight={handleStreetHighlight}
                         onClearHighlight={handleStreetClear}

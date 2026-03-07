@@ -8,7 +8,7 @@
  * <Route path="/" element={<HomePage />} />
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EmptyState } from "../components/common";
 import { ReturningUserHomepage } from "../components/homepage";
 import { LocationPrompt } from "../components/map";
@@ -19,6 +19,7 @@ import type { GeocodingResult } from "../types/api.types";
 
 const DEFAULT_RADIUS = 1000;
 const MIN_FETCH_DISTANCE_M = 200;
+const VIEWPORT_DEBOUNCE_MS = 800;
 
 function haversineDistance(
   a: { lat: number; lng: number },
@@ -56,25 +57,34 @@ export function HomePage() {
     new Map(),
   );
 
+  // Memoize homepage params to prevent unnecessary re-fetches when object reference changes
+  const homepageParams = useMemo(
+    () => ({
+      lat: mapCenter?.lat,
+      lng: mapCenter?.lng,
+      userLat: position?.lat,
+      userLng: position?.lng,
+      radius: DEFAULT_RADIUS,
+    }),
+    [mapCenter?.lat, mapCenter?.lng, position?.lat, position?.lng]
+  );
   const {
     data: homepage,
     isLoading: homepageLoading,
     refetch: refetchHomepage,
-  } = useHomepageData({
-    lat: mapCenter?.lat,
-    lng: mapCenter?.lng,
-    userLat: position?.lat,
-    userLng: position?.lng,
-    radius: DEFAULT_RADIUS,
-  });
+  } = useHomepageData(homepageParams);
 
+  // Only update map center when position actually changes (not just object reference)
+  const positionKey = position ? `${position.lat.toFixed(6)}_${position.lng.toFixed(6)}` : null;
+  const prevPositionKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (position) {
+    if (position && positionKey !== prevPositionKeyRef.current) {
+      prevPositionKeyRef.current = positionKey;
       const pos = { lat: position.lat, lng: position.lng };
       setMapCenter((prev) => (prev === null ? pos : prev));
       setFetchCenter((prev) => (prev === null ? pos : prev));
     }
-  }, [position?.lat, position?.lng]);
+  }, [position, positionKey]);
 
   const { data, error: fetchError, refetch: refetchMapStreets } = useMapStreets(
     fetchCenter?.lat ?? null,
@@ -86,45 +96,58 @@ export function HomePage() {
     setAllSegments(new Map());
   }, []);
 
+  // Track homepage view only once when data changes, not on every render
+  const homepageTrackedRef = useRef<string | null>(null);
   useEffect(() => {
     if (homepage) {
-      track("homepage_viewed", {
-        stateKey: homepage.hero.stateKey,
-        isNewUser: homepage.isNewUser,
-        hasSuggestion: !!homepage.primarySuggestion,
-        hasFirstStreet: !!homepage.firstStreet,
-      });
+      const key = `${homepage.hero.stateKey}_${homepage.isNewUser}_${!!homepage.primarySuggestion}_${!!homepage.firstStreet}`;
+      if (homepageTrackedRef.current !== key) {
+        homepageTrackedRef.current = key;
+        track("homepage_viewed", {
+          stateKey: homepage.hero.stateKey,
+          isNewUser: homepage.isNewUser,
+          hasSuggestion: !!homepage.primarySuggestion,
+          hasFirstStreet: !!homepage.firstStreet,
+        });
+      }
     }
-  }, [
-    homepage?.hero.stateKey,
-    homepage?.isNewUser,
-    homepage?.primarySuggestion,
-    homepage?.firstStreet,
-    track,
-  ]);
+  }, [homepage, track]);
 
+  // Only update segments when segment IDs actually change, not just array reference
+  const segmentIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!data?.segments.length) return;
-    setAllSegments((prev) => {
-      const merged = new Map(prev);
-      for (const seg of data.segments) {
-        if (!merged.has(seg.osmId)) merged.set(seg.osmId, seg);
-      }
-      return merged;
-    });
+    const currentIds = new Set(data.segments.map((s) => s.osmId));
+    const idsChanged = currentIds.size !== segmentIdsRef.current.size ||
+      [...currentIds].some((id) => !segmentIdsRef.current.has(id));
+    if (idsChanged) {
+      segmentIdsRef.current = currentIds;
+      setAllSegments((prev) => {
+        const merged = new Map(prev);
+        for (const seg of data.segments) {
+          if (!merged.has(seg.osmId)) merged.set(seg.osmId, seg);
+        }
+        return merged;
+      });
+    }
   }, [data?.segments]);
 
+  const viewportDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleViewportChange = useCallback(
     (center: { lat: number; lng: number }) => {
-      // Only update fetchCenter when panning past threshold (for loading new streets).
-      // Do not update mapCenter here — that would re-render the page and feed the
-      // panned center back into MapView, causing MapCenterSync to run and the map to twitch.
-      setFetchCenter((prev) => {
-        if (!prev) return center;
-        if (haversineDistance(prev, center) > MIN_FETCH_DISTANCE_M)
-          return center;
-        return prev;
-      });
+      // Debounce + distance threshold to reduce Overpass API calls.
+      // Only fetch new streets when user stops panning AND has moved past threshold.
+      if (viewportDebounceRef.current) {
+        clearTimeout(viewportDebounceRef.current);
+      }
+      viewportDebounceRef.current = setTimeout(() => {
+        setFetchCenter((prev) => {
+          if (!prev) return center;
+          if (haversineDistance(prev, center) > MIN_FETCH_DISTANCE_M)
+            return center;
+          return prev;
+        });
+      }, VIEWPORT_DEBOUNCE_MS);
     },
     [],
   );

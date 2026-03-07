@@ -5,7 +5,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Button, Card, ConfirmModal } from "../components/common";
+import { Button, Card, ConfirmModal, SkeletonProjectCard } from "../components/common";
 import { ProjectCard } from "../components/projects";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
@@ -96,8 +96,17 @@ export function ProjectsPage() {
 
   if (loading && allProjects.length === 0) {
     return (
-      <div className="p-4">
-        <p className="text-text-muted">Loading projects…</p>
+      <div className="p-4 pb-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-2xl font-bold text-text">Projects</h1>
+        </div>
+        <ul className="grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <li key={i}>
+              <SkeletonProjectCard />
+            </li>
+          ))}
+        </ul>
       </div>
     );
   }

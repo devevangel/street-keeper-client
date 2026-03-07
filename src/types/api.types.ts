@@ -255,6 +255,25 @@ export interface ProjectMapStreet {
     type: "LineString";
     coordinates: [number, number][];
   };
+  runCount?: number;
+  firstRunDate?: string | null;
+  lastRunDate?: string | null;
+}
+
+/** Quick win: street at 75%+ completion */
+export interface ProjectQuickWin {
+  osmId: string;
+  name: string;
+  percentage: number;
+  remainingMeters: number;
+}
+
+/** Project-level run stats for sidebar */
+export interface ProjectMapProjectStats {
+  totalRuns: number;
+  totalDistanceKm: number;
+  firstRunDate: string | null;
+  lastRunDate: string | null;
 }
 
 /** Boundary for project map (circle or polygon) */
@@ -288,6 +307,8 @@ export interface ProjectMapData {
   stats: ProjectMapStats;
   streets: ProjectMapStreet[];
   geometryCacheHit: boolean;
+  projectStats?: ProjectMapProjectStats;
+  quickWins?: ProjectQuickWin[];
 }
 
 export interface ProjectMapResponse {

@@ -1,13 +1,14 @@
 /**
  * Protected Route
  * Wraps routes that require authentication.
- * Redirects to login when not authenticated; shows loading state while checking.
+ * Redirects to landing when not authenticated; shows loading state while checking.
  */
 
 import { type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { ROUTES } from "../../config/constants";
+import { ProgressLoader } from "../common";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -24,13 +25,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         role="status"
         aria-label="Loading"
       >
-        <p className="text-text-muted">Loading...</p>
+        <ProgressLoader type="general" size="lg" title="Street Keeper" />
       </div>
     );
   }
 
   if (!isAuthenticated) {
-    return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />;
+    return <Navigate to={ROUTES.LANDING} state={{ from: location }} replace />;
   }
 
   return <>{children}</>;

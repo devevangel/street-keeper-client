@@ -2,7 +2,7 @@
  * Fetches homepage payload (hero, streak, suggestion, milestone, mapContext).
  * Cache 30–60s; refetch invalidates cache.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getHomepageData,
   invalidateHomepageCache,
@@ -35,27 +35,39 @@ export function useHomepageData(params: UseHomepageDataParams) {
     }
   }, [params.userLat, params.userLng, initialUserLat, initialUserLng]);
 
-  const fetchData = useCallback(async () => {
+  // Memoize params to prevent unnecessary re-fetches
+  const memoizedParams = useMemo(
+    () => ({
+      lat: params.lat,
+      lng: params.lng,
+      radius: params.radius,
+      projectId: params.projectId,
+      userLat: initialUserLat,
+      userLng: initialUserLng,
+    }),
+    [params.lat, params.lng, params.radius, params.projectId, initialUserLat, initialUserLng]
+  );
+
+  const fetchData = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
     try {
-      // Use initial user position for firstStreet, but current map center for other data
-      const payload = await getHomepageData({
-        ...params,
-        userLat: initialUserLat,
-        userLng: initialUserLng,
-      });
+      const payload = await getHomepageData(memoizedParams);
+      if (signal?.aborted) return;
       setData(payload);
     } catch (e) {
+      if (signal?.aborted) return;
       setError(e instanceof Error ? e : new Error("Failed to load homepage"));
       setData(null);
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) setIsLoading(false);
     }
-  }, [params.lat, params.lng, params.radius, params.projectId, initialUserLat, initialUserLng]);
+  }, [memoizedParams]);
 
   useEffect(() => {
-    fetchData();
+    const controller = new AbortController();
+    fetchData(controller.signal);
+    return () => controller.abort();
   }, [fetchData]);
 
   const refetch = useCallback(() => {

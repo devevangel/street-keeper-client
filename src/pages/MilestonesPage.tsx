@@ -11,7 +11,7 @@ import {
   deleteMilestone,
 } from "../services/milestones.service";
 import { projectsService } from "../services/projects.service";
-import { Button, ConfirmModal, Input, Select } from "../components/common";
+import { Button, ConfirmModal, Input, Select, SkeletonMilestoneCard } from "../components/common";
 import { CreateMilestoneModal } from "../components/projects/CreateMilestoneModal";
 import { ROUTES } from "../config/constants";
 import type { MilestoneWithProgress } from "../types/api.types";
@@ -170,8 +170,16 @@ export function MilestonesPage() {
 
   if (loading && milestones.length === 0) {
     return (
-      <div className="p-4">
-        <p className="text-text-muted">Loading milestones…</p>
+      <div className="mx-auto max-w-2xl p-4 pb-8">
+        <h1 className="text-2xl font-bold text-text mb-2">Milestones</h1>
+        <p className="text-text-muted text-sm mb-4">
+          Track and complete goals. Filter to find easy wins or ones you're close to finishing.
+        </p>
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <SkeletonMilestoneCard key={i} />
+          ))}
+        </div>
       </div>
     );
   }
