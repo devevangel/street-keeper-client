@@ -171,6 +171,20 @@ export function HomePage() {
     requestPermission();
   }, [requestPermission]);
 
+  // If geolocation fails but we have homepage data with a valid mapContext
+  // (from activity history or backend fallback), use that instead of blocking.
+  useEffect(() => {
+    if (locationError && !mapCenter && !position && homepage?.mapContext) {
+      const { lat, lng } = homepage.mapContext;
+      if (lat !== 0 || lng !== 0) {
+        setMapCenter({ lat, lng });
+        setFetchCenter({ lat, lng });
+      }
+    }
+  }, [locationError, mapCenter, position, homepage?.mapContext]);
+
+  // --- All hooks are above this line. Conditional returns below. ---
+
   if (locationLoading && !position) {
     return (
       <LocationPrompt
@@ -181,7 +195,7 @@ export function HomePage() {
     );
   }
 
-  if (locationError && !mapCenter && !position) {
+  if (locationError && !mapCenter && !position && !homepage) {
     return (
       <LocationPrompt
         isLoading={false}

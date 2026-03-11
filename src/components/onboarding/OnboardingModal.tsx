@@ -42,7 +42,7 @@ const STEPS = [
   {
     icon: RefreshCw,
     title: "Syncing your runs",
-    body: "We're importing your Strava activities now. This usually takes just a few seconds.",
+    body: "We're importing your Strava activities now. You'll be taken to your homepage shortly — streets will appear as they're processed.",
     hint: null,
     cta: null,
     color: "from-orange-500 to-amber-500",
@@ -70,18 +70,27 @@ export function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps) {
     if (!isOpen || step !== 2 || syncing) return;
     setSyncing(true);
 
+    // Fire off the Strava sync but don't block the user.
+    // Move them to the homepage after a short delay so the sync continues in the background.
     import("../../services/activities.service").then(({ activitiesService }) => {
-      activitiesService
-        .syncFromStrava()
-        .then((res) => {
-          setSyncing(false);
-          const count = res.synced ?? res.processed ?? 0;
+      const syncPromise = activitiesService.syncFromStrava();
+
+      // Give it a few seconds; if it finishes fast, show the count.
+      // Otherwise move the user to the homepage while sync continues.
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
+
+      Promise.race([syncPromise, timeout]).then((result) => {
+        setSyncing(false);
+        if (result && "synced" in result) {
+          const count = result.synced ?? result.processed ?? 0;
           stableComplete(count);
-        })
-        .catch(() => {
-          setSyncing(false);
+        } else {
           stableComplete();
-        });
+        }
+      }).catch(() => {
+        setSyncing(false);
+        stableComplete();
+      });
     });
   }, [isOpen, step, syncing, stableComplete]);
 
