@@ -54,15 +54,26 @@ export function useMapStreets(
   const [error, setError] = useState<string | null>(null);
   
   const fetchStreets = useCallback(() => {
-    if (lat == null || lng == null) return undefined;
+    if (lat == null || lng == null) {
+      console.log(`[useMapStreets] fetchStreets skipped - no lat/lng`, { lat, lng });
+      return undefined;
+    }
 
     const key = cacheKey(lat, lng, radius);
     const cached = getCached(key);
     if (cached) {
+      console.log(`[useMapStreets] Returning cached streets data`, { key, lat, lng, radius });
       setData(cached);
       setError(null);
       return undefined;
     }
+
+    console.log(`[useMapStreets] Fetching streets at ${new Date().toISOString()}`, {
+      lat,
+      lng,
+      radius,
+      cacheKey: key,
+    });
 
     let cancelled = false;
     setError(null);
@@ -72,12 +83,19 @@ export function useMapStreets(
       .getStreets(lat, lng, radius)
       .then((res) => {
         if (!cancelled) {
+          console.log(`[useMapStreets] Streets received successfully`, {
+            streetCount: res.streets?.length ?? 0,
+            cacheKey: key,
+          });
           setData(res);
           setCached(key, res);
+        } else {
+          console.log(`[useMapStreets] Request cancelled after completion`);
         }
       })
       .catch((err) => {
         if (!cancelled) {
+          console.error(`[useMapStreets] Error fetching streets:`, err);
           setError(err?.message ?? "Failed to load streets.");
         }
       })
@@ -86,16 +104,19 @@ export function useMapStreets(
       });
 
     return () => {
+      console.log(`[useMapStreets] Cleanup - cancelling request`);
       cancelled = true;
     };
   }, [lat, lng, radius]);
 
   useEffect(() => {
+    console.log(`[useMapStreets] useEffect triggered`, { lat, lng, radius });
     const cleanup = fetchStreets();
     return () => {
+      console.log(`[useMapStreets] useEffect cleanup`);
       cleanup?.();
     };
-  }, [fetchStreets]);
+  }, [fetchStreets, lat, lng, radius]);
 
   const refetch = useCallback(() => {
     if (lat != null && lng != null) {

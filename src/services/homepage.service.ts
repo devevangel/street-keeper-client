@@ -106,13 +106,26 @@ export async function getHomepageData(params: {
   if (params.userLng != null) q.set("userLng", String(params.userLng));
   const query = q.toString();
   const cacheKey = query || "default";
+  
+  // Log API call attempt
+  const stackTrace = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
+  console.log(`[getHomepageData] Called at ${new Date().toISOString()}`, {
+    params: { ...params },
+    cacheKey,
+    fromCache: cached && cached.key === cacheKey && cached.at > Date.now() - CACHE_MS,
+    caller: stackTrace,
+  });
+  
   if (cached && cached.key === cacheKey && cached.at > Date.now() - CACHE_MS) {
+    console.log(`[getHomepageData] Returning cached data (age: ${Date.now() - cached.at}ms)`);
     return cached.payload;
   }
   const url = query ? `/homepage?${query}` : "/homepage";
+  console.log(`[getHomepageData] Making API request to: ${url}`);
   const res = await apiClient.get<HomepageResponse>(url);
   if (!res.success || !res.data) throw new Error("Homepage request failed");
   cached = { payload: res.data, at: Date.now(), key: cacheKey };
+  console.log(`[getHomepageData] API request completed, cached with key: ${cacheKey}`);
   return res.data;
 }
 

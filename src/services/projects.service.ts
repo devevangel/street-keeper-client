@@ -15,13 +15,68 @@ import type {
   CreateProjectRequest,
 } from "../types/api.types";
 
+// Module-level cache and request deduplication for getAll
+let getAllCache: { data: ProjectsListResponse; at: number; key: string } | null = null;
+let getAllInProgress: Promise<ProjectsListResponse> | null = null;
+const GET_ALL_CACHE_MS = 30 * 1000; // 30 seconds cache
+
+function getAllCacheKey(options?: { includeArchived?: boolean }): string {
+  return options?.includeArchived ? "all" : "active";
+}
+
+/**
+ * Invalidate the projects cache (useful after mutations)
+ * Defined before service object so it can be called from within service methods
+ */
+function invalidateProjectsCacheInternal(): void {
+  getAllCache = null;
+  getAllInProgress = null;
+  console.log(`[projectsService] Cache invalidated`);
+}
+
 export const projectsService = {
   async getAll(options?: {
     includeArchived?: boolean;
   }): Promise<ProjectsListResponse> {
+    const stackTrace = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
+    const cacheKey = getAllCacheKey(options);
+    
+    console.log(`[projectsService.getAll] Called at ${new Date().toISOString()}`, {
+      options,
+      cacheKey,
+      caller: stackTrace,
+    });
+    
+    // Check cache
+    if (getAllCache && getAllCache.key === cacheKey && getAllCache.at > Date.now() - GET_ALL_CACHE_MS) {
+      console.log(`[projectsService.getAll] Returning cached data (age: ${Date.now() - getAllCache.at}ms)`);
+      return getAllCache.data;
+    }
+    
+    // If request is already in progress, return the same promise
+    if (getAllInProgress) {
+      console.log(`[projectsService.getAll] Request already in progress, reusing promise`);
+      return getAllInProgress;
+    }
+    
     const params: Record<string, string> = {};
     if (options?.includeArchived) params.includeArchived = "true";
-    return apiClient.get<ProjectsListResponse>("/projects", params);
+    console.log(`[projectsService.getAll] Making API request to /projects`);
+    
+    // Create the request promise and store it
+    getAllInProgress = apiClient.get<ProjectsListResponse>("/projects", params)
+      .then((result) => {
+        getAllCache = { data: result, at: Date.now(), key: cacheKey };
+        getAllInProgress = null;
+        console.log(`[projectsService.getAll] API request completed, received ${result.projects?.length ?? 0} projects, cached`);
+        return result;
+      })
+      .catch((err) => {
+        getAllInProgress = null;
+        throw err;
+      });
+    
+    return getAllInProgress;
   },
 
   async getById(
@@ -69,21 +124,29 @@ export const projectsService = {
   },
 
   async create(data: CreateProjectRequest): Promise<ProjectDetailResponse> {
-    return apiClient.post<ProjectDetailResponse>("/projects", data);
+    const result = await apiClient.post<ProjectDetailResponse>("/projects", data);
+    invalidateProjectsCacheInternal();
+    return result;
   },
 
   async archive(projectId: string): Promise<{ success: true; message: string }> {
-    return apiClient.delete(`/projects/${projectId}`);
+    const result = await apiClient.delete(`/projects/${projectId}`);
+    invalidateProjectsCacheInternal();
+    return result;
   },
 
   async restore(projectId: string): Promise<{ success: true; message: string }> {
-    return apiClient.post(`/projects/${projectId}/restore`);
+    const result = await apiClient.post(`/projects/${projectId}/restore`);
+    invalidateProjectsCacheInternal();
+    return result;
   },
 
   async deletePermanently(
     projectId: string
   ): Promise<{ success: true; message: string }> {
-    return apiClient.delete(`/projects/${projectId}/permanent`);
+    const result = await apiClient.delete(`/projects/${projectId}/permanent`);
+    invalidateProjectsCacheInternal();
+    return result;
   },
 
   async refresh(projectId: string): Promise<ProjectDetailResponse> {
@@ -126,3 +189,10 @@ export const projectsService = {
     );
   },
 };
+
+/**
+ * Export cache invalidation function for external use
+ */
+export function invalidateProjectsCache(): void {
+  invalidateProjectsCacheInternal();
+}

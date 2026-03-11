@@ -115,6 +115,8 @@ export function ReturningUserHomepage({
   const mapRef = useRef<HTMLDivElement>(null);
   const projectMapCache = useRef(new Map<string, ProjectMapData>());
   const toast = useToast();
+  // Track if projects have been fetched to prevent duplicate requests (e.g., in React StrictMode)
+  const projectsFetchedRef = useRef(false);
 
   // Sync visibleBins with user preference once loaded
   const prefStreetFilter = preferences?.preferences?.defaultStreetFilter;
@@ -138,27 +140,43 @@ export function ReturningUserHomepage({
     [userLocation, preferences?.preferences?.defaultMapZoom]
   );
 
-  // Fetch projects on mount
+  // Fetch projects on mount (only once, even in React StrictMode)
   useEffect(() => {
+    if (projectsFetchedRef.current) {
+      console.log(`[ReturningUserHomepage] Projects fetch skipped - already fetched`);
+      return;
+    }
+    console.log(`[ReturningUserHomepage] Fetching projects at ${new Date().toISOString()}`);
+    projectsFetchedRef.current = true;
+    
     let cancelled = false;
     setProjectsLoading(true);
     projectsService
       .getAll()
       .then((res) => {
-        if (cancelled) return;
+        if (cancelled) {
+          console.log(`[ReturningUserHomepage] Projects request cancelled`);
+          return;
+        }
+        console.log(`[ReturningUserHomepage] Projects received: ${res.projects.length} total`);
         const activeProjects = res.projects.filter((p) => !p.isArchived);
         activeProjects.sort((a, b) => {
           const aCompleted = a.completedStreetNames ?? a.completedStreets;
           const bCompleted = b.completedStreetNames ?? b.completedStreets;
           return bCompleted - aCompleted;
         });
+        console.log(`[ReturningUserHomepage] Setting ${activeProjects.slice(0, 3).length} active projects`);
         setProjects(activeProjects.slice(0, 3));
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error(`[ReturningUserHomepage] Error fetching projects:`, err);
         if (!cancelled) setProjects([]);
       })
       .finally(() => {
-        if (!cancelled) setProjectsLoading(false);
+        if (!cancelled) {
+          console.log(`[ReturningUserHomepage] Projects loading complete`);
+          setProjectsLoading(false);
+        }
       });
     return () => {
       cancelled = true;

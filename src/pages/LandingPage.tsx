@@ -5,12 +5,20 @@
  * No fake data, benefit-driven copy, CTA on every section.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { authService } from "../services/auth.service";
 import { ROUTES } from "../config/constants";
-import { AnimatedMapDemo } from "../components/landing/AnimatedMapDemo";
+import {
+  AnimatedMapDemo,
+  StravaButton,
+  GlassCard,
+  ErrorAlert,
+  IconBadge,
+  ANIMATION_DURATION,
+  OAUTH_ERROR_MESSAGES,
+} from "../components/landing";
 import {
   ChevronDown,
   ChevronUp,
@@ -25,13 +33,6 @@ import {
 
 const SECTIONS = ["hero", "problem", "solution", "cta"] as const;
 
-const ERROR_MESSAGES: Record<string, string> = {
-  access_denied: "You denied access. Try again when you're ready.",
-  missing_code: "Something went wrong. Please try again.",
-  invalid_code: "Invalid or expired login. Please try again.",
-  auth_failed: "Login failed. Please try again.",
-};
-
 export function LandingPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -41,11 +42,57 @@ export function LandingPage() {
 
   useEffect(() => {
     const error = searchParams.get("error");
-    if (error && ERROR_MESSAGES[error]) {
-      setErrorMessage(ERROR_MESSAGES[error]);
+    if (error && OAUTH_ERROR_MESSAGES[error]) {
+      setErrorMessage(OAUTH_ERROR_MESSAGES[error]);
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  const handleCta = useCallback(() => {
+    authService.loginWithStrava();
+  }, []);
+
+  const goToSection = useCallback(
+    (direction: "next" | "prev") => {
+      if (isAnimating) return;
+      const nextIndex =
+        direction === "next"
+          ? Math.min(currentSection + 1, SECTIONS.length - 1)
+          : Math.max(currentSection - 1, 0);
+      if (nextIndex === currentSection) return;
+      setIsAnimating(true);
+      setCurrentSection(nextIndex);
+      setTimeout(() => setIsAnimating(false), ANIMATION_DURATION.SECTION_TRANSITION);
+    },
+    [currentSection, isAnimating],
+  );
+
+  const jumpTo = useCallback(
+    (i: number) => {
+      if (isAnimating || i === currentSection) return;
+      setIsAnimating(true);
+      setCurrentSection(i);
+      setTimeout(() => setIsAnimating(false), ANIMATION_DURATION.SECTION_TRANSITION);
+    },
+    [currentSection, isAnimating],
+  );
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isAnimating) return;
+      if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+        e.preventDefault();
+        goToSection("next");
+      } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+        e.preventDefault();
+        goToSection("prev");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isAnimating, goToSection]);
 
   if (isLoading) {
     return (
@@ -58,27 +105,6 @@ export function LandingPage() {
   if (isAuthenticated) {
     return <Navigate to={ROUTES.HOME} replace />;
   }
-
-  const handleCta = () => authService.loginWithStrava();
-
-  const goToSection = (direction: "next" | "prev") => {
-    if (isAnimating) return;
-    const nextIndex =
-      direction === "next"
-        ? Math.min(currentSection + 1, SECTIONS.length - 1)
-        : Math.max(currentSection - 1, 0);
-    if (nextIndex === currentSection) return;
-    setIsAnimating(true);
-    setCurrentSection(nextIndex);
-    setTimeout(() => setIsAnimating(false), 600);
-  };
-
-  const jumpTo = (i: number) => {
-    if (isAnimating || i === currentSection) return;
-    setIsAnimating(true);
-    setCurrentSection(i);
-    setTimeout(() => setIsAnimating(false), 600);
-  };
 
   const isFirst = currentSection === 0;
   const isLast = currentSection === SECTIONS.length - 1;
@@ -118,25 +144,12 @@ export function LandingPage() {
             </p>
 
             {errorMessage && (
-              <p
-                className="mb-4 max-w-md rounded-lg border border-amber-400/60 bg-amber-500/20 px-4 py-3 text-sm text-amber-200 backdrop-blur-sm"
-                role="alert"
-              >
-                {errorMessage}
-              </p>
+              <div className="mb-4 max-w-md">
+                <ErrorAlert message={errorMessage} />
+              </div>
             )}
 
-            <button
-              onClick={handleCta}
-              className="group inline-flex cursor-pointer items-center gap-2.5 rounded-full bg-white px-8 py-4 text-base font-semibold text-gray-900 shadow-2xl transition-all duration-200 hover:scale-105 hover:bg-green-400 hover:text-white sm:text-lg"
-            >
-              <img
-                src="https://upload.wikimedia.org/wikipedia/commons/c/cb/Strava_Logo.svg"
-                alt=""
-                className="h-5 w-5 group-hover:brightness-0 group-hover:invert"
-              />
-              Connect with Strava
-            </button>
+            <StravaButton onClick={handleCta} size="md" />
             <p className="mt-3 text-xs text-white/50">30-second setup</p>
           </div>
         </SlideSection>
@@ -146,11 +159,9 @@ export function LandingPage() {
           <div className="flex h-full flex-col items-center justify-center px-5">
             <div className="w-full max-w-lg space-y-6 sm:max-w-2xl">
               {/* Problem statement */}
-              <div className="rounded-2xl border border-white/10 bg-black/80 p-6 backdrop-blur-xl sm:p-8">
+              <GlassCard padding="md">
                 <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20">
-                    <Repeat className="h-5 w-5 text-orange-400" />
-                  </div>
+                  <IconBadge icon={Repeat} gradient="from-orange-500 to-amber-500" size="md" />
                   <h2 className="text-xl font-bold text-white sm:text-2xl">
                     Running the same routes?
                   </h2>
@@ -164,7 +175,7 @@ export function LandingPage() {
                   What if you could see <span className="text-green-400">exactly which streets you've run</span> —
                   and which ones are waiting?
                 </p>
-              </div>
+              </GlassCard>
 
               {/* Pain points */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -187,6 +198,7 @@ export function LandingPage() {
               <button
                 onClick={() => goToSection("next")}
                 className="group mx-auto flex cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-white/10 px-6 py-3 text-sm font-medium text-white backdrop-blur-md transition-all hover:bg-white/20"
+                aria-label="See how it works"
               >
                 See how it works
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -230,22 +242,17 @@ export function LandingPage() {
                     color: "from-blue-500 to-indigo-500",
                   },
                 ].map((item, i) => (
-                  <div
-                    key={i}
-                    className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/80 p-5 backdrop-blur-xl sm:p-6"
-                  >
+                  <GlassCard key={i} padding="md" className="relative overflow-hidden">
                     <div className={`absolute -right-4 -top-4 h-20 w-20 rounded-full bg-gradient-to-br ${item.color} opacity-20 blur-2xl`} />
                     <div className="relative">
                       <span className="mb-3 block text-xs font-bold tracking-widest text-white/40">
                         STEP {item.step}
                       </span>
-                      <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${item.color} shadow-lg`}>
-                        <item.icon className="h-5 w-5 text-white" />
-                      </div>
+                      <IconBadge icon={item.icon} gradient={item.color} size="md" className="mb-3" />
                       <h3 className="mb-2 text-lg font-semibold text-white">{item.title}</h3>
                       <p className="text-sm leading-relaxed text-white/65">{item.benefit}</p>
                     </div>
-                  </div>
+                  </GlassCard>
                 ))}
               </div>
 
@@ -265,10 +272,8 @@ export function LandingPage() {
         {/* ═══ Section 4: FINAL CTA (Action) ═══ */}
         <SlideSection active={currentSection === 3} gone="down">
           <div className="flex h-full flex-col items-center justify-center px-5 text-center">
-            <div className="w-full max-w-md rounded-3xl border border-white/10 bg-black/85 p-8 backdrop-blur-xl sm:max-w-lg sm:p-12">
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 shadow-lg shadow-green-500/30">
-                <Map className="h-8 w-8 text-white" />
-              </div>
+            <GlassCard padding="lg" className="w-full max-w-md sm:max-w-lg">
+              <IconBadge icon={Map} gradient="from-green-500 to-emerald-500" size="lg" className="mx-auto mb-5 shadow-lg shadow-green-500/30" />
               <h2 className="mb-3 text-2xl font-bold text-white sm:text-3xl">
                 Ready to see your city differently?
               </h2>
@@ -276,21 +281,11 @@ export function LandingPage() {
                 No manual logging.<br />
                 Just connect Strava and run.
               </p>
-              <button
-                onClick={handleCta}
-                className="group inline-flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full bg-white px-8 py-4 text-base font-semibold text-gray-900 shadow-2xl transition-all duration-200 hover:scale-[1.03] hover:bg-green-400 hover:text-white sm:text-lg"
-              >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/c/cb/Strava_Logo.svg"
-                  alt=""
-                  className="h-5 w-5 group-hover:brightness-0 group-hover:invert"
-                />
-                Connect with Strava
-              </button>
+              <StravaButton onClick={handleCta} size="lg" fullWidth />
               <p className="mt-4 text-xs text-white/40">
                 30-second setup · Syncs automatically · Works worldwide
               </p>
-            </div>
+            </GlassCard>
           </div>
         </SlideSection>
       </div>
@@ -300,7 +295,7 @@ export function LandingPage() {
         <button
           onClick={() => goToSection("prev")}
           disabled={isAnimating || isFirst}
-          className={`cursor-pointer rounded-full border border-white/20 bg-black/50 p-3 shadow-lg backdrop-blur-md transition-all hover:scale-110 hover:bg-black/70 disabled:opacity-40 sm:p-4 ${
+          className={`cursor-pointer rounded-full border border-white/20 bg-black/50 p-3 shadow-lg backdrop-blur-md transition-all hover:scale-110 hover:bg-black/70 disabled:opacity-40 disabled:cursor-not-allowed sm:p-4 ${
             isFirst ? 'pointer-events-none opacity-0' : ''
           }`}
           aria-label="Previous section"
@@ -310,7 +305,7 @@ export function LandingPage() {
         <button
           onClick={() => goToSection("next")}
           disabled={isAnimating || isLast}
-          className={`cursor-pointer rounded-full border border-white/20 bg-black/50 p-3 shadow-lg backdrop-blur-md transition-all hover:scale-110 hover:bg-black/70 disabled:opacity-40 sm:p-4 ${
+          className={`cursor-pointer rounded-full border border-white/20 bg-black/50 p-3 shadow-lg backdrop-blur-md transition-all hover:scale-110 hover:bg-black/70 disabled:opacity-40 disabled:cursor-not-allowed sm:p-4 ${
             isLast ? 'pointer-events-none opacity-0' : ''
           }`}
           aria-label="Next section"
@@ -331,6 +326,7 @@ export function LandingPage() {
                 : "h-2.5 w-2.5 bg-white/30 hover:bg-white/50"
             }`}
             aria-label={`Go to section ${i + 1}`}
+            aria-current={i === currentSection ? "step" : undefined}
           />
         ))}
       </div>
@@ -359,7 +355,7 @@ function SlideSection({
         transform,
         opacity: active ? 1 : 0,
         pointerEvents: active ? "auto" : "none",
-        transition: "transform 600ms cubic-bezier(0.16, 1, 0.3, 1), opacity 400ms ease",
+        transition: `transform ${ANIMATION_DURATION.SECTION_TRANSITION}ms cubic-bezier(0.16, 1, 0.3, 1), opacity 400ms ease`,
       }}
     >
       {children}

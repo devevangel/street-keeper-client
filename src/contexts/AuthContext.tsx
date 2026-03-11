@@ -57,7 +57,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    // Clear all user data and caches
     authService.logout();
+    // Clear user state
     setUserState(null);
   }, []);
 

@@ -8,6 +8,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Footprints, Palette, RefreshCw, ArrowRight, ArrowLeft, X } from "lucide-react";
 import { ProgressLoader } from "../common";
+import { StepIndicator } from "./StepIndicator";
+import { IconBadge } from "../landing/IconBadge";
+import { ANIMATION_DURATION } from "../landing/constants";
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -122,30 +125,20 @@ export function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps) {
 
       {/* Card */}
       <div
-        className="relative z-10 mx-auto w-full max-w-lg transition-all duration-500 ease-out"
+        className="relative z-10 mx-auto w-full max-w-lg transition-all ease-out"
         style={{
           transform: entering ? "translateY(100%)" : "translateY(0)",
           opacity: entering ? 0 : 1,
+          transitionDuration: `${ANIMATION_DURATION.CARD_ENTER}ms`,
         }}
       >
         <div className="mx-3 mb-4 rounded-2xl border border-white/15 bg-black/90 p-5 shadow-2xl backdrop-blur-xl sm:mx-0 sm:mb-6 sm:p-7">
           {/* Step indicator */}
-          <div className="mb-4 flex items-center gap-2">
-            {STEPS.map((_, i) => (
-              <div
-                key={i}
-                className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-                  i <= step ? "bg-white" : "bg-white/20"
-                }`}
-              />
-            ))}
-          </div>
+          <StepIndicator currentStep={step} totalSteps={STEPS.length} className="mb-4" />
 
           {/* Icon + Title */}
           <div className="mb-3 flex items-center gap-3">
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${current.color} shadow-lg`}>
-              <Icon className="h-5 w-5 text-white" />
-            </div>
+            <IconBadge icon={Icon} gradient={current.color} size="md" />
             <h2 id="onboarding-title" className="text-lg font-bold text-white sm:text-xl">
               {current.title}
             </h2>

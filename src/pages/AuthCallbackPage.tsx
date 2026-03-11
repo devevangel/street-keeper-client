@@ -11,16 +11,9 @@ import { useAuth } from "../contexts/AuthContext";
 import { authService } from "../services/auth.service";
 import { Button, Card, CelebrationModal } from "../components/common";
 import { OnboardingModal } from "../components/onboarding/OnboardingModal";
-import { AnimatedMapDemo } from "../components/landing/AnimatedMapDemo";
+import { AnimatedMapDemo, ErrorAlert, OAUTH_ERROR_MESSAGES } from "../components/landing";
 import { useFirstTimeUser } from "../hooks/useFirstTimeUser";
 import { ROUTES } from "../config/constants";
-
-const ERROR_MESSAGES: Record<string, string> = {
-  access_denied: "You denied access to Street Keeper.",
-  missing_code: "Missing authorization. Please try logging in again.",
-  invalid_code: "Invalid or expired login. Please try again.",
-  auth_failed: "Login failed. Please try again.",
-};
 
 export function AuthCallbackPage() {
   const { setUser } = useAuth();
@@ -39,7 +32,7 @@ export function AuthCallbackPage() {
     if (errorParam) {
       setStatus("error");
       setErrorMessage(
-        ERROR_MESSAGES[errorParam] ?? "Something went wrong. Please try again.",
+        OAUTH_ERROR_MESSAGES[errorParam] ?? "Something went wrong. Please try again.",
       );
       return;
     }
@@ -124,9 +117,7 @@ export function AuthCallbackPage() {
         {status === "error" && (
           <Card className="mx-4 w-full max-w-md space-y-4 border border-white/15 bg-black/85 backdrop-blur-xl">
             <h2 className="text-base font-semibold text-white">Login failed</h2>
-            <p className="text-sm text-white/70" role="alert">
-              {errorMessage}
-            </p>
+            <ErrorAlert message={errorMessage} />
             <Link to={ROUTES.LANDING}>
               <Button type="button" variant="primary">
                 Try again
