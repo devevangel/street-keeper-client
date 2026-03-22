@@ -31,7 +31,7 @@ function getAllCacheKey(options?: { includeArchived?: boolean }): string {
 function invalidateProjectsCacheInternal(): void {
   getAllCache = null;
   getAllInProgress = null;
-  console.log(`[projectsService] Cache invalidated`);
+  if (import.meta.env.DEV) console.log(`[projectsService] Cache invalidated`);
 }
 
 export const projectsService = {
@@ -40,35 +40,37 @@ export const projectsService = {
   }): Promise<ProjectsListResponse> {
     const stackTrace = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
     const cacheKey = getAllCacheKey(options);
-    
-    console.log(`[projectsService.getAll] Called at ${new Date().toISOString()}`, {
-      options,
-      cacheKey,
-      caller: stackTrace,
-    });
-    
+
+    if (import.meta.env.DEV) {
+      console.log(`[projectsService.getAll] Called at ${new Date().toISOString()}`, {
+        options,
+        cacheKey,
+        caller: stackTrace,
+      });
+    }
+
     // Check cache
     if (getAllCache && getAllCache.key === cacheKey && getAllCache.at > Date.now() - GET_ALL_CACHE_MS) {
-      console.log(`[projectsService.getAll] Returning cached data (age: ${Date.now() - getAllCache.at}ms)`);
+      if (import.meta.env.DEV) console.log(`[projectsService.getAll] Returning cached data (age: ${Date.now() - getAllCache.at}ms)`);
       return getAllCache.data;
     }
-    
+
     // If request is already in progress, return the same promise
     if (getAllInProgress) {
-      console.log(`[projectsService.getAll] Request already in progress, reusing promise`);
+      if (import.meta.env.DEV) console.log(`[projectsService.getAll] Request already in progress, reusing promise`);
       return getAllInProgress;
     }
-    
+
     const params: Record<string, string> = {};
     if (options?.includeArchived) params.includeArchived = "true";
-    console.log(`[projectsService.getAll] Making API request to /projects`);
-    
+    if (import.meta.env.DEV) console.log(`[projectsService.getAll] Making API request to /projects`);
+
     // Create the request promise and store it
     getAllInProgress = apiClient.get<ProjectsListResponse>("/projects", params)
       .then((result) => {
         getAllCache = { data: result, at: Date.now(), key: cacheKey };
         getAllInProgress = null;
-        console.log(`[projectsService.getAll] API request completed, received ${result.projects?.length ?? 0} projects, cached`);
+        if (import.meta.env.DEV) console.log(`[projectsService.getAll] API request completed, received ${result.projects?.length ?? 0} projects, cached`);
         return result;
       })
       .catch((err) => {

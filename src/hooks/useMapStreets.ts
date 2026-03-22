@@ -2,6 +2,7 @@
  * useMapStreets Hook
  * Fetches GET /map/streets for the given lat/lng. Uses in-memory cache by (center, radius)
  * so panning back to an area reuses data. Returns data, loading state, error, and refetch.
+ * Aborts in-flight requests on unmount or when params change.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -43,79 +44,87 @@ export interface UseMapStreetsResult {
   refetch: () => void;
 }
 
+function initialDataMatches(
+  initialData: MapStreetsResponse,
+  lat: number,
+  lng: number,
+  radius: number
+): boolean {
+  return (
+    initialData.center.lat === lat &&
+    initialData.center.lng === lng &&
+    initialData.radiusMeters === radius
+  );
+}
+
+function isAbortError(err: unknown): boolean {
+  return (
+    err instanceof DOMException && err.name === "AbortError"
+  );
+}
+
 export function useMapStreets(
   lat: number | null,
   lng: number | null,
-  radiusMeters?: number
+  radiusMeters?: number,
+  /** When provided (e.g. from homepage mapSegments), seeds the cache and avoids a separate GET /map/streets call when key matches. */
+  initialData?: MapStreetsResponse | null
 ): UseMapStreetsResult {
   const radius = radiusMeters ?? 1000;
   const [data, setData] = useState<MapStreetsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const fetchStreets = useCallback(() => {
     if (lat == null || lng == null) {
-      console.log(`[useMapStreets] fetchStreets skipped - no lat/lng`, { lat, lng });
       return undefined;
     }
 
     const key = cacheKey(lat, lng, radius);
+
+    if (
+      initialData &&
+      initialDataMatches(initialData, lat, lng, radius)
+    ) {
+      setCached(key, initialData);
+      setData(initialData);
+      setError(null);
+      return undefined;
+    }
+
     const cached = getCached(key);
     if (cached) {
-      console.log(`[useMapStreets] Returning cached streets data`, { key, lat, lng, radius });
       setData(cached);
       setError(null);
       return undefined;
     }
 
-    console.log(`[useMapStreets] Fetching streets at ${new Date().toISOString()}`, {
-      lat,
-      lng,
-      radius,
-      cacheKey: key,
-    });
-
-    let cancelled = false;
+    const controller = new AbortController();
     setError(null);
     setIsLoading(true);
 
     mapService
-      .getStreets(lat, lng, radius)
+      .getStreets(lat, lng, radius, controller.signal)
       .then((res) => {
-        if (!cancelled) {
-          console.log(`[useMapStreets] Streets received successfully`, {
-            streetCount: res.streets?.length ?? 0,
-            cacheKey: key,
-          });
+        if (!controller.signal.aborted) {
           setData(res);
           setCached(key, res);
-        } else {
-          console.log(`[useMapStreets] Request cancelled after completion`);
         }
       })
       .catch((err) => {
-        if (!cancelled) {
-          console.error(`[useMapStreets] Error fetching streets:`, err);
-          setError(err?.message ?? "Failed to load streets.");
-        }
+        if (controller.signal.aborted || isAbortError(err)) return;
+        setError(err?.message ?? "Failed to load streets.");
       })
       .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       });
 
-    return () => {
-      console.log(`[useMapStreets] Cleanup - cancelling request`);
-      cancelled = true;
-    };
-  }, [lat, lng, radius]);
+    return () => controller.abort();
+  }, [lat, lng, radius, initialData]);
 
   useEffect(() => {
-    console.log(`[useMapStreets] useEffect triggered`, { lat, lng, radius });
     const cleanup = fetchStreets();
-    return () => {
-      console.log(`[useMapStreets] useEffect cleanup`);
-      cleanup?.();
-    };
+    return () => cleanup?.();
   }, [fetchStreets, lat, lng, radius]);
 
   const refetch = useCallback(() => {

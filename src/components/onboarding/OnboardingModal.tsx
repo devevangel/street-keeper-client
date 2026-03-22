@@ -8,6 +8,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Footprints, Palette, RefreshCw, ArrowRight, ArrowLeft, X } from "lucide-react";
 import { ProgressLoader } from "../common";
+import { useToast } from "../../contexts/ToastContext";
+import { ERROR_CODES } from "../../config/constants";
+import { ApiError } from "../../lib/api-client";
 import { StepIndicator } from "./StepIndicator";
 import { IconBadge } from "../landing/IconBadge";
 import { ANIMATION_DURATION } from "../landing/constants";
@@ -50,6 +53,7 @@ const STEPS = [
 ];
 
 export function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps) {
+  const toast = useToast();
   const [step, setStep] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [entering, setEntering] = useState(true);
@@ -70,27 +74,38 @@ export function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps) {
     if (!isOpen || step !== 2 || syncing) return;
     setSyncing(true);
 
-    // Fire off the Strava sync but don't block the user.
-    // Move them to the homepage after a short delay so the sync continues in the background.
+    // Start background sync (POST /activities/sync?background=true). Returns immediately with syncId/total.
+    // Move user to homepage after a short delay; sync continues in the background and SyncBanner shows progress.
     import("../../services/activities.service").then(({ activitiesService }) => {
-      const syncPromise = activitiesService.syncFromStrava();
+      const syncPromise = activitiesService.syncFromStrava({ background: true });
 
-      // Give it a few seconds; if it finishes fast, show the count.
-      // Otherwise move the user to the homepage while sync continues.
       const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
 
-      Promise.race([syncPromise, timeout]).then((result) => {
-        setSyncing(false);
-        if (result && "synced" in result) {
-          const count = result.synced ?? result.processed ?? 0;
-          stableComplete(count);
-        } else {
+      Promise.race([syncPromise, timeout])
+        .then(() => {
+          setSyncing(false);
           stableComplete();
-        }
-      }).catch(() => {
-        setSyncing(false);
-        stableComplete();
-      });
+        })
+        .catch((err) => {
+          if (
+            err instanceof ApiError &&
+            err.status === 429 &&
+            err.code === ERROR_CODES.SYNC_RATE_LIMITED
+          ) {
+            const next = err.body?.nextSyncAt
+              ? new Date(err.body.nextSyncAt).toLocaleString(undefined, {
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })
+              : null;
+            const msg = next
+              ? `Strava can only be synced once per day. Next sync available at ${next}.`
+              : err.message;
+            toast?.showToast(msg, "warning");
+          }
+          setSyncing(false);
+          stableComplete();
+        });
     });
   }, [isOpen, step, syncing, stableComplete]);
 

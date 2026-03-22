@@ -31,13 +31,9 @@ const BBOX = {
 // Module-level flag to prevent duplicate Overpass API requests across component instances
 let fetchInProgress = false;
 
-function isDarkMode(): boolean {
-  if (typeof document === "undefined") return false;
-  return (
-    document.documentElement.classList.contains("dark") ||
-    document.documentElement.getAttribute("data-theme") === "dark" ||
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-  );
+interface AnimatedMapDemoProps {
+  /** Theme for the map tiles. Defaults to light. */
+  theme?: "light" | "dark";
 }
 
 interface CachedStreet {
@@ -252,18 +248,17 @@ function DemoMapContent({ progress, scaledProgress, streets }: { progress: numbe
   );
 }
 
-export function AnimatedMapDemo() {
-  const isDark = isDarkMode();
+export function AnimatedMapDemo({ theme: themeProp = "light" }: AnimatedMapDemoProps) {
   const [progress, setProgress] = useState(0);
   const [streets, setStreets] = useState<CachedStreet[]>([]);
   const rafRef = useRef<number>(0);
   const startRef = useRef<number>(0);
   const streetsLoadedRef = useRef(false);
 
-  const themeId = isDark ? "dark" : "streets";
-  const theme = getMapTheme(themeId);
-  const tileUrl = getMapTileUrl(theme);
-  const attribution = getMapAttribution(theme);
+  const themeId = themeProp === "dark" ? "dark" : "light";
+  const mapTheme = getMapTheme(themeId);
+  const tileUrl = getMapTileUrl(mapTheme);
+  const attribution = getMapAttribution(mapTheme);
 
   // Load streets on mount (from cache or API) - only once per component instance
   useEffect(() => {
@@ -326,45 +321,51 @@ export function AnimatedMapDemo() {
         className="absolute inset-0 pointer-events-none"
         style={{ zIndex: 10, isolation: "isolate" }}
       >
-        <div className="pointer-events-auto absolute bottom-24 left-4 rounded-xl bg-black/95 px-4 py-3 shadow-2xl backdrop-blur-md border border-white/10">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/60">
+        <div className={`pointer-events-auto absolute bottom-24 left-4 rounded-xl px-4 py-3 shadow-2xl backdrop-blur-md border ${
+          themeProp === "dark"
+            ? "bg-black/95 border-white/10"
+            : "bg-white/95 border-gray-200/60 shadow-gray-900/10"
+        }`}>
+          <div className={`mb-2 text-xs font-semibold uppercase tracking-wider ${
+            themeProp === "dark" ? "text-white/60" : "text-gray-500"
+          }`}>
             Street Progress
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <div className="h-2.5 w-2.5 rounded-full bg-green-500"></div>
-                <span className="text-xs text-white">Completed</span>
+                <span className={`text-xs ${themeProp === "dark" ? "text-white" : "text-gray-700"}`}>Completed</span>
               </div>
-              <span className="min-w-[1.5rem] text-right font-mono text-xs font-bold text-green-400">
+              <span className="min-w-[1.5rem] text-right font-mono text-xs font-bold text-green-500">
                 {completedCount}
               </span>
             </div>
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <div className="h-2.5 w-2.5 rounded-full bg-orange-500 animate-pulse"></div>
-                <span className="text-xs text-white">In Progress</span>
+                <span className={`text-xs ${themeProp === "dark" ? "text-white" : "text-gray-700"}`}>In Progress</span>
               </div>
-              <span className="min-w-[1.5rem] text-right font-mono text-xs font-bold text-orange-400">
+              <span className="min-w-[1.5rem] text-right font-mono text-xs font-bold text-orange-500">
                 {inProgressCount}
               </span>
             </div>
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <div className="h-2.5 w-2.5 rounded-full bg-gray-500"></div>
-                <span className="text-xs text-white">Not Started</span>
+                <div className="h-2.5 w-2.5 rounded-full bg-gray-400"></div>
+                <span className={`text-xs ${themeProp === "dark" ? "text-white" : "text-gray-700"}`}>Not Started</span>
               </div>
-              <span className="min-w-[1.5rem] text-right font-mono text-xs font-bold text-gray-400">
+              <span className={`min-w-[1.5rem] text-right font-mono text-xs font-bold ${themeProp === "dark" ? "text-gray-400" : "text-gray-500"}`}>
                 {notStartedCount}
               </span>
             </div>
-            <div className="flex items-center gap-2 border-t border-white/20 pt-1.5">
+            <div className={`flex items-center gap-2 border-t pt-1.5 ${themeProp === "dark" ? "border-white/20" : "border-gray-200"}`}>
               <div className="h-2.5 w-2.5 rounded-full bg-blue-500"></div>
-              <span className="text-xs text-white/80">Your Run</span>
+              <span className={`text-xs ${themeProp === "dark" ? "text-white/80" : "text-gray-600"}`}>Your Run</span>
             </div>
-            <div className="flex items-center justify-between border-t border-white/20 pt-1.5">
-              <span className="text-[10px] text-white/50">Total</span>
-              <span className="font-mono text-xs font-bold text-white">{total}</span>
+            <div className={`flex items-center justify-between border-t pt-1.5 ${themeProp === "dark" ? "border-white/20" : "border-gray-200"}`}>
+              <span className={`text-[10px] ${themeProp === "dark" ? "text-white/50" : "text-gray-400"}`}>Total</span>
+              <span className={`font-mono text-xs font-bold ${themeProp === "dark" ? "text-white" : "text-gray-800"}`}>{total}</span>
             </div>
           </div>
         </div>

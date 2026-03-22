@@ -6,7 +6,7 @@
 export { FitBoundsToHighlight } from "./FitBoundsToHighlight";
 export { HeatmapLayer } from "./HeatmapLayer";
 export { LocationMarker } from "./LocationMarker";
-export { LocationPrompt } from "./LocationPrompt";
+export { LocationAccessBanner } from "./LocationPrompt";
 export { MapCenterSync } from "./MapCenterSync";
 export { MapClickHandler } from "./MapClickHandler";
 export {
@@ -24,6 +24,7 @@ export { StreetList } from "./StreetList";
 export { StreetPolyline } from "./StreetPolyline";
 export { UnifiedMap, type MapViewHighlightFocus } from "./UnifiedMap";
 export { UnifiedStreetLayer } from "./UnifiedStreetLayer";
+export { GpsTraceLayer } from "./GpsTraceLayer";
 export { DrawingToolbar, type ShapeData } from "./DrawingToolbar";
 export { MapLoadingOverlay } from "./MapLoadingOverlay";
 export { MAP_ZOOM } from "./mapConstants";

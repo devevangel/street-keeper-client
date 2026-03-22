@@ -94,24 +94,9 @@ export function ProjectsPage() {
     }
   }, [deleteConfirmId, fetchProjects, toast]);
 
-  if (loading && allProjects.length === 0) {
-    return (
-      <div className="p-4 pb-8">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold text-text">Projects</h1>
-        </div>
-        <ul className="grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <li key={i}>
-              <SkeletonProjectCard />
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
+  const listLoading = loading && allProjects.length === 0;
 
-  if (error) {
+  if (error && allProjects.length === 0 && !loading) {
     return (
       <Card className="m-4 max-w-md space-y-4">
         <p className="text-sm text-danger">{error}</p>
@@ -133,9 +118,10 @@ export function ProjectsPage() {
         </Link>
       </div>
 
-      {/* Filter tabs */}
+      {/* Filter tabs — counts fill in when data loads */}
       <div className="mb-4 flex gap-2">
         <button
+          type="button"
           onClick={() => setFilterMode("active")}
           className={`rounded-lg border-2 px-3 py-1.5 text-sm font-medium transition-colors ${
             filterMode === "active"
@@ -143,9 +129,10 @@ export function ProjectsPage() {
               : "border-border bg-surface text-text-muted hover:border-border-hover"
           }`}
         >
-          Active ({activeCount})
+          Active ({listLoading ? "…" : activeCount})
         </button>
         <button
+          type="button"
           onClick={() => setFilterMode("archived")}
           className={`rounded-lg border-2 px-3 py-1.5 text-sm font-medium transition-colors ${
             filterMode === "archived"
@@ -153,11 +140,19 @@ export function ProjectsPage() {
               : "border-border bg-surface text-text-muted hover:border-border-hover"
           }`}
         >
-          Archived ({archivedCount})
+          Archived ({listLoading ? "…" : archivedCount})
         </button>
       </div>
 
-      {filteredProjects.length === 0 ? (
+      {listLoading ? (
+        <ul className="grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <li key={i}>
+              <SkeletonProjectCard />
+            </li>
+          ))}
+        </ul>
+      ) : filteredProjects.length === 0 ? (
         <Card className="space-y-4">
           {filterMode === "active" ? (
             <>

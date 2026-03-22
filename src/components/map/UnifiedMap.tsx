@@ -55,6 +55,7 @@ function MapViewSync({ center, zoom }: { center: { lat: number; lng: number }; z
 import { MapInvalidateSize } from "./MapInvalidateSize";
 import { LocationMarker } from "./LocationMarker";
 import { UnifiedStreetLayer } from "./UnifiedStreetLayer";
+import { GpsTraceLayer } from "./GpsTraceLayer";
 import { DrawingToolbar } from "./DrawingToolbar";
 import { HeatmapLayer } from "./HeatmapLayer";
 import { MapViewportHandler } from "./MapViewportHandler";
@@ -68,7 +69,7 @@ import { MAP_ZOOM } from "./mapConstants";
 import { getMapTheme, getMapTileUrl, getMapAttribution } from "../../config/map-themes";
 import { usePreferences } from "../../contexts/PreferencesContext";
 import type { ShapeData } from "./DrawingToolbar";
-import type { ProjectMapBoundary, MapStreet, ProjectMapStreet } from "../../types/api.types";
+import type { ProjectMapBoundary, MapStreet, ProjectMapStreet, GpsTrace } from "../../types/api.types";
 
 export interface MapViewHighlightFocus {
   bbox?: [number, number, number, number];
@@ -85,6 +86,8 @@ export interface UnifiedMapProps {
   showUserLocationMarker?: boolean;
 
   streets?: (MapStreet | ProjectMapStreet)[];
+  /** GPS activity traces (thin polylines, rendered below streets) */
+  gpsTraces?: GpsTrace[];
   highlightOsmIds?: string[];
 
   boundary?: ProjectMapBoundary | null;
@@ -140,6 +143,7 @@ function MapContent(props: UnifiedMapProps) {
     userLocation,
     showUserLocationMarker,
     streets = [],
+    gpsTraces = [],
     highlightOsmIds = [],
     boundary,
     showBoundaryOutline,
@@ -208,6 +212,9 @@ function MapContent(props: UnifiedMapProps) {
       <MapViewSync center={safeCenter} zoom={zoom} />
       {showUserLocationMarker && userLocation && (
         <LocationMarker position={userLocation} />
+      )}
+      {gpsTraces && gpsTraces.length > 0 && (
+        <GpsTraceLayer traces={gpsTraces} />
       )}
       {filteredStreets.length > 0 && (
         <UnifiedStreetLayer
@@ -324,6 +331,7 @@ export function UnifiedMap(props: UnifiedMapProps) {
       <MapContainer
         center={centerTuple}
         zoom={zoom}
+        maxZoom={MAP_ZOOM.MAX}
         className="h-full w-full leaflet-map-theme leaflet-container leaflet-touch leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom"
         scrollWheelZoom
         style={{ height: "100%", width: "100%", minHeight: "400px" }}
@@ -331,6 +339,8 @@ export function UnifiedMap(props: UnifiedMapProps) {
         <TileLayer
           attribution={attribution}
           url={tileUrl}
+          maxNativeZoom={19}
+          maxZoom={MAP_ZOOM.MAX}
           {...(isMapbox ? { tileSize: 512, zoomOffset: -1 } : {})}
         />
         <MapContent {...props} />

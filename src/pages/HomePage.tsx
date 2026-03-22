@@ -2,24 +2,38 @@
  * HomePage
  * Unified homepage layout: map, search, sync, suggestions, and project cards.
  * Handles geolocation, map street fetching, and delegates to ReturningUserHomepage when data is ready.
- * Shows LocationPrompt when location is needed and EmptyState when street fetch fails.
+ * Shows shell immediately; location issues use inline banner. EmptyState when street fetch fails.
  *
  * @example
  * <Route path="/" element={<HomePage />} />
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { EmptyState } from "../components/common";
+import { EmptyState, SyncBanner } from "../components/common";
+import { activitiesService } from "../services/activities.service";
 import { ReturningUserHomepage } from "../components/homepage";
-import { LocationPrompt } from "../components/map";
 import { useAnalytics } from "../contexts/AnalyticsContext";
-import { useGeolocation, useHomepageData, useMapStreets } from "../hooks";
-import type { MapStreet } from "../types/api.types";
+import { useToast } from "../contexts/ToastContext";
+import { useGeolocation, useHomepageData, useMapStreets, useGpsTraces, useSyncStatus } from "../hooks";
+import { ERROR_CODES } from "../config/constants";
+import { ApiError } from "../lib/api-client";
+import type { HomepagePayload } from "../services/homepage.service";
+import type { MapStreet, MapStreetsResponse } from "../types/api.types";
 import type { GeocodingResult } from "../types/api.types";
 
 const DEFAULT_RADIUS = 1000;
 const MIN_FETCH_DISTANCE_M = 200;
 const VIEWPORT_DEBOUNCE_MS = 800;
+
+const EMPTY_HOMEPAGE: HomepagePayload = {
+  hero: { message: "", stateKey: "loading" },
+  streak: { currentWeeks: 0, isAtRisk: false, lastRunDate: null, longestStreak: 0, qualifyingRunsThisWeek: 0 },
+  primarySuggestion: null,
+  alternates: [],
+  nextMilestone: null,
+  mapContext: { lat: 0, lng: 0, radius: DEFAULT_RADIUS },
+  isNewUser: false,
+};
 
 function haversineDistance(
   a: { lat: number; lng: number },
@@ -40,7 +54,6 @@ export function HomePage() {
   const {
     position,
     error: locationError,
-    isLoading: locationLoading,
     requestPermission,
   } = useGeolocation({ watch: true });
   const { track } = useAnalytics();
@@ -74,6 +87,28 @@ export function HomePage() {
     refetch: refetchHomepage,
   } = useHomepageData(homepageParams);
 
+  // Build initial map data from inlined homepage segments to avoid a second GET /map/streets on first load
+  const mapStreetsInitialData = useMemo((): MapStreetsResponse | null => {
+    if (
+      !homepage?.mapSegments?.length ||
+      !homepage?.mapContext ||
+      (homepage.mapContext.lat === 0 && homepage.mapContext.lng === 0)
+    ) {
+      return null;
+    }
+    const segments = homepage.mapSegments;
+    return {
+      success: true,
+      streets: segments,
+      segments,
+      center: { lat: homepage.mapContext.lat, lng: homepage.mapContext.lng },
+      radiusMeters: homepage.mapContext.radius,
+      totalStreets: segments.length,
+      completedCount: segments.filter((s) => s.status === "completed").length,
+      partialCount: segments.filter((s) => s.status === "partial").length,
+    };
+  }, [homepage?.mapSegments, homepage?.mapContext]);
+
   // Only update map center when position actually changes (not just object reference)
   const positionKey = position ? `${position.lat.toFixed(6)}_${position.lng.toFixed(6)}` : null;
   const prevPositionKeyRef = useRef<string | null>(null);
@@ -90,7 +125,42 @@ export function HomePage() {
     fetchCenter?.lat ?? null,
     fetchCenter?.lng ?? null,
     DEFAULT_RADIUS,
+    mapStreetsInitialData,
   );
+
+  const { traces: gpsTraces, refetch: refetchTraces } = useGpsTraces({
+    lat: fetchCenter?.lat ?? null,
+    lng: fetchCenter?.lng ?? null,
+    radius: DEFAULT_RADIUS,
+  });
+
+  const syncStatus = useSyncStatus();
+  const toast = useToast();
+
+  const handleSyncRetry = useCallback(async () => {
+    try {
+      await activitiesService.syncFromStrava({ background: true });
+      await syncStatus.refetch();
+    } catch (err) {
+      if (
+        err instanceof ApiError &&
+        err.status === 429 &&
+        err.code === ERROR_CODES.SYNC_RATE_LIMITED
+      ) {
+        const next = err.body?.nextSyncAt
+          ? new Date(err.body.nextSyncAt).toLocaleString(undefined, {
+              dateStyle: "short",
+              timeStyle: "short",
+            })
+          : null;
+        const msg = next
+          ? `Strava can only be synced once per day. Next sync available at ${next}.`
+          : err.message;
+        toast?.showToast(msg, "warning");
+      }
+      await syncStatus.refetch();
+    }
+  }, [syncStatus, toast]);
 
   const clearSegments = useCallback(() => {
     setAllSegments(new Map());
@@ -183,27 +253,55 @@ export function HomePage() {
     }
   }, [locationError, mapCenter, position, homepage?.mapContext]);
 
+  // Refetch map streets when homepage data first arrives (homepage populates the
+  // backend geometry cache via Overpass; the initial /map/streets call often races
+  // and gets 0 results because it fires before the cache is warm).
+  const homepageLoadedRef = useRef(false);
+  useEffect(() => {
+    if (homepage && !homepageLoadedRef.current) {
+      homepageLoadedRef.current = true;
+      refetchMapStreets();
+    }
+  }, [homepage, refetchMapStreets]);
+
+  // Progressively refresh map and traces as sync processes activities (every 5 processed)
+  const lastRefreshCountRef = useRef(0);
+  useEffect(() => {
+    if (!syncStatus.isActive) return;
+    const processed = syncStatus.processed;
+    if (
+      processed > 0 &&
+      processed !== lastRefreshCountRef.current &&
+      (processed <= 2 || processed - lastRefreshCountRef.current >= 5)
+    ) {
+      lastRefreshCountRef.current = processed;
+      refetchMapStreets();
+      refetchTraces();
+    }
+  }, [syncStatus.isActive, syncStatus.processed, refetchMapStreets, refetchTraces]);
+
+  // Final refresh when sync completes
+  useEffect(() => {
+    if (syncStatus.didComplete) {
+      lastRefreshCountRef.current = 0;
+      refetchMapStreets();
+      refetchTraces();
+      refetchHomepage();
+    }
+  }, [syncStatus.didComplete, refetchMapStreets, refetchTraces, refetchHomepage]);
+
   // --- All hooks are above this line. Conditional returns below. ---
 
-  if (locationLoading && !position) {
-    return (
-      <LocationPrompt
-        isLoading={locationLoading}
-        error={locationError}
-        onRetry={requestPermission}
-      />
-    );
-  }
-
-  if (locationError && !mapCenter && !position && !homepage) {
-    return (
-      <LocationPrompt
-        isLoading={false}
-        error={locationError}
-        onRetry={requestPermission}
-      />
-    );
-  }
+  const hasMapFallback = Boolean(
+    homepage?.mapContext &&
+      (homepage.mapContext.lat !== 0 || homepage.mapContext.lng !== 0)
+  );
+  const showLocationAccessBanner =
+    Boolean(locationError) &&
+    !mapCenter &&
+    !position &&
+    !homepageLoading &&
+    !hasMapFallback;
 
   if (fetchError) {
     return (
@@ -218,24 +316,30 @@ export function HomePage() {
 
   const accumulatedSegments = Array.from(allSegments.values());
 
-  if (!homepage) {
-    return null;
-  }
-
   return (
     <div className="flex h-full flex-col">
+      {syncStatus.status !== "idle" && (
+        <div className="shrink-0 px-3 py-2">
+          <SyncBanner sync={syncStatus} onRetry={handleSyncRetry} />
+        </div>
+      )}
       <ReturningUserHomepage
-        data={homepage}
+        data={homepage ?? EMPTY_HOMEPAGE}
         isLoading={homepageLoading}
         userLocation={position}
         mapCenter={mapCenter}
         streets={accumulatedSegments}
+        gpsTraces={gpsTraces}
         onViewportChange={handleViewportChange}
         onRefetch={refetchHomepage}
         onClearSegments={clearSegments}
         onRefetchMapStreets={refetchMapStreets}
         onSearchSelect={handleSearchSelect}
         onFocusLocation={handleFocusLocation}
+        backgroundSyncActive={syncStatus.isActive}
+        showLocationAccessBanner={showLocationAccessBanner}
+        locationErrorMessage={locationError ?? undefined}
+        onRetryLocation={requestPermission}
       />
     </div>
   );

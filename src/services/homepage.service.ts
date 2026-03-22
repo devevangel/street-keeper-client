@@ -2,6 +2,7 @@
  * Homepage API – single aggregated payload
  */
 import { apiClient } from "../lib/api-client";
+import type { MapStreet } from "../types/api.types";
 
 export interface HomepagePayload {
   hero: { message: string; stateKey: string };
@@ -35,6 +36,8 @@ export interface HomepagePayload {
     radius: number;
     projectId?: string;
   };
+  /** Inlined street segments for the map (same as GET /map/streets segments). Omitted when no real location. */
+  mapSegments?: MapStreet[];
   /** Last run summary – always set when user has any processed activity. */
   lastRun?: {
     date: string;
@@ -107,25 +110,26 @@ export async function getHomepageData(params: {
   const query = q.toString();
   const cacheKey = query || "default";
   
-  // Log API call attempt
-  const stackTrace = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
-  console.log(`[getHomepageData] Called at ${new Date().toISOString()}`, {
-    params: { ...params },
-    cacheKey,
-    fromCache: cached && cached.key === cacheKey && cached.at > Date.now() - CACHE_MS,
-    caller: stackTrace,
-  });
-  
+  if (import.meta.env.DEV) {
+    const stackTrace = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
+    console.log(`[getHomepageData] Called at ${new Date().toISOString()}`, {
+      params: { ...params },
+      cacheKey,
+      fromCache: cached && cached.key === cacheKey && cached.at > Date.now() - CACHE_MS,
+      caller: stackTrace,
+    });
+  }
+
   if (cached && cached.key === cacheKey && cached.at > Date.now() - CACHE_MS) {
-    console.log(`[getHomepageData] Returning cached data (age: ${Date.now() - cached.at}ms)`);
+    if (import.meta.env.DEV) console.log(`[getHomepageData] Returning cached data (age: ${Date.now() - cached.at}ms)`);
     return cached.payload;
   }
   const url = query ? `/homepage?${query}` : "/homepage";
-  console.log(`[getHomepageData] Making API request to: ${url}`);
+  if (import.meta.env.DEV) console.log(`[getHomepageData] Making API request to: ${url}`);
   const res = await apiClient.get<HomepageResponse>(url);
   if (!res.success || !res.data) throw new Error("Homepage request failed");
   cached = { payload: res.data, at: Date.now(), key: cacheKey };
-  console.log(`[getHomepageData] API request completed, cached with key: ${cacheKey}`);
+  if (import.meta.env.DEV) console.log(`[getHomepageData] API request completed, cached with key: ${cacheKey}`);
   return res.data;
 }
 

@@ -7,7 +7,7 @@
 
 import { apiClient } from "../lib/api-client";
 import { GPX_ENGINE } from "../config/constants";
-import type { MapStreetsResponse } from "../types/api.types";
+import type { MapStreetsResponse, GpsTracesResponse } from "../types/api.types";
 
 const MAP_STREETS_ENDPOINT =
   GPX_ENGINE === "v2" ? "/engine-v2/map/streets" : "/map/streets";
@@ -26,7 +26,8 @@ export const mapService = {
   async getStreets(
     lat: number,
     lng: number,
-    radiusMeters?: number
+    radiusMeters?: number,
+    signal?: AbortSignal
   ): Promise<MapStreetsResponse> {
     const params: Record<string, string> = {
       lat: String(lat),
@@ -36,6 +37,35 @@ export const mapService = {
     if (radiusMeters != null) {
       params.radius = String(radiusMeters);
     }
-    return apiClient.get<MapStreetsResponse>(MAP_STREETS_ENDPOINT, params);
+    return apiClient.get<MapStreetsResponse>(MAP_STREETS_ENDPOINT, params, signal);
+  },
+
+  /**
+   * Get simplified GPS traces for the user's activities in an area.
+   * @param lat - Center latitude
+   * @param lng - Center longitude
+   * @param radiusMeters - Optional radius in meters (default 5000)
+   */
+  async getTraces(
+    lat: number,
+    lng: number,
+    radiusMeters?: number,
+    signal?: AbortSignal
+  ): Promise<GpsTracesResponse> {
+    const params: Record<string, string> = {
+      lat: String(lat),
+      lng: String(lng),
+    };
+    if (radiusMeters != null) {
+      params.radius = String(radiusMeters);
+    }
+    return apiClient.get<GpsTracesResponse>("/map/traces", params, signal);
+  },
+
+  /**
+   * Get simplified GPS traces for activities linked to a project.
+   */
+  async getProjectTraces(projectId: string, signal?: AbortSignal): Promise<GpsTracesResponse> {
+    return apiClient.get<GpsTracesResponse>(`/projects/${projectId}/traces`, undefined, signal);
   },
 };

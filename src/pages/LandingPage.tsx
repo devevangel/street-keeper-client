@@ -29,16 +29,20 @@ import {
   ArrowRight,
   Zap,
   Map,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { useLandingTheme } from "../hooks/useLandingTheme";
 
 const SECTIONS = ["hero", "problem", "solution", "cta"] as const;
 
 export function LandingPage() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [currentSection, setCurrentSection] = useState<number>(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { theme, toggleTheme, isDark } = useLandingTheme();
 
   useEffect(() => {
     const error = searchParams.get("error");
@@ -94,14 +98,6 @@ export function LandingPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isAnimating, goToSection]);
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-bg text-text-muted">
-        <span className="text-lg">Loading…</span>
-      </div>
-    );
-  }
-
   if (isAuthenticated) {
     return <Navigate to={ROUTES.HOME} replace />;
   }
@@ -113,18 +109,32 @@ export function LandingPage() {
     <div className="relative h-[100dvh] w-screen overflow-hidden">
       {/* Fixed Map Background */}
       <div className="absolute inset-0" style={{ zIndex: 0 }}>
-        <AnimatedMapDemo />
+        <AnimatedMapDemo theme={theme} />
       </div>
 
-      {/* Gradient Overlay */}
+      {/* Gradient Overlay — lighter for light mode */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           zIndex: 5,
-          background:
-            "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.65) 100%)",
+          background: isDark
+            ? "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.65) 100%)"
+            : "linear-gradient(to bottom, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.25) 40%, rgba(255,255,255,0.35) 60%, rgba(255,255,255,0.85) 100%)",
         }}
       />
+
+      {/* Theme toggle button */}
+      <button
+        onClick={toggleTheme}
+        className={`fixed top-4 right-4 z-50 flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur-md transition-all hover:scale-110 sm:top-6 sm:right-6 ${
+          isDark
+            ? "border-white/20 bg-black/50 text-white hover:bg-black/70"
+            : "border-gray-300/60 bg-white/70 text-gray-700 hover:bg-white/90"
+        }`}
+        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      >
+        {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      </button>
 
       {/* Section Container */}
       <div className="relative flex h-full w-full flex-col" style={{ zIndex: 10 }}>
@@ -132,13 +142,17 @@ export function LandingPage() {
         {/* ═══ Section 1: HERO (Attention) ═══ */}
         <SlideSection active={currentSection === 0} gone={currentSection > 0 ? "up" : "none"}>
           <div className="flex h-full flex-col items-center justify-center px-5 text-center">
-            <h1 className="mb-4 text-4xl font-extrabold tracking-tight text-white drop-shadow-lg sm:text-5xl lg:text-6xl">
+            <h1 className={`mb-4 text-4xl font-extrabold tracking-tight drop-shadow-lg sm:text-5xl lg:text-6xl ${
+              isDark ? "text-white" : "text-gray-900"
+            }`}>
               Turn Every Run Into<br />
-              <span className="bg-gradient-to-r from-green-400 to-emerald-300 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-green-500 to-emerald-400 bg-clip-text text-transparent">
                 City Exploration
               </span>
             </h1>
-            <p className="mb-8 max-w-lg text-base text-white/85 drop-shadow-md sm:text-lg">
+            <p className={`mb-8 max-w-lg text-base drop-shadow-md sm:text-lg ${
+              isDark ? "text-white/85" : "text-gray-700"
+            }`}>
               See every street you've conquered on a live map.
               Track your progress. Run them all.
             </p>
@@ -150,7 +164,7 @@ export function LandingPage() {
             )}
 
             <StravaButton onClick={handleCta} size="md" />
-            <p className="mt-3 text-xs text-white/50">30-second setup</p>
+            <p className={`mt-3 text-xs ${isDark ? "text-white/50" : "text-gray-500"}`}>30-second setup</p>
           </div>
         </SlideSection>
 
@@ -159,20 +173,20 @@ export function LandingPage() {
           <div className="flex h-full flex-col items-center justify-center px-5">
             <div className="w-full max-w-lg space-y-6 sm:max-w-2xl">
               {/* Problem statement */}
-              <GlassCard padding="md">
+              <GlassCard padding="md" variant={isDark ? "dark" : "light"}>
                 <div className="mb-4 flex items-center gap-3">
                   <IconBadge icon={Repeat} gradient="from-orange-500 to-amber-500" size="md" />
-                  <h2 className="text-xl font-bold text-white sm:text-2xl">
+                  <h2 className={`text-xl font-bold sm:text-2xl ${isDark ? "text-white" : "text-gray-900"}`}>
                     Running the same routes?
                   </h2>
                 </div>
-                <p className="mb-4 text-sm leading-relaxed text-white/75 sm:text-base">
+                <p className={`mb-4 text-sm leading-relaxed sm:text-base ${isDark ? "text-white/75" : "text-gray-600"}`}>
                   Most runners stick to the same handful of streets without realising
                   how much of their city remains unexplored. Without a visual map,
                   there's no way to know what you're missing.
                 </p>
-                <p className="text-sm font-medium text-white/90 sm:text-base">
-                  What if you could see <span className="text-green-400">exactly which streets you've run</span> —
+                <p className={`text-sm font-medium sm:text-base ${isDark ? "text-white/90" : "text-gray-800"}`}>
+                  What if you could see <span className="text-green-500 font-semibold">exactly which streets you've run</span> —
                   and which ones are waiting?
                 </p>
               </GlassCard>
@@ -180,16 +194,20 @@ export function LandingPage() {
               {/* Pain points */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {[
-                  { icon: Repeat, text: "Same routes, different day", color: "text-orange-400" },
-                  { icon: Eye, text: "No visibility into progress", color: "text-blue-400" },
-                  { icon: Map, text: "Unexplored streets everywhere", color: "text-purple-400" },
+                  { icon: Repeat, text: "Same routes, different day", color: "text-orange-500" },
+                  { icon: Eye, text: "No visibility into progress", color: "text-blue-500" },
+                  { icon: Map, text: "Unexplored streets everywhere", color: "text-purple-500" },
                 ].map((item, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/70 px-4 py-3 backdrop-blur-lg"
+                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 backdrop-blur-lg ${
+                      isDark
+                        ? "border-white/10 bg-black/70"
+                        : "border-gray-200/70 bg-white/80"
+                    }`}
                   >
                     <item.icon className={`h-5 w-5 shrink-0 ${item.color}`} />
-                    <span className="text-sm text-white/85">{item.text}</span>
+                    <span className={`text-sm ${isDark ? "text-white/85" : "text-gray-700"}`}>{item.text}</span>
                   </div>
                 ))}
               </div>
@@ -197,7 +215,11 @@ export function LandingPage() {
               {/* CTA for this section */}
               <button
                 onClick={() => goToSection("next")}
-                className="group mx-auto flex cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-white/10 px-6 py-3 text-sm font-medium text-white backdrop-blur-md transition-all hover:bg-white/20"
+                className={`group mx-auto flex cursor-pointer items-center gap-2 rounded-full border px-6 py-3 text-sm font-medium backdrop-blur-md transition-all ${
+                  isDark
+                    ? "border-white/20 bg-white/10 text-white hover:bg-white/20"
+                    : "border-gray-300/60 bg-gray-900/10 text-gray-800 hover:bg-gray-900/20"
+                }`}
                 aria-label="See how it works"
               >
                 See how it works
@@ -211,10 +233,10 @@ export function LandingPage() {
         <SlideSection active={currentSection === 2} gone={currentSection > 2 ? "up" : "down"}>
           <div className="flex h-full flex-col items-center justify-center px-5">
             <div className="w-full max-w-lg space-y-5 sm:max-w-3xl">
-              <h2 className="text-center text-2xl font-bold text-white sm:text-3xl">
+              <h2 className={`text-center text-2xl font-bold sm:text-3xl ${isDark ? "text-white" : "text-gray-900"}`}>
                 Three steps. Zero effort.
               </h2>
-              <p className="mx-auto max-w-md text-center text-sm text-white/60">
+              <p className={`mx-auto max-w-md text-center text-sm ${isDark ? "text-white/60" : "text-gray-500"}`}>
                 Street Keeper connects to your Strava automatically — just run.
               </p>
 
@@ -242,15 +264,15 @@ export function LandingPage() {
                     color: "from-blue-500 to-indigo-500",
                   },
                 ].map((item, i) => (
-                  <GlassCard key={i} padding="md" className="relative overflow-hidden">
+                  <GlassCard key={i} padding="md" variant={isDark ? "dark" : "light"} className="relative overflow-hidden">
                     <div className={`absolute -right-4 -top-4 h-20 w-20 rounded-full bg-gradient-to-br ${item.color} opacity-20 blur-2xl`} />
                     <div className="relative">
-                      <span className="mb-3 block text-xs font-bold tracking-widest text-white/40">
+                      <span className={`mb-3 block text-xs font-bold tracking-widest ${isDark ? "text-white/40" : "text-gray-400"}`}>
                         STEP {item.step}
                       </span>
                       <IconBadge icon={item.icon} gradient={item.color} size="md" className="mb-3" />
-                      <h3 className="mb-2 text-lg font-semibold text-white">{item.title}</h3>
-                      <p className="text-sm leading-relaxed text-white/65">{item.benefit}</p>
+                      <h3 className={`mb-2 text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{item.title}</h3>
+                      <p className={`text-sm leading-relaxed ${isDark ? "text-white/65" : "text-gray-600"}`}>{item.benefit}</p>
                     </div>
                   </GlassCard>
                 ))}
@@ -272,17 +294,17 @@ export function LandingPage() {
         {/* ═══ Section 4: FINAL CTA (Action) ═══ */}
         <SlideSection active={currentSection === 3} gone="down">
           <div className="flex h-full flex-col items-center justify-center px-5 text-center">
-            <GlassCard padding="lg" className="w-full max-w-md sm:max-w-lg">
+            <GlassCard padding="lg" variant={isDark ? "dark" : "light"} className="w-full max-w-md sm:max-w-lg">
               <IconBadge icon={Map} gradient="from-green-500 to-emerald-500" size="lg" className="mx-auto mb-5 shadow-lg shadow-green-500/30" />
-              <h2 className="mb-3 text-2xl font-bold text-white sm:text-3xl">
+              <h2 className={`mb-3 text-2xl font-bold sm:text-3xl ${isDark ? "text-white" : "text-gray-900"}`}>
                 Ready to see your city differently?
               </h2>
-              <p className="mb-8 text-sm text-white/65 sm:text-base">
+              <p className={`mb-8 text-sm sm:text-base ${isDark ? "text-white/65" : "text-gray-600"}`}>
                 No manual logging.<br />
                 Just connect Strava and run.
               </p>
               <StravaButton onClick={handleCta} size="lg" fullWidth />
-              <p className="mt-4 text-xs text-white/40">
+              <p className={`mt-4 text-xs ${isDark ? "text-white/40" : "text-gray-400"}`}>
                 30-second setup · Syncs automatically · Works worldwide
               </p>
             </GlassCard>
@@ -295,22 +317,30 @@ export function LandingPage() {
         <button
           onClick={() => goToSection("prev")}
           disabled={isAnimating || isFirst}
-          className={`cursor-pointer rounded-full border border-white/20 bg-black/50 p-3 shadow-lg backdrop-blur-md transition-all hover:scale-110 hover:bg-black/70 disabled:opacity-40 disabled:cursor-not-allowed sm:p-4 ${
+          className={`cursor-pointer rounded-full border p-3 shadow-lg backdrop-blur-md transition-all hover:scale-110 disabled:opacity-40 disabled:cursor-not-allowed sm:p-4 ${
             isFirst ? 'pointer-events-none opacity-0' : ''
+          } ${
+            isDark
+              ? "border-white/20 bg-black/50 hover:bg-black/70"
+              : "border-gray-300/60 bg-white/70 hover:bg-white/90"
           }`}
           aria-label="Previous section"
         >
-          <ChevronUp className="h-5 w-5 text-white sm:h-6 sm:w-6" />
+          <ChevronUp className={`h-5 w-5 sm:h-6 sm:w-6 ${isDark ? "text-white" : "text-gray-700"}`} />
         </button>
         <button
           onClick={() => goToSection("next")}
           disabled={isAnimating || isLast}
-          className={`cursor-pointer rounded-full border border-white/20 bg-black/50 p-3 shadow-lg backdrop-blur-md transition-all hover:scale-110 hover:bg-black/70 disabled:opacity-40 disabled:cursor-not-allowed sm:p-4 ${
+          className={`cursor-pointer rounded-full border p-3 shadow-lg backdrop-blur-md transition-all hover:scale-110 disabled:opacity-40 disabled:cursor-not-allowed sm:p-4 ${
             isLast ? 'pointer-events-none opacity-0' : ''
+          } ${
+            isDark
+              ? "border-white/20 bg-black/50 hover:bg-black/70"
+              : "border-gray-300/60 bg-white/70 hover:bg-white/90"
           }`}
           aria-label="Next section"
         >
-          <ChevronDown className="h-5 w-5 text-white sm:h-6 sm:w-6" />
+          <ChevronDown className={`h-5 w-5 sm:h-6 sm:w-6 ${isDark ? "text-white" : "text-gray-700"}`} />
         </button>
       </div>
 
@@ -322,8 +352,12 @@ export function LandingPage() {
             onClick={() => jumpTo(i)}
             className={`cursor-pointer rounded-full transition-all duration-300 ${
               i === currentSection
-                ? "h-3 w-3 scale-125 bg-white shadow-lg shadow-white/30"
-                : "h-2.5 w-2.5 bg-white/30 hover:bg-white/50"
+                ? isDark
+                  ? "h-3 w-3 scale-125 bg-white shadow-lg shadow-white/30"
+                  : "h-3 w-3 scale-125 bg-gray-800 shadow-lg shadow-gray-800/30"
+                : isDark
+                  ? "h-2.5 w-2.5 bg-white/30 hover:bg-white/50"
+                  : "h-2.5 w-2.5 bg-gray-400/50 hover:bg-gray-500/70"
             }`}
             aria-label={`Go to section ${i + 1}`}
             aria-current={i === currentSection ? "step" : undefined}

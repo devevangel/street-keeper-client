@@ -538,3 +538,17 @@ export interface MapStreetsResponse {
   completedCount: number;
   partialCount: number;
 }
+
+/** Single GPS trace for map rendering (simplified coordinates) */
+export interface GpsTrace {
+  activityId: string;
+  name: string;
+  startDate: string;
+  coordinates: [number, number][]; // [lat, lng]
+}
+
+/** Response for GET /api/v1/map/traces and GET /api/v1/projects/:id/traces */
+export interface GpsTracesResponse {
+  success: true;
+  traces: GpsTrace[];
+}

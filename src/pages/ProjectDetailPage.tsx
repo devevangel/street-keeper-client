@@ -6,8 +6,9 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Button, Card, ConfirmModal, Input, StreetListItem, ProgressLoader, ProgressRing, Skeleton, SkeletonStreetRow, type StreetListItemData } from "../components/common";
+import { Button, Card, ConfirmModal, Input, StreetListItem, ProgressRing, Skeleton, SkeletonStreetRow, type StreetListItemData } from "../components/common";
 import { UnifiedMap } from "../components/map";
+import { useGpsTraces } from "../hooks";
 import { MAP_ZOOM } from "../components/map/mapConstants";
 import { QuickStatsCard } from "../components/project/QuickStatsCard";
 import { QuickWinsSection } from "../components/project/QuickWinsSection";
@@ -24,6 +25,9 @@ import {
   computeBoundaryBbox,
   projectMapCenter,
 } from "../utils/map-utils";
+
+/** Map tiles show immediately while project payload loads */
+const MAP_SHELL_CENTER = { lat: 50.8, lng: -1.09 };
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -46,6 +50,8 @@ export function ProjectDetailPage() {
   const [streetHighlightBbox, setStreetHighlightBbox] = useState<
     [number, number, number, number] | null
   >(null);
+
+  const { traces: gpsTraces } = useGpsTraces({ projectId: id ?? null });
 
   const fetchData = useCallback(async (signal?: AbortSignal) => {
     if (!id) return;
@@ -215,7 +221,13 @@ export function ProjectDetailPage() {
         {/* Skeleton content */}
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           <div className="relative h-[45vh] w-full shrink-0 md:h-full md:flex-1">
-            <ProgressLoader type="project" overlay />
+            <UnifiedMap
+              center={MAP_SHELL_CENTER}
+              zoom={MAP_ZOOM.DEFAULT}
+              streets={[]}
+              gpsTraces={[]}
+              className="h-full w-full"
+            />
           </div>
           <aside className="flex min-h-0 flex-1 flex-col border-border bg-surface md:w-[380px] md:flex-none md:border-l">
             <div className="border-b border-border p-4">
@@ -343,6 +355,7 @@ export function ProjectDetailPage() {
             center={center}
             zoom={MAP_ZOOM.PROJECT_DETAIL}
             streets={mapData.streets}
+            gpsTraces={gpsTraces}
             boundary={mapData.boundary}
             showBoundaryOutline
             highlightFocus={highlightFocus}

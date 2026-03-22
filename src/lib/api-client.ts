@@ -10,17 +10,26 @@ export interface ApiErrorResponse {
   success: false;
   error: string;
   code?: string;
+  nextSyncAt?: string;
 }
 
 export class ApiError extends Error {
   readonly code: string;
   readonly status: number;
+  /** Full error response body (e.g. for nextSyncAt on 429 SYNC_RATE_LIMITED). */
+  readonly body?: ApiErrorResponse;
 
-  constructor(message: string, code: string, status: number) {
+  constructor(
+    message: string,
+    code: string,
+    status: number,
+    body?: ApiErrorResponse
+  ) {
     super(message);
     this.name = "ApiError";
     this.code = code;
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -74,7 +83,8 @@ class ApiClient {
       throw new ApiError(
         err.error ?? "Request failed",
         err.code ?? "UNKNOWN_ERROR",
-        response.status
+        response.status,
+        err
       );
     }
 

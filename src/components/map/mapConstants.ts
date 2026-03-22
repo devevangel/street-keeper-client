@@ -67,6 +67,15 @@ export const HIGHLIGHT_STYLE = {
   DASH_PATTERN: "10, 6", // Longer gaps = more label visibility
 } as const;
 
+/** GPS trace polyline style (CityStrides-inspired) */
+export const GPS_TRACE_STYLE = {
+  COLOR: "#8B5CF6",
+  WEIGHT: 2,
+  OPACITY: 0.55,
+  LINE_CAP: "round" as const,
+  LINE_JOIN: "round" as const,
+} as const;
+
 /** Unified zoom levels for maps across the app */
 export const MAP_ZOOM = {
   /** Zoom when centered on user location (close enough to see streets clearly) */
@@ -75,6 +84,6 @@ export const MAP_ZOOM = {
   DEFAULT: 15,
   /** Zoom for project detail pages (shows project area well) */
   PROJECT_DETAIL: 16,
-  /** Maximum zoom level supported by OpenStreetMap tiles */
-  MAX: 19,
+  /** Maximum zoom level (over-zoom beyond native tile level for detail) */
+  MAX: 20,
 } as const;

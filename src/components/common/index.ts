@@ -42,3 +42,5 @@ export { AnimatedCounter } from "./AnimatedCounter";
 export type { AnimatedCounterProps } from "./AnimatedCounter";
 export { CelebrationModal } from "./CelebrationModal";
 export type { CelebrationModalProps, CelebrationBadge } from "./CelebrationModal";
+export { SyncBanner } from "./SyncBanner";
+export type { SyncBannerProps } from "./SyncBanner";

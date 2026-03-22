@@ -60,55 +60,67 @@ export function useHomepageData(params: UseHomepageDataParams) {
     [memoizedParams]
   );
 
+  const hasLocation = memoizedParams.lat != null && memoizedParams.lng != null;
+
   const fetchData = useCallback(async (signal?: AbortSignal) => {
-    console.log(`[useHomepageData] fetchData called at ${new Date().toISOString()}`, {
-      params: memoizedParams,
-      paramsKey: currentParamsKey,
-      previousParamsKey: paramsKeyRef.current,
-    });
+    if (!hasLocation) {
+      if (import.meta.env.DEV) console.log(`[useHomepageData] Skipping fetch — no lat/lng yet`);
+      return;
+    }
+    if (import.meta.env.DEV) {
+      console.log(`[useHomepageData] fetchData called`, {
+        params: memoizedParams,
+        paramsKey: currentParamsKey,
+        previousParamsKey: paramsKeyRef.current,
+      });
+    }
     setIsLoading(true);
     setError(null);
     try {
       const payload = await getHomepageData(memoizedParams);
       if (signal?.aborted) {
-        console.log(`[useHomepageData] Request aborted`);
+        if (import.meta.env.DEV) console.log(`[useHomepageData] Request aborted`);
         return;
       }
-      console.log(`[useHomepageData] Data received successfully`);
+      if (import.meta.env.DEV) console.log(`[useHomepageData] Data received successfully`);
       setData(payload);
     } catch (e) {
       if (signal?.aborted) {
-        console.log(`[useHomepageData] Request aborted during error`);
+        if (import.meta.env.DEV) console.log(`[useHomepageData] Request aborted during error`);
         return;
       }
-      console.error(`[useHomepageData] Error:`, e);
+      if (import.meta.env.DEV) console.error(`[useHomepageData] Error:`, e);
       setError(e instanceof Error ? e : new Error("Failed to load homepage"));
       setData(null);
     } finally {
       if (!signal?.aborted) setIsLoading(false);
     }
-  }, [memoizedParams, currentParamsKey]);
+  }, [memoizedParams, currentParamsKey, hasLocation]);
 
   useEffect(() => {
     // Only fetch if params actually changed
     if (paramsKeyRef.current === currentParamsKey) {
-      console.log(`[useHomepageData] useEffect skipped - params unchanged`, {
-        currentParamsKey,
-        previousParamsKey: paramsKeyRef.current,
-      });
+      if (import.meta.env.DEV) {
+        console.log(`[useHomepageData] useEffect skipped - params unchanged`, {
+          currentParamsKey,
+          previousParamsKey: paramsKeyRef.current,
+        });
+      }
       return;
     }
-    console.log(`[useHomepageData] useEffect triggering fetch`, {
-      previousParamsKey: paramsKeyRef.current,
-      newParamsKey: currentParamsKey,
-      params: memoizedParams,
-    });
+    if (import.meta.env.DEV) {
+      console.log(`[useHomepageData] useEffect triggering fetch`, {
+        previousParamsKey: paramsKeyRef.current,
+        newParamsKey: currentParamsKey,
+        params: memoizedParams,
+      });
+    }
     paramsKeyRef.current = currentParamsKey;
     
     const controller = new AbortController();
     fetchData(controller.signal);
     return () => {
-      console.log(`[useHomepageData] useEffect cleanup - aborting request`);
+      if (import.meta.env.DEV) console.log(`[useHomepageData] useEffect cleanup - aborting request`);
       controller.abort();
     };
   }, [currentParamsKey, fetchData, memoizedParams]);

@@ -15,7 +15,7 @@ import {
 import { UnifiedMap, MAP_ZOOM, type ShapeData } from "../components/map";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
-import { useGeolocation } from "../hooks";
+import { useGeolocation, useGpsTraces } from "../hooks";
 import { ROUTES, DEFAULT_PROJECT_RADIUS_METERS } from "../config/constants";
 import { usePreferences } from "../contexts/PreferencesContext";
 import { useToast } from "../contexts/ToastContext";
@@ -184,6 +184,19 @@ export function ProjectCreatePage() {
           : DEFAULT_CENTER;
 
   const hasValidShape = activeShape != null;
+
+  // Show GPS traces in the area when user has drawn a shape (context for "previously run" streets)
+  const tracesRadius =
+    activeShape?.type === "circle"
+      ? activeShape.radiusMeters
+      : activeShape?.type === "polygon"
+        ? 5000
+        : 5000;
+  const { traces: gpsTraces } = useGpsTraces({
+    lat: hasValidShape ? mapCenter[0] : null,
+    lng: hasValidShape ? mapCenter[1] : null,
+    radius: tracesRadius,
+  });
 
   const handleSearchSelect = useCallback(
     (result: GeocodingResult) => {
@@ -723,8 +736,9 @@ export function ProjectCreatePage() {
         center={{ lat: mapCenter[0], lng: mapCenter[1] }}
         zoom={mapZoom}
         userLocation={geoPosition}
-        showUserLocationMarker={showUserLocationMarker}
+        showUserLocationMarker={!!showUserLocationMarker}
         streets={previewStreetsForMap}
+        gpsTraces={gpsTraces}
         highlightOsmIds={highlightOsmIds}
         drawingEnabled
         activeShape={activeShape}
@@ -743,8 +757,7 @@ export function ProjectCreatePage() {
               : null
         }
         showDrawnCircle={true}
-        isLoading={geoLoading && !geoPosition}
-        loadingMessage="Getting your location…"
+        isLoading={false}
         helperText={helperText}
         className="h-full w-full"
       />

@@ -1,102 +1,42 @@
 /**
- * LocationPrompt
- * Full-page permission screen explaining why we need location.
- * Loading state while waiting, and a helpful denial state with instructions.
+ * Location access UI (inline banner only — no full-page loading).
+ * Full-screen location prompts were removed in favor of shell-first progressive loading.
  */
 
-import { MapPin, Shield, Navigation, RefreshCw } from "lucide-react";
-import { ProgressLoader } from "../common/ProgressLoader";
+import { MapPin } from "lucide-react";
 
-interface LocationPromptProps {
-  isLoading: boolean;
-  error: string | null;
+export interface LocationAccessBannerProps {
+  error: string;
   onRetry: () => void;
 }
 
-export function LocationPrompt({
-  isLoading,
-  error,
-  onRetry,
-}: LocationPromptProps) {
-  if (isLoading) {
-    return (
-      <div
-        className="flex min-h-[80vh] items-center justify-center px-4"
-        role="status"
-        aria-label="Requesting location"
-      >
-        <div className="flex max-w-sm flex-col items-center text-center">
-          <ProgressLoader type="location" size="lg" title="Requesting location access" />
-          <p className="mt-4 text-sm text-text-muted">
-            Your browser should be asking for permission.
+/**
+ * Compact banner when geolocation is denied and no map fallback is available.
+ * Shown in the homepage sidebar, not as a blocking full-page screen.
+ */
+export function LocationAccessBanner({ error, onRetry }: LocationAccessBannerProps) {
+  return (
+    <div
+      role="alert"
+      className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-left text-sm text-text"
+    >
+      <div className="flex items-start gap-2">
+        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="font-medium text-text">{error}</p>
+          <p className="text-xs text-text-muted">
+            We need your location to centre the map and load nearby streets. Open browser settings
+            to allow location for this site if you denied it, then try again.
           </p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center justify-center rounded-lg bg-accent-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-primary/90"
+          >
+            Allow location
+          </button>
         </div>
       </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex min-h-[80vh] items-center justify-center px-4">
-        <div className="w-full max-w-md space-y-8 text-center">
-          {/* Icon */}
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-accent-primary/10">
-            <MapPin className="h-10 w-10 text-accent-primary" />
-          </div>
-
-          {/* Title */}
-          <div className="space-y-3">
-            <h1 className="text-2xl font-bold text-text-primary">
-              Location makes Street Keeper work
-            </h1>
-            <p className="text-base leading-relaxed text-text-secondary">
-              We need your location to show streets near you, track your runs on the map,
-              and give you personalised suggestions. Without it, we can't show your city.
-            </p>
-          </div>
-
-          {/* Trust signals */}
-          <div className="space-y-3 rounded-xl border border-border-primary bg-bg-secondary p-4 text-left">
-            <div className="flex items-start gap-3">
-              <Shield className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
-              <div>
-                <p className="text-sm font-medium text-text-primary">Your data stays private</p>
-                <p className="text-xs text-text-muted">
-                  Location is used only to centre your map and find nearby streets.
-                  We never share or sell your position.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <Navigation className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
-              <div>
-                <p className="text-sm font-medium text-text-primary">Only while you use the app</p>
-                <p className="text-xs text-text-muted">
-                  We don't track you in the background. Location is requested once
-                  when you open Street Keeper.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Action */}
-          <div className="space-y-3">
-            <button
-              onClick={onRetry}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent-primary px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-primary/90"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Try again
-            </button>
-            <p className="text-xs leading-relaxed text-text-muted">
-              If you denied the prompt, open your browser settings and allow location
-              for this site, then tap "Try again."
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 }

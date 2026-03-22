@@ -6,13 +6,19 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button, Card, ProgressLoader, ProgressRing } from "../common";
+import { Button, Card, ProgressLoader, ProgressRing, SkeletonCard, SkeletonProjectCard } from "../common";
 import { NextRunCard } from "./NextRunCard";
 import { LastRunCard } from "./LastRunCard";
 import { HighlightsCard } from "./HighlightsCard";
 import { ProjectCardWithStreets } from "./ProjectCardWithStreets";
 import { UniversalSearchInput } from "../projects/UniversalSearchInput";
-import { UnifiedMap, MAP_ZOOM, MapLegendFilterBins, type MapViewHighlightFocus } from "../map";
+import {
+  UnifiedMap,
+  MAP_ZOOM,
+  MapLegendFilterBins,
+  LocationAccessBanner,
+  type MapViewHighlightFocus,
+} from "../map";
 import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
 import { computeBboxFromStreets } from "../../utils/map-utils";
 import { normalizeStreetName } from "../../utils/normalize-street-name";
@@ -22,12 +28,14 @@ import { useToast } from "../../contexts/ToastContext";
 import { activitiesService } from "../../services/activities.service";
 import { projectsService } from "../../services/projects.service";
 import { invalidateHomepageCache } from "../../services/homepage.service";
-import { ROUTES } from "../../config/constants";
+import { ERROR_CODES, ROUTES } from "../../config/constants";
+import { ApiError } from "../../lib/api-client";
 import type { HomepagePayload } from "../../services/homepage.service";
 import type {
   MapStreet,
   ProjectMapData,
   ProjectMapStreet,
+  GpsTrace,
 } from "../../types/api.types";
 import type { ProjectListItem } from "../../types/api.types";
 import type { GeocodingResult } from "../../types/api.types";
@@ -39,6 +47,8 @@ interface ReturningUserHomepageProps {
   /** Map center when user has focused on a location (e.g. project). null = use userLocation. */
   mapCenter: { lat: number; lng: number } | null;
   streets: MapStreet[];
+  /** GPS activity traces for the map (optional) */
+  gpsTraces?: GpsTrace[];
   onViewportChange: (center: { lat: number; lng: number }) => void;
   onRefetch: () => Promise<void>;
   /** Clear accumulated map segments (call on sync to avoid stale data). */
@@ -48,6 +58,12 @@ interface ReturningUserHomepageProps {
   onSearchSelect: (result: GeocodingResult) => void;
   /** Focus map on a location (e.g. when user clicks a street in a project). Stops following user. */
   onFocusLocation?: (center: { lat: number; lng: number }) => void;
+  /** When true, background sync is running; disable inline sync button. */
+  backgroundSyncActive?: boolean;
+  /** Inline banner when geolocation failed and no map fallback from API */
+  showLocationAccessBanner?: boolean;
+  locationErrorMessage?: string;
+  onRetryLocation?: () => void;
 }
 
 function osmIdToWayId(osmId: string): number {
@@ -86,10 +102,15 @@ export function ReturningUserHomepage({
   userLocation,
   mapCenter,
   streets,
+  gpsTraces = [],
   onViewportChange,
   onRefetch,
   onClearSegments,
   onRefetchMapStreets,
+  backgroundSyncActive = false,
+  showLocationAccessBanner = false,
+  locationErrorMessage,
+  onRetryLocation,
   onSearchSelect,
   onFocusLocation,
 }: ReturningUserHomepageProps) {
@@ -97,9 +118,7 @@ export function ReturningUserHomepage({
   const preferences = usePreferences();
   const [highlightFocus, setHighlightFocus] =
     useState<MapViewHighlightFocus | null>(null);
-  const [highlightProjectId, setHighlightProjectId] = useState<string | null>(
-    null,
-  );
+  const [, setHighlightProjectId] = useState<string | null>(null);
   const [highlightStreetsFromProject, setHighlightStreetsFromProject] =
     useState<MapStreet[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -143,40 +162,38 @@ export function ReturningUserHomepage({
   // Fetch projects on mount (only once, even in React StrictMode)
   useEffect(() => {
     if (projectsFetchedRef.current) {
-      console.log(`[ReturningUserHomepage] Projects fetch skipped - already fetched`);
+      if (import.meta.env.DEV) console.log(`[ReturningUserHomepage] Projects fetch skipped - already fetched`);
       return;
     }
-    console.log(`[ReturningUserHomepage] Fetching projects at ${new Date().toISOString()}`);
+    if (import.meta.env.DEV) console.log(`[ReturningUserHomepage] Fetching projects at ${new Date().toISOString()}`);
     projectsFetchedRef.current = true;
-    
+
     let cancelled = false;
     setProjectsLoading(true);
     projectsService
       .getAll()
       .then((res) => {
         if (cancelled) {
-          console.log(`[ReturningUserHomepage] Projects request cancelled`);
+          if (import.meta.env.DEV) console.log(`[ReturningUserHomepage] Projects request cancelled`);
           return;
         }
-        console.log(`[ReturningUserHomepage] Projects received: ${res.projects.length} total`);
+        if (import.meta.env.DEV) console.log(`[ReturningUserHomepage] Projects received: ${res.projects.length} total`);
         const activeProjects = res.projects.filter((p) => !p.isArchived);
         activeProjects.sort((a, b) => {
           const aCompleted = a.completedStreetNames ?? a.completedStreets;
           const bCompleted = b.completedStreetNames ?? b.completedStreets;
           return bCompleted - aCompleted;
         });
-        console.log(`[ReturningUserHomepage] Setting ${activeProjects.slice(0, 3).length} active projects`);
+        if (import.meta.env.DEV) console.log(`[ReturningUserHomepage] Setting ${activeProjects.slice(0, 3).length} active projects`);
         setProjects(activeProjects.slice(0, 3));
       })
       .catch((err) => {
-        console.error(`[ReturningUserHomepage] Error fetching projects:`, err);
+        if (import.meta.env.DEV) console.error(`[ReturningUserHomepage] Error fetching projects:`, err);
         if (!cancelled) setProjects([]);
       })
       .finally(() => {
-        if (!cancelled) {
-          console.log(`[ReturningUserHomepage] Projects loading complete`);
-          setProjectsLoading(false);
-        }
+        if (import.meta.env.DEV && !cancelled) console.log(`[ReturningUserHomepage] Projects loading complete`);
+        if (!cancelled) setProjectsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -305,7 +322,10 @@ export function ReturningUserHomepage({
     setSyncResult(null);
     try {
       const result = await activitiesService.syncFromStrava();
-      const synced = result.synced + result.processed;
+      const synced =
+        "synced" in result && "processed" in result
+          ? result.synced + result.processed
+          : 0;
       setSyncResult({ synced });
       invalidateHomepageCache();
       onClearSegments();
@@ -316,9 +336,27 @@ export function ReturningUserHomepage({
         "success",
       );
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Sync failed";
-      setSyncResult({ synced: 0, error: msg });
-      toast?.showToast(msg, "error");
+      if (
+        err instanceof ApiError &&
+        err.status === 429 &&
+        err.code === ERROR_CODES.SYNC_RATE_LIMITED
+      ) {
+        const next = err.body?.nextSyncAt
+          ? new Date(err.body.nextSyncAt).toLocaleString(undefined, {
+              dateStyle: "short",
+              timeStyle: "short",
+            })
+          : null;
+        const msg = next
+          ? `Strava can only be synced once per day. Next sync available at ${next}.`
+          : err.message;
+        toast?.showToast(msg, "warning");
+        setSyncResult({ synced: 0, error: msg });
+      } else {
+        const msg = err instanceof Error ? err.message : "Sync failed";
+        setSyncResult({ synced: 0, error: msg });
+        toast?.showToast(msg, "error");
+      }
     } finally {
       setSyncing(false);
     }
@@ -348,6 +386,7 @@ export function ReturningUserHomepage({
             userLocation={userLocation}
             showUserLocationMarker
             streets={filteredStreetsForMap}
+            gpsTraces={gpsTraces}
             onViewportChange={onViewportChange}
             highlightFocus={highlightFocus}
             highlightOsmIds={
@@ -356,8 +395,7 @@ export function ReturningUserHomepage({
             showLegend={false}
             showLegendGuide={false}
             className="h-full w-full"
-            isLoading={!userLocation && !mapCenter}
-            loadingMessage="Getting your location…"
+            isLoading={false}
           />
           {/* Sync progress overlay */}
           {syncing && (
@@ -390,9 +428,9 @@ export function ReturningUserHomepage({
         <div className="space-y-3 border-b border-border p-4">
           <div>
             <h2 className="text-lg font-bold text-text">
-              Welcome back{data.userName ? `, ${data.userName}` : ""}!
+              Welcome back{!isLoading && data.userName ? `, ${data.userName}` : ""}!
             </h2>
-            {data.streak.currentWeeks > 0 && (
+            {!isLoading && data.streak.currentWeeks > 0 && (
               <span className="text-sm text-success font-medium">
                 {data.streak.currentWeeks}-week streak
               </span>
@@ -402,46 +440,58 @@ export function ReturningUserHomepage({
             placeholder="Search area…"
             onSelect={onSearchSelect}
           />
+          {showLocationAccessBanner && locationErrorMessage && onRetryLocation && (
+            <LocationAccessBanner error={locationErrorMessage} onRetry={onRetryLocation} />
+          )}
         </div>
 
         {/* Scrollable content section */}
         <div className="space-y-4 p-4 pb-8 md:flex-1 md:overflow-y-auto md:pb-4">
-          {/* Your next run */}
-          <NextRunCard data={data} onShowOnMap={handleShowOnMap} />
+          {isLoading ? (
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
+          ) : (
+            <>
+              {/* Your next run */}
+              <NextRunCard data={data} onShowOnMap={handleShowOnMap} />
 
-          {/* Your progress (ring) */}
-          {heroMetricTotals.total > 0 && (
-            <Card padding="md">
-              <h3 className="text-sm font-semibold text-text-muted mb-2">Your progress</h3>
-              <ProgressRing value={heroMetricTotals.percentage} animated size={72} strokeWidth={8}>
-                <div>
-                  <p className="text-base font-bold text-text">
-                    {heroMetricTotals.completed} streets conquered!
-                  </p>
-                  <p className="text-sm text-text-muted">
-                    {heroMetricTotals.percentage}% of this area explored
-                  </p>
-                  {data.nextMilestone && !data.nextMilestone.progress.isCompleted && (
-                    <p className="text-xs text-text-muted mt-1">
-                      Next: {data.nextMilestone.name} ({data.nextMilestone.progress.targetValue - data.nextMilestone.progress.currentValue} to go)
-                    </p>
-                  )}
-                </div>
-              </ProgressRing>
-            </Card>
+              {/* Your progress (ring) */}
+              {heroMetricTotals.total > 0 && (
+                <Card padding="md">
+                  <h3 className="text-sm font-semibold text-text-muted mb-2">Your progress</h3>
+                  <ProgressRing value={heroMetricTotals.percentage} animated size={72} strokeWidth={8}>
+                    <div>
+                      <p className="text-base font-bold text-text">
+                        {heroMetricTotals.completed} streets conquered!
+                      </p>
+                      <p className="text-sm text-text-muted">
+                        {heroMetricTotals.percentage}% of this area explored
+                      </p>
+                      {data.nextMilestone && !data.nextMilestone.progress.isCompleted && (
+                        <p className="text-xs text-text-muted mt-1">
+                          Next: {data.nextMilestone.name} ({data.nextMilestone.progress.targetValue - data.nextMilestone.progress.currentValue} to go)
+                        </p>
+                      )}
+                    </div>
+                  </ProgressRing>
+                </Card>
+              )}
+
+              {/* Last run */}
+              <LastRunCard data={data} />
+
+              {/* Highlights */}
+              <HighlightsCard data={data} />
+            </>
           )}
-
-          {/* Last run */}
-          <LastRunCard data={data} />
-
-          {/* Highlights */}
-          <HighlightsCard data={data} />
 
           {/* Focus project (first featured) */}
           {projectsLoading ? (
-            <Card padding="sm">
-              <ProgressLoader type="projects" size="sm" />
-            </Card>
+            <SkeletonProjectCard />
           ) : featuredProjects.length > 0 ? (
             <div className="space-y-2">
               <h3 className="text-base font-semibold text-text">Focus project</h3>
@@ -463,15 +513,19 @@ export function ReturningUserHomepage({
             </div>
           ) : null}
 
-          {/* Actions */}
+          {/* Actions — always available (client-side) */}
           <div className="flex flex-col gap-2 pt-2">
             <Button
               variant="secondary"
               onClick={handleSync}
-              disabled={syncing}
+              disabled={syncing || backgroundSyncActive || isLoading}
               className="w-full"
             >
-              {syncing ? "Syncing…" : "Find my latest runs"}
+              {backgroundSyncActive
+                ? "Sync in progress…"
+                : syncing
+                  ? "Syncing…"
+                  : "Find my latest runs"}
             </Button>
             {syncResult && (
               <span
