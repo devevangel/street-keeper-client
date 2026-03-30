@@ -36,13 +36,18 @@ export function useSyncStatus(): UseSyncStatusResult {
   const [didComplete, setDidComplete] = useState(false);
 
   const fetchStatus = useCallback(async () => {
-    const res = await activitiesService.getSyncStatus();
-    setData(res);
+    try {
+      const res = await activitiesService.getSyncStatus();
+      setData(res);
 
-    const prev = prevStatusRef.current;
-    prevStatusRef.current = res.status;
-    if (prev === "running" && res.status === "completed") {
-      setDidComplete(true);
+      const prev = prevStatusRef.current;
+      prevStatusRef.current = res.status;
+      if (prev === "running" && res.status === "completed") {
+        setDidComplete(true);
+      }
+    } catch {
+      // Auth failures (401) or network errors — treat as idle, stop polling
+      setData(null);
     }
   }, []);
 

@@ -1,408 +1,235 @@
 /**
  * Returning User Homepage
- * Two-column layout: map on left, projects sidebar on right.
- * Shows top project (most ran streets) and up to 3 ongoing projects.
- * Each project card has its own collapsible streets list.
+ * Two-column layout: map on left, data panel on right.
+ * Panel shows: greeting, suggested run, last run, street stats, alternates.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button, Card, ProgressLoader, ProgressRing, SkeletonCard, SkeletonProjectCard } from "../common";
-import { NextRunCard } from "./NextRunCard";
-import { LastRunCard } from "./LastRunCard";
-import { HighlightsCard } from "./HighlightsCard";
-import { ProjectCardWithStreets } from "./ProjectCardWithStreets";
-import { UniversalSearchInput } from "../projects/UniversalSearchInput";
 import {
   UnifiedMap,
   MAP_ZOOM,
   MapLegendFilterBins,
   LocationAccessBanner,
-  type MapViewHighlightFocus,
 } from "../map";
 import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
-import { computeBboxFromStreets } from "../../utils/map-utils";
-import { normalizeStreetName } from "../../utils/normalize-street-name";
-import { useAnalytics } from "../../contexts/AnalyticsContext";
 import { usePreferences } from "../../contexts/PreferencesContext";
-import { useToast } from "../../contexts/ToastContext";
-import { activitiesService } from "../../services/activities.service";
-import { projectsService } from "../../services/projects.service";
-import { invalidateHomepageCache } from "../../services/homepage.service";
-import { ERROR_CODES, ROUTES } from "../../config/constants";
-import { ApiError } from "../../lib/api-client";
-import type { HomepagePayload } from "../../services/homepage.service";
-import type {
-  MapStreet,
-  ProjectMapData,
-  ProjectMapStreet,
-  GpsTrace,
-} from "../../types/api.types";
-import type { ProjectListItem } from "../../types/api.types";
-import type { GeocodingResult } from "../../types/api.types";
+import { LastRunCard } from "./LastRunCard";
+import { NextRunCard } from "./NextRunCard";
+import { Skeleton } from "../common";
+import type { HomepagePayload, HomepageSuggestion } from "../../services/homepage.service";
+import type { MapStreet, GpsTrace } from "../../types/api.types";
+
+const DEFAULT_MAP_CENTER = { lat: 50.8, lng: -1.09 };
+const EMPTY_HIGHLIGHT_OSM_IDS: string[] = [];
 
 interface ReturningUserHomepageProps {
-  data: HomepagePayload;
-  isLoading: boolean;
   userLocation: { lat: number; lng: number } | null;
-  /** Map center when user has focused on a location (e.g. project). null = use userLocation. */
   mapCenter: { lat: number; lng: number } | null;
   streets: MapStreet[];
-  /** GPS activity traces for the map (optional) */
   gpsTraces?: GpsTrace[];
   onViewportChange: (center: { lat: number; lng: number }) => void;
-  onRefetch: () => Promise<void>;
-  /** Clear accumulated map segments (call on sync to avoid stale data). */
-  onClearSegments: () => void;
-  /** Refetch map streets (call on sync to load fresh data). */
-  onRefetchMapStreets: () => void;
-  onSearchSelect: (result: GeocodingResult) => void;
-  /** Focus map on a location (e.g. when user clicks a street in a project). Stops following user. */
-  onFocusLocation?: (center: { lat: number; lng: number }) => void;
-  /** When true, background sync is running; disable inline sync button. */
-  backgroundSyncActive?: boolean;
-  /** Inline banner when geolocation failed and no map fallback from API */
   showLocationAccessBanner?: boolean;
   locationErrorMessage?: string;
   onRetryLocation?: () => void;
+  homepage: HomepagePayload | null;
+  homepageLoading: boolean;
 }
 
-function osmIdToWayId(osmId: string): number {
-  return parseInt(osmId.replace("way/", ""), 10);
+function PanelSkeleton() {
+  return (
+    <div className="space-y-4 p-5">
+      <Skeleton className="h-6 w-36" />
+      <Skeleton className="h-28 w-full rounded-lg" />
+      <Skeleton className="h-20 w-full rounded-lg" />
+      <Skeleton className="h-16 w-full rounded-lg" />
+    </div>
+  );
 }
 
-/** Convert ProjectMapStreet to MapStreet for rendering (project map has geometry for all streets including not_started). */
-function projectStreetToMapStreet(p: ProjectMapStreet): MapStreet {
-  const status = p.status === "not_started" ? "partial" : p.status;
-  return {
-    osmId: p.osmId,
-    name: p.name,
-    highwayType: p.highwayType,
-    lengthMeters: p.lengthMeters,
-    percentage: p.percentage,
-    status,
-    geometry: p.geometry,
-    stats: {
-      runCount: 0,
-      completionCount: 0,
-      firstRunDate: null,
-      lastRunDate: null,
-      totalLengthMeters: p.lengthMeters,
-      currentPercentage: p.percentage,
-      everCompleted: p.status === "completed",
-      weightedCompletionRatio: p.percentage / 100,
-      segmentCount: 1,
-      connectorCount: 0,
-    },
-  };
+function AlternatesList({
+  alternates,
+  onShowOnMap,
+}: {
+  alternates: HomepageSuggestion[];
+  onShowOnMap: (s: HomepageSuggestion) => void;
+}) {
+  if (alternates.length === 0) return null;
+  return (
+    <div>
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+        Other ideas
+      </h3>
+      <div className="space-y-2">
+        {alternates.map((alt) => (
+          <button
+            key={alt.cooldownKey}
+            type="button"
+            onClick={() => onShowOnMap(alt)}
+            className="group flex w-full items-center gap-3 rounded-lg border-2 border-border bg-surface p-3 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-sm)]"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-text">{alt.title}</p>
+              <p className="mt-0.5 text-xs text-text-muted">{alt.shortCopy}</p>
+            </div>
+            <span className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5">
+              &rarr;
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StreetStats({ streets }: { streets: MapStreet[] }) {
+  const counts = useMemo(() => {
+    let completed = 0;
+    let inProgress = 0;
+    let notStarted = 0;
+    for (const s of streets) {
+      if (s.status === "completed") completed++;
+      else if ((s.percentage ?? 0) > 0) inProgress++;
+      else notStarted++;
+    }
+    return { completed, inProgress, notStarted, total: streets.length };
+  }, [streets]);
+
+  if (counts.total === 0) return null;
+
+  const pct = Math.round((counts.completed / counts.total) * 100);
+  const inProgressPct = Math.round((counts.inProgress / counts.total) * 100);
+
+  return (
+    <div className="rounded-lg border-2 border-border bg-surface p-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+        Streets nearby
+      </h3>
+      <div className="mt-2 flex items-baseline gap-2">
+        <span className="text-2xl font-bold text-text">{pct}%</span>
+        <span className="text-sm text-text-muted">
+          completed ({counts.completed}/{counts.total})
+        </span>
+      </div>
+      <div className="mt-2 flex h-2 w-full overflow-hidden rounded-full bg-border/20">
+        <div
+          className="bg-success transition-[width] duration-500"
+          style={{ width: `${pct}%` }}
+        />
+        <div
+          className="bg-warning transition-[width] duration-500"
+          style={{ width: `${inProgressPct}%` }}
+        />
+      </div>
+      <div className="mt-1.5 flex gap-4 text-xs text-text-muted">
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full bg-success" />
+          {counts.completed} done
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full bg-warning" />
+          {counts.inProgress} in progress
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full bg-border/40" />
+          {counts.notStarted} to go
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export function ReturningUserHomepage({
-  data,
-  isLoading,
   userLocation,
   mapCenter,
   streets,
   gpsTraces = [],
   onViewportChange,
-  onRefetch,
-  onClearSegments,
-  onRefetchMapStreets,
-  backgroundSyncActive = false,
   showLocationAccessBanner = false,
   locationErrorMessage,
   onRetryLocation,
-  onSearchSelect,
-  onFocusLocation,
+  homepage,
+  homepageLoading,
 }: ReturningUserHomepageProps) {
-  const { track } = useAnalytics();
   const preferences = usePreferences();
-  const [highlightFocus, setHighlightFocus] =
-    useState<MapViewHighlightFocus | null>(null);
-  const [, setHighlightProjectId] = useState<string | null>(null);
-  const [highlightStreetsFromProject, setHighlightStreetsFromProject] =
-    useState<MapStreet[]>([]);
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<{
-    synced: number;
-    error?: string;
-  } | null>(null);
-  const [projects, setProjects] = useState<ProjectListItem[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(true);
   const [visibleBins, setVisibleBins] = useState<Set<FilterStatus>>(
     () => new Set(["completed", "almostThere", "inProgress", "notStarted"])
   );
   const mapRef = useRef<HTMLDivElement>(null);
-  const projectMapCache = useRef(new Map<string, ProjectMapData>());
-  const toast = useToast();
-  // Track if projects have been fetched to prevent duplicate requests (e.g., in React StrictMode)
-  const projectsFetchedRef = useRef(false);
 
-  // Sync visibleBins with user preference once loaded
   const prefStreetFilter = preferences?.preferences?.defaultStreetFilter;
   useEffect(() => {
     if (prefStreetFilter && prefStreetFilter !== "all") {
-      // If user has a preference, show only that bin
       setVisibleBins(new Set([prefStreetFilter as FilterStatus]));
     }
   }, [prefStreetFilter]);
 
-  // Effective map center: use focused location when set, otherwise user location
-  // Memoize to prevent unnecessary re-renders of UnifiedMap
   const effectiveMapCenter = useMemo(
     () => mapCenter ?? userLocation,
     [mapCenter?.lat, mapCenter?.lng, userLocation?.lat, userLocation?.lng]
   );
 
-  // Memoize zoom to prevent re-renders when preferences object reference changes
   const mapZoom = useMemo(
-    () => userLocation ? MAP_ZOOM.USER_LOCATION : (preferences?.preferences?.defaultMapZoom ?? MAP_ZOOM.DEFAULT),
+    () =>
+      userLocation
+        ? MAP_ZOOM.USER_LOCATION
+        : (preferences?.preferences?.defaultMapZoom ?? MAP_ZOOM.DEFAULT),
     [userLocation, preferences?.preferences?.defaultMapZoom]
   );
 
-  // Fetch projects on mount (only once, even in React StrictMode)
-  useEffect(() => {
-    if (projectsFetchedRef.current) {
-      if (import.meta.env.DEV) console.log(`[ReturningUserHomepage] Projects fetch skipped - already fetched`);
-      return;
-    }
-    if (import.meta.env.DEV) console.log(`[ReturningUserHomepage] Fetching projects at ${new Date().toISOString()}`);
-    projectsFetchedRef.current = true;
-
-    let cancelled = false;
-    setProjectsLoading(true);
-    projectsService
-      .getAll()
-      .then((res) => {
-        if (cancelled) {
-          if (import.meta.env.DEV) console.log(`[ReturningUserHomepage] Projects request cancelled`);
-          return;
-        }
-        if (import.meta.env.DEV) console.log(`[ReturningUserHomepage] Projects received: ${res.projects.length} total`);
-        const activeProjects = res.projects.filter((p) => !p.isArchived);
-        activeProjects.sort((a, b) => {
-          const aCompleted = a.completedStreetNames ?? a.completedStreets;
-          const bCompleted = b.completedStreetNames ?? b.completedStreets;
-          return bCompleted - aCompleted;
-        });
-        if (import.meta.env.DEV) console.log(`[ReturningUserHomepage] Setting ${activeProjects.slice(0, 3).length} active projects`);
-        setProjects(activeProjects.slice(0, 3));
-      })
-      .catch((err) => {
-        if (import.meta.env.DEV) console.error(`[ReturningUserHomepage] Error fetching projects:`, err);
-        if (!cancelled) setProjects([]);
-      })
-      .finally(() => {
-        if (import.meta.env.DEV && !cancelled) console.log(`[ReturningUserHomepage] Projects loading complete`);
-        if (!cancelled) setProjectsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleStreetBlur = useCallback(() => {
-    setHighlightProjectId(null);
-    setHighlightStreetsFromProject([]);
-    setHighlightFocus(null);
-  }, []);
-
-  const handleStreetClick = useCallback(
-    async ({
-      project,
-      streetName,
-    }: {
-      project: ProjectListItem;
-      streetName: string;
-      osmIds: string[];
-    }) => {
-      const lat = project.centerLat ?? 0;
-      const lng = project.centerLng ?? 0;
-      onFocusLocation?.({ lat, lng });
-      mapRef.current?.scrollIntoView({ behavior: "smooth" });
-
-      let mapData = projectMapCache.current.get(project.id);
-      if (!mapData) {
-        try {
-          const res = await projectsService.getMap(project.id);
-          mapData = res.map;
-          projectMapCache.current.set(project.id, mapData);
-        } catch {
-          return;
-        }
-      }
-
-      // Match by normalized name - same logic as completion coloring uses
-      // This ensures ALL segments of the street are highlighted, not just pre-grouped ones
-      const targetName = normalizeStreetName(streetName);
-      const matchingStreets = mapData.streets.filter(
-        (s) => normalizeStreetName(s.name || "Unnamed") === targetName
-      );
-
-      if (matchingStreets.length === 0) return;
-
-      const wayIds = matchingStreets
-        .map((s) => osmIdToWayId(s.osmId))
-        .filter((id) => !Number.isNaN(id));
-
-      const bbox = computeBboxFromStreets(matchingStreets);
-
-      setHighlightProjectId(project.id);
-      setHighlightStreetsFromProject(
-        matchingStreets.map((p) => projectStreetToMapStreet(p)),
-      );
-      setHighlightFocus({
-        bbox,
-        streetIds: wayIds,
-        startPoint: { lat, lng },
-      });
-    },
-    [onFocusLocation],
-  );
-
-  const handleShowOnMap = useCallback(() => {
-    if (data.primarySuggestion?.focus) {
-      setHighlightProjectId(null);
-      setHighlightStreetsFromProject([]);
-      setHighlightFocus({
-        bbox: data.primarySuggestion.focus.bbox,
-        streetIds: data.primarySuggestion.focus.streetIds,
-        startPoint: data.primarySuggestion.focus.startPoint,
-      });
-      mapRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [data.primarySuggestion?.focus]);
-
-  // Clear project highlight when highlightFocus is cleared (e.g. user pans map)
-  useEffect(() => {
-    if (!highlightFocus) {
-      setHighlightProjectId(null);
-      setHighlightStreetsFromProject([]);
-    }
-  }, [highlightFocus]);
-
-  // Merge streets: add project map streets for highlighted ones not in main map data
-  const mergedStreets = useMemo(() => {
-    const existingIds = new Set(streets.map((s) => s.osmId));
-    const toAdd = highlightStreetsFromProject.filter(
-      (s) => !existingIds.has(s.osmId),
-    );
-    return [...streets, ...toAdd];
-  }, [streets, highlightStreetsFromProject]);
-
-  // Calculate bin counts directly from map streets
   const binCounts = useMemo(() => {
     const counts = { completed: 0, almostThere: 0, inProgress: 0, notStarted: 0 };
-    for (const s of mergedStreets) {
+    for (const s of streets) {
       const completed = s.status === "completed";
       const bin = getStreetBin(s.percentage ?? 0, completed);
       if (bin !== "all") counts[bin]++;
     }
     return counts;
-  }, [mergedStreets]);
+  }, [streets]);
 
-  // Filter map streets by visible bins (controlled by legend)
-  const highlightOsmIdSet = useMemo(
-    () => new Set(highlightFocus?.streetIds?.map((id) => `way/${id}`) ?? []),
-    [highlightFocus?.streetIds],
-  );
   const filteredStreetsForMap = useMemo(() => {
-    if (!mergedStreets.length) return mergedStreets;
-    return mergedStreets.filter((s) => {
+    if (!streets.length) return streets;
+    return streets.filter((s) => {
       const completed = s.status === "completed";
       const bin = getStreetBin(s.percentage ?? 0, completed);
-      const matchesFilter = visibleBins.has(bin);
-      const isHighlighted = highlightOsmIdSet.has(s.osmId);
-      return matchesFilter || isHighlighted;
+      return visibleBins.has(bin);
     });
-  }, [mergedStreets, visibleBins, highlightOsmIdSet]);
+  }, [streets, visibleBins]);
 
-  const handleSync = useCallback(async () => {
-    track("sync_clicked", {});
-    setSyncing(true);
-    setSyncResult(null);
-    try {
-      const result = await activitiesService.syncFromStrava();
-      const synced =
-        "synced" in result && "processed" in result
-          ? result.synced + result.processed
-          : 0;
-      setSyncResult({ synced });
-      invalidateHomepageCache();
-      onClearSegments();
-      onRefetchMapStreets();
-      await onRefetch();
-      toast?.showToast(
-        synced > 0 ? `Synced ${synced} activity${synced === 1 ? "" : "ies"}.` : "Activities synced.",
-        "success",
-      );
-    } catch (err) {
-      if (
-        err instanceof ApiError &&
-        err.status === 429 &&
-        err.code === ERROR_CODES.SYNC_RATE_LIMITED
-      ) {
-        const next = err.body?.nextSyncAt
-          ? new Date(err.body.nextSyncAt).toLocaleString(undefined, {
-              dateStyle: "short",
-              timeStyle: "short",
-            })
-          : null;
-        const msg = next
-          ? `Strava can only be synced once per day. Next sync available at ${next}.`
-          : err.message;
-        toast?.showToast(msg, "warning");
-        setSyncResult({ synced: 0, error: msg });
-      } else {
-        const msg = err instanceof Error ? err.message : "Sync failed";
-        setSyncResult({ synced: 0, error: msg });
-        toast?.showToast(msg, "error");
-      }
-    } finally {
-      setSyncing(false);
-    }
-  }, [track, onRefetch, onClearSegments, onRefetchMapStreets, toast]);
+  const handleShowOnMap = useCallback(() => {
+    // TODO: pan/zoom map to suggestion focus area
+  }, []);
 
-  const featuredProjects = projects.slice(0, 3);
+  const handleShowAlternateOnMap = useCallback((_suggestion: HomepageSuggestion) => {
+    // TODO: pan/zoom map to alternate suggestion focus area
+  }, []);
 
-  const heroMetricTotals = useMemo(() => {
-    let completed = 0;
-    let total = 0;
-    for (const p of featuredProjects) {
-      completed += p.completedStreetNames ?? p.completedStreets ?? 0;
-      total += p.totalStreetNames ?? p.totalStreets ?? 0;
-    }
-    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { completed, total, percentage };
-  }, [featuredProjects]);
+  const greeting = homepage?.userName
+    ? homepage.userState === "brand_new" || homepage.userState === "syncing"
+      ? `Welcome, ${homepage.userName}`
+      : `Hey, ${homepage.userName}`
+    : null;
 
   return (
     <div className="flex h-full flex-col overflow-hidden md:flex-row">
-      {/* Map section - left side */}
+      {/* Map */}
       <div className="h-[45vh] w-full shrink-0 md:h-full md:min-h-0 md:flex-1 md:shrink">
         <div ref={mapRef} className="relative h-full w-full">
           <UnifiedMap
-            center={effectiveMapCenter ?? { lat: 50.8, lng: -1.09 }}
+            center={effectiveMapCenter ?? DEFAULT_MAP_CENTER}
             zoom={mapZoom}
             userLocation={userLocation}
             showUserLocationMarker
             streets={filteredStreetsForMap}
             gpsTraces={gpsTraces}
             onViewportChange={onViewportChange}
-            highlightFocus={highlightFocus}
-            highlightOsmIds={
-              highlightFocus?.streetIds?.map((id) => `way/${id}`) ?? []
-            }
+            highlightFocus={null}
+            highlightOsmIds={EMPTY_HIGHLIGHT_OSM_IDS}
             showLegend={false}
             showLegendGuide={false}
             className="h-full w-full"
             isLoading={false}
           />
-          {/* Sync progress overlay */}
-          {syncing && (
-            <ProgressLoader type="sync" overlay title="Syncing with Strava" />
-          )}
-          {/* Interactive bin-based legend */}
-          {mergedStreets.length > 0 && !syncing && (
+          {streets.length > 0 && (
             <MapLegendFilterBins
               visibleBins={visibleBins}
               onToggle={(bin) => {
@@ -415,135 +242,132 @@ export function ReturningUserHomepage({
               }}
               counts={binCounts}
               onShowAll={() => {
-                setVisibleBins(new Set(["completed", "almostThere", "inProgress", "notStarted"]));
+                setVisibleBins(
+                  new Set(["completed", "almostThere", "inProgress", "notStarted"])
+                );
               }}
             />
           )}
         </div>
       </div>
 
-      {/* Sidebar - right side */}
-      <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-surface md:w-[380px] md:flex-none md:border-l">
-        {/* Fixed header: welcome + search */}
-        <div className="space-y-3 border-b border-border p-4">
-          <div>
-            <h2 className="text-lg font-bold text-text">
-              Welcome back{!isLoading && data.userName ? `, ${data.userName}` : ""}!
-            </h2>
-            {!isLoading && data.streak.currentWeeks > 0 && (
-              <span className="text-sm text-success font-medium">
-                {data.streak.currentWeeks}-week streak
-              </span>
-            )}
-          </div>
-          <UniversalSearchInput
-            placeholder="Search area…"
-            onSelect={onSearchSelect}
-          />
-          {showLocationAccessBanner && locationErrorMessage && onRetryLocation && (
+      {/* Side panel */}
+      <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-bg md:w-[380px] md:flex-none md:border-l-2">
+        {showLocationAccessBanner && locationErrorMessage && onRetryLocation && (
+          <div className="border-b-2 border-border p-5">
             <LocationAccessBanner error={locationErrorMessage} onRetry={onRetryLocation} />
-          )}
-        </div>
-
-        {/* Scrollable content section */}
-        <div className="space-y-4 p-4 pb-8 md:flex-1 md:overflow-y-auto md:pb-4">
-          {isLoading ? (
-            <>
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-            </>
-          ) : (
-            <>
-              {/* Your next run */}
-              <NextRunCard data={data} onShowOnMap={handleShowOnMap} />
-
-              {/* Your progress (ring) */}
-              {heroMetricTotals.total > 0 && (
-                <Card padding="md">
-                  <h3 className="text-sm font-semibold text-text-muted mb-2">Your progress</h3>
-                  <ProgressRing value={heroMetricTotals.percentage} animated size={72} strokeWidth={8}>
-                    <div>
-                      <p className="text-base font-bold text-text">
-                        {heroMetricTotals.completed} streets conquered!
-                      </p>
-                      <p className="text-sm text-text-muted">
-                        {heroMetricTotals.percentage}% of this area explored
-                      </p>
-                      {data.nextMilestone && !data.nextMilestone.progress.isCompleted && (
-                        <p className="text-xs text-text-muted mt-1">
-                          Next: {data.nextMilestone.name} ({data.nextMilestone.progress.targetValue - data.nextMilestone.progress.currentValue} to go)
-                        </p>
-                      )}
-                    </div>
-                  </ProgressRing>
-                </Card>
-              )}
-
-              {/* Last run */}
-              <LastRunCard data={data} />
-
-              {/* Highlights */}
-              <HighlightsCard data={data} />
-            </>
-          )}
-
-          {/* Focus project (first featured) */}
-          {projectsLoading ? (
-            <SkeletonProjectCard />
-          ) : featuredProjects.length > 0 ? (
-            <div className="space-y-2">
-              <h3 className="text-base font-semibold text-text">Focus project</h3>
-              <ProjectCardWithStreets
-                key={featuredProjects[0].id}
-                project={featuredProjects[0]}
-                visibleBins={visibleBins}
-                onStreetClick={handleStreetClick}
-                onStreetBlur={handleStreetBlur}
-              />
-              {featuredProjects.length > 1 && (
-                <Link
-                  to={ROUTES.PROJECTS_LIST}
-                  className="block text-center text-sm text-primary hover:underline"
-                >
-                  View all projects →
-                </Link>
-              )}
-            </div>
-          ) : null}
-
-          {/* Actions — always available (client-side) */}
-          <div className="flex flex-col gap-2 pt-2">
-            <Button
-              variant="secondary"
-              onClick={handleSync}
-              disabled={syncing || backgroundSyncActive || isLoading}
-              className="w-full"
-            >
-              {backgroundSyncActive
-                ? "Sync in progress…"
-                : syncing
-                  ? "Syncing…"
-                  : "Find my latest runs"}
-            </Button>
-            {syncResult && (
-              <span
-                className={`text-sm ${syncResult.error ? "text-danger" : "text-success"}`}
-              >
-                {syncResult.error ??
-                  (syncResult.synced > 0
-                    ? `Synced ${syncResult.synced} activit${syncResult.synced !== 1 ? "ies" : "y"}`
-                    : "No new activities")}
-              </span>
-            )}
-            <Link to={ROUTES.PROJECTS_LIST} className="block">
-              <Button variant="ghost" className="w-full" type="button">
-                View all projects
-              </Button>
-            </Link>
           </div>
-        </div>
+        )}
+
+        {homepageLoading && !homepage ? (
+          <PanelSkeleton />
+        ) : (
+          <div className="flex flex-col gap-5 p-5">
+            {/* Greeting */}
+            {greeting && (
+              <p className="text-xl font-bold text-text">{greeting}</p>
+            )}
+
+            {/* ── brand_new ── */}
+            {homepage?.userState === "brand_new" && (
+              <>
+                {(homepage.primarySuggestion || homepage.firstStreet) ? (
+                  <NextRunCard data={homepage} onShowOnMap={handleShowOnMap} />
+                ) : (
+                  <div className="rounded-lg border-2 border-dashed border-border bg-surface p-5 text-center">
+                    <p className="text-sm text-text-muted">
+                      Connect Strava to import your runs, or head out and explore.
+                    </p>
+                  </div>
+                )}
+                {homepage.firstStreet && (
+                  <Link
+                    to="/projects/new"
+                    className="inline-flex w-full items-center justify-center rounded-lg border-2 border-border bg-accent px-4 py-2.5 text-sm font-semibold text-surface transition-opacity hover:opacity-90"
+                  >
+                    Create a project
+                  </Link>
+                )}
+              </>
+            )}
+
+            {/* ── syncing ── */}
+            {homepage?.userState === "syncing" && (
+              <div className="flex items-center gap-3 rounded-lg border-2 border-border bg-surface p-4">
+                <div className="h-3 w-3 animate-pulse rounded-full bg-success" />
+                <p className="text-sm font-medium text-text">Importing your runs…</p>
+              </div>
+            )}
+
+            {/* ── has_runs_no_project ── */}
+            {homepage?.userState === "has_runs_no_project" && (
+              <>
+                <div className="rounded-lg border-2 border-border bg-surface p-4">
+                  <p className="text-sm text-text">
+                    Your runs are ready
+                    {homepage.totalDistanceKm != null && homepage.totalDistanceKm > 0
+                      ? ` — ${homepage.totalDistanceKm} km tracked`
+                      : ""}
+                    . Create a project to start tracking streets.
+                  </p>
+                  <Link
+                    to="/projects/new"
+                    className="mt-3 inline-flex items-center justify-center rounded-lg border-2 border-border bg-accent px-4 py-2 text-sm font-semibold text-surface transition-opacity hover:opacity-90"
+                  >
+                    Create a project
+                  </Link>
+                </div>
+                <NextRunCard data={homepage} onShowOnMap={handleShowOnMap} />
+                <LastRunCard data={homepage} />
+                {homepage.alternates.length > 0 && (
+                  <AlternatesList
+                    alternates={homepage.alternates}
+                    onShowOnMap={handleShowAlternateOnMap}
+                  />
+                )}
+              </>
+            )}
+
+            {/* ── project_processing ── */}
+            {homepage?.userState === "project_processing" && (
+              <>
+                <div className="flex items-center gap-3 rounded-lg border-2 border-border bg-surface p-4">
+                  <div className="h-3 w-3 animate-pulse rounded-full bg-warning" />
+                  <p className="text-sm font-medium text-text">Processing your runs…</p>
+                </div>
+                <NextRunCard data={homepage} onShowOnMap={handleShowOnMap} />
+                <LastRunCard data={homepage} />
+              </>
+            )}
+
+            {/* ── active ── */}
+            {homepage?.userState === "active" && (
+              <>
+                <NextRunCard data={homepage} onShowOnMap={handleShowOnMap} />
+                <LastRunCard data={homepage} />
+                <StreetStats streets={streets} />
+                {homepage.alternates.length > 0 && (
+                  <AlternatesList
+                    alternates={homepage.alternates}
+                    onShowOnMap={handleShowAlternateOnMap}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Empty state for brand-new users with absolutely nothing */}
+            {homepage &&
+              homepage.userState === "brand_new" &&
+              !homepage.primarySuggestion &&
+              !homepage.lastRun &&
+              !homepage.firstStreet &&
+              streets.length === 0 && (
+                <p className="text-center text-sm text-text-muted">
+                  Sync your Strava runs to see your streets light up on the map.
+                </p>
+              )}
+          </div>
+        )}
       </aside>
     </div>
   );

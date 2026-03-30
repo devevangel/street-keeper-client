@@ -4,15 +4,14 @@
 import { apiClient } from "../lib/api-client";
 import type { MapStreet } from "../types/api.types";
 
+export type UserState =
+  | "brand_new"
+  | "syncing"
+  | "has_runs_no_project"
+  | "project_processing"
+  | "active";
+
 export interface HomepagePayload {
-  hero: { message: string; stateKey: string };
-  streak: {
-    currentWeeks: number;
-    isAtRisk: boolean;
-    lastRunDate: string | null;
-    longestStreak: number;
-    qualifyingRunsThisWeek: number;
-  };
   primarySuggestion: HomepageSuggestion | null;
   alternates: HomepageSuggestion[];
   nextMilestone: {
@@ -45,9 +44,9 @@ export interface HomepagePayload {
     newStreets: number;
     daysAgo: number;
   };
-  recentHighlights?: { newStreets: number; distanceKm: number };
-  /** Whether this is a new user (no activities yet) */
-  isNewUser: boolean;
+  userState: UserState;
+  totalActivities?: number;
+  totalDistanceKm?: number;
   /** User's display name for personalization */
   userName?: string;
   /** First street suggestion for new users (nearest shortest street) */
@@ -58,15 +57,6 @@ export interface HomepagePayload {
     distanceFromUser: number;
     geometry: Array<{ lat: number; lng: number }>;
     bbox: [number, number, number, number];
-  };
-  /** User-level stats for sidebar (favorites, exploration style, totals) */
-  userStats?: {
-    totalActivities: number;
-    totalDistanceKm: number;
-    accountCreatedAt: string;
-    favoriteStreets: Array<{ name: string; runCount: number }>;
-    explorationStyle: "trailblazer" | "balanced" | "habitual";
-    newVsRevisitRatio: number;
   };
 }
 
@@ -104,14 +94,14 @@ export async function getHomepageData(params: {
   if (params.lat != null) q.set("lat", String(params.lat));
   if (params.lng != null) q.set("lng", String(params.lng));
   if (params.radius != null) q.set("radius", String(params.radius));
-  if (params.projectId != null) q.set("projectId", params.projectId);
+  if (params.projectId != null) q.set("projectId", String(params.projectId));
   if (params.userLat != null) q.set("userLat", String(params.userLat));
   if (params.userLng != null) q.set("userLng", String(params.userLng));
   const query = q.toString();
   const cacheKey = query || "default";
-  
+
   if (import.meta.env.DEV) {
-    const stackTrace = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
+    const stackTrace = new Error().stack?.split("\n")[2]?.trim() || "unknown";
     console.log(`[getHomepageData] Called at ${new Date().toISOString()}`, {
       params: { ...params },
       cacheKey,

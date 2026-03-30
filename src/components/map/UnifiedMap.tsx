@@ -4,7 +4,7 @@
  * heatmap, viewport handler, highlight fit, legend, loading overlay, click handler, marker.
  */
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, type CSSProperties } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -16,6 +16,12 @@ import {
 import type { LatLngTuple } from "leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+
+const MAP_CONTAINER_STYLE: CSSProperties = {
+  height: "100%",
+  width: "100%",
+  minHeight: "400px",
+};
 
 /** Creates the "streetPane" with z-index below default overlayPane so labels show above streets */
 function StreetPane() {
@@ -334,7 +340,7 @@ export function UnifiedMap(props: UnifiedMapProps) {
         maxZoom={MAP_ZOOM.MAX}
         className="h-full w-full leaflet-map-theme leaflet-container leaflet-touch leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom"
         scrollWheelZoom
-        style={{ height: "100%", width: "100%", minHeight: "400px" }}
+        style={MAP_CONTAINER_STYLE}
       >
         <TileLayer
           attribution={attribution}

@@ -3,7 +3,7 @@
  * Animates a number from 0 to end over durationMs. Uses requestAnimationFrame.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function useAnimatedCounter(
   end: number,
@@ -11,6 +11,7 @@ export function useAnimatedCounter(
   isActive: boolean
 ): number {
   const [count, setCount] = useState(0);
+  const rafIdRef = useRef(0);
 
   useEffect(() => {
     if (!isActive) {
@@ -24,10 +25,12 @@ export function useAnimatedCounter(
       const elapsed = now - start;
       const t = Math.min(1, elapsed / durationMs);
       setCount(Math.round(t * end));
-      if (t < 1) requestAnimationFrame(tick);
+      if (t < 1) {
+        rafIdRef.current = requestAnimationFrame(tick);
+      }
     };
-    const id = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(id);
+    rafIdRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafIdRef.current);
   }, [end, durationMs, isActive]);
 
   return count;

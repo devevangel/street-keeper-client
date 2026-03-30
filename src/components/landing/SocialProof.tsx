@@ -34,6 +34,7 @@ const VALUE_PROPS = [
 function useCountUp(end: number, durationMs: number, isVisible: boolean) {
   const [count, setCount] = useState(0);
   const startRef = useRef<number | null>(null);
+  const rafIdRef = useRef(0);
 
   useEffect(() => {
     if (!isVisible) {
@@ -48,10 +49,12 @@ function useCountUp(end: number, durationMs: number, isVisible: boolean) {
       const elapsed = now - startRef.current;
       const t = Math.min(1, elapsed / durationMs);
       setCount(Math.round(t * end));
-      if (t < 1) requestAnimationFrame(tick);
+      if (t < 1) {
+        rafIdRef.current = requestAnimationFrame(tick);
+      }
     };
-    const id = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(id);
+    rafIdRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafIdRef.current);
   }, [end, durationMs, isVisible]);
 
   return count;

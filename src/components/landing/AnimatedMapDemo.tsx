@@ -95,7 +95,7 @@ async function fetchStreetsFromOverpass(): Promise<CachedStreet[]> {
 }
 
 /** Load streets from cache or fetch from API */
-async function loadStreets(): Promise<CachedStreet[]> {
+async function loadStreets(signal?: AbortSignal): Promise<CachedStreet[]> {
   // Check cache synchronously first
   try {
     const cached = localStorage.getItem(CACHE_KEY);
@@ -112,6 +112,11 @@ async function loadStreets(): Promise<CachedStreet[]> {
     // Wait for the in-progress fetch to complete
     return new Promise((resolve) => {
       const checkInterval = setInterval(() => {
+        if (signal?.aborted) {
+          clearInterval(checkInterval);
+          resolve(FALLBACK_STREETS);
+          return;
+        }
         if (!fetchInProgress) {
           clearInterval(checkInterval);
           try {
@@ -264,7 +269,11 @@ export function AnimatedMapDemo({ theme: themeProp = "light" }: AnimatedMapDemoP
   useEffect(() => {
     if (streetsLoadedRef.current) return;
     streetsLoadedRef.current = true;
-    loadStreets().then(setStreets);
+    const ac = new AbortController();
+    loadStreets(ac.signal).then((data) => {
+      if (!ac.signal.aborted) setStreets(data);
+    });
+    return () => ac.abort();
   }, []);
 
   const total = streets.length;

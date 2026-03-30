@@ -1,5 +1,5 @@
 /**
- * Fetches homepage payload (hero, streak, suggestion, milestone, mapContext).
+ * Fetches homepage payload (suggestion, milestone, mapContext).
  * Cache 30–60s; refetch invalidates cache.
  */
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";

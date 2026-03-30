@@ -1,9 +1,8 @@
 /**
  * LastRunCard
- * Last activity: time ago, new streets, revisits, distance.
+ * Last activity: time ago, distance, new streets — compact inline stats.
  */
 
-import { Card } from "../common/Card";
 import type { HomepagePayload } from "../../services/homepage.service";
 
 interface LastRunCardProps {
@@ -13,10 +12,10 @@ interface LastRunCardProps {
 function formatDaysAgo(daysAgo: number): string {
   if (daysAgo === 0) return "Today";
   if (daysAgo === 1) return "Yesterday";
-  if (daysAgo < 7) return `${daysAgo} days ago`;
-  if (daysAgo < 14) return "1 week ago";
+  if (daysAgo < 7) return `${daysAgo}d ago`;
+  if (daysAgo < 14) return "1w ago";
   const weeks = Math.floor(daysAgo / 7);
-  return `${weeks} week${weeks !== 1 ? "s" : ""} ago`;
+  return `${weeks}w ago`;
 }
 
 export function LastRunCard({ data }: LastRunCardProps) {
@@ -24,17 +23,23 @@ export function LastRunCard({ data }: LastRunCardProps) {
   if (!lastRun) return null;
 
   return (
-    <Card className="card-interactive space-y-2" padding="md">
-      <h3 className="text-sm font-semibold text-text-muted">Last run</h3>
-      <p className="text-base font-medium text-text">
-        {formatDaysAgo(lastRun.daysAgo)}
-      </p>
-      <ul className="text-sm text-text-muted space-y-0.5">
-        {lastRun.newStreets > 0 && (
-          <li>{lastRun.newStreets} new street{lastRun.newStreets !== 1 ? "s" : ""} discovered!</li>
-        )}
-        <li>{lastRun.distanceKm.toFixed(1)} km</li>
-      </ul>
-    </Card>
+    <div className="rounded-lg border-2 border-border bg-surface p-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+        Last run
+      </h3>
+      <div className="mt-2 flex items-baseline gap-3">
+        <span className="text-lg font-bold text-text">
+          {lastRun.distanceKm.toFixed(1)} km
+        </span>
+        <span className="text-sm text-text-muted">
+          {formatDaysAgo(lastRun.daysAgo)}
+        </span>
+      </div>
+      {lastRun.newStreets > 0 && (
+        <p className="mt-1 text-sm font-medium text-success">
+          +{lastRun.newStreets} new street{lastRun.newStreets !== 1 ? "s" : ""}
+        </p>
+      )}
+    </div>
   );
 }

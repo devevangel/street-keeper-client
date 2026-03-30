@@ -74,40 +74,53 @@ export function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps) {
     if (!isOpen || step !== 2 || syncing) return;
     setSyncing(true);
 
+    let cancelled = false;
+    let raceTimeoutId: ReturnType<typeof setTimeout> | undefined;
+
     // Start background sync (POST /activities/sync?background=true). Returns immediately with syncId/total.
     // Move user to homepage after a short delay; sync continues in the background and SyncBanner shows progress.
-    import("../../services/activities.service").then(({ activitiesService }) => {
+    void import("../../services/activities.service").then(({ activitiesService }) => {
+      if (cancelled) return;
       const syncPromise = activitiesService.syncFromStrava({ background: true });
 
-      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
+      const timeout = new Promise<null>((resolve) => {
+        raceTimeoutId = setTimeout(() => resolve(null), 4000);
+      });
 
-      Promise.race([syncPromise, timeout])
-        .then(() => {
-          setSyncing(false);
-          stableComplete();
-        })
-        .catch((err) => {
-          if (
-            err instanceof ApiError &&
-            err.status === 429 &&
-            err.code === ERROR_CODES.SYNC_RATE_LIMITED
-          ) {
-            const next = err.body?.nextSyncAt
-              ? new Date(err.body.nextSyncAt).toLocaleString(undefined, {
-                  dateStyle: "short",
-                  timeStyle: "short",
-                })
-              : null;
-            const msg = next
-              ? `Strava can only be synced once per day. Next sync available at ${next}.`
-              : err.message;
-            toast?.showToast(msg, "warning");
-          }
-          setSyncing(false);
-          stableComplete();
-        });
-    });
-  }, [isOpen, step, syncing, stableComplete]);
+      return Promise.race([syncPromise, timeout]);
+    })
+      .then(() => {
+        if (cancelled) return;
+        setSyncing(false);
+        stableComplete();
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (
+          err instanceof ApiError &&
+          err.status === 429 &&
+          err.code === ERROR_CODES.SYNC_RATE_LIMITED
+        ) {
+          const next = err.body?.nextSyncAt
+            ? new Date(err.body.nextSyncAt).toLocaleString(undefined, {
+                dateStyle: "short",
+                timeStyle: "short",
+              })
+            : null;
+          const msg = next
+            ? `Strava can only be synced once per day. Next sync available at ${next}.`
+            : err.message;
+          toast?.showToast(msg, "warning");
+        }
+        setSyncing(false);
+        stableComplete();
+      });
+
+    return () => {
+      cancelled = true;
+      if (raceTimeoutId) clearTimeout(raceTimeoutId);
+    };
+  }, [isOpen, step, syncing, stableComplete, toast]);
 
   if (!isOpen) return null;
 

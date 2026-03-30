@@ -1,33 +1,180 @@
 /**
  * ProjectDetailPage
- * Simplified project view: left side map, right side street list with filters.
- * Streets grouped by name with clickable filter pills and map highlighting.
+ * Map on the left, data side panel on the right.
  */
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Button, Card, ConfirmModal, Input, StreetListItem, ProgressRing, Skeleton, SkeletonStreetRow, type StreetListItemData } from "../components/common";
+import { Button, Card, ConfirmModal, ProgressBar, Skeleton } from "../components/common";
 import { UnifiedMap } from "../components/map";
 import { useGpsTraces } from "../hooks";
 import { MAP_ZOOM } from "../components/map/mapConstants";
-import { QuickStatsCard } from "../components/project/QuickStatsCard";
-import { QuickWinsSection } from "../components/project/QuickWinsSection";
-import { MilestonesSection } from "../components/milestones/MilestonesSection";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
 import { ROUTES } from "../config/constants";
 import { useToast } from "../contexts/ToastContext";
-import type { ProjectDetail, ProjectMapData } from "../types/api.types";
-import { groupProjectMapStreetsByName } from "../utils/group-streets-by-name";
-import { normalizeStreetName } from "../utils/normalize-street-name";
-import {
-  computeBboxFromStreets,
-  computeBoundaryBbox,
-  projectMapCenter,
-} from "../utils/map-utils";
+import type { ProjectDetail, ProjectMapData, ProjectQuickWin } from "../types/api.types";
+import { computeBoundaryBbox, projectMapCenter } from "../utils/map-utils";
 
-/** Map tiles show immediately while project payload loads */
 const MAP_SHELL_CENTER = { lat: 50.8, lng: -1.09 };
+const EMPTY_HIGHLIGHT_OSM_IDS: string[] = [];
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function ProjectSidePanel({
+  project,
+  mapData,
+  loading,
+}: {
+  project: ProjectDetail | null;
+  mapData: ProjectMapData | null;
+  loading: boolean;
+}) {
+  if (loading && !project) {
+    return (
+      <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-surface md:w-[380px] md:flex-none md:border-l">
+        <div className="space-y-4 p-4">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-24 w-full rounded-lg" />
+          <Skeleton className="h-20 w-full rounded-lg" />
+        </div>
+      </aside>
+    );
+  }
+
+  if (!project || !mapData) return null;
+
+  const stats = mapData.stats;
+  const pStats = mapData.projectStats;
+  const pct = stats.completionPercentage;
+  const quickWins = mapData.quickWins ?? [];
+
+  return (
+    <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-surface md:w-[380px] md:flex-none md:border-l">
+      <div className="flex flex-col gap-4 p-4">
+        {/* Overall progress */}
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <span className="text-2xl font-bold text-text">{Math.round(pct)}%</span>
+            <span className="text-sm text-text-muted">
+              {stats.completedStreetNames} / {stats.totalStreetNames} streets
+            </span>
+          </div>
+          <ProgressBar percentage={pct} height={6} />
+          <div className="flex gap-4 text-xs text-text-muted">
+            <span>{stats.completedStreets} completed</span>
+            <span>{stats.partialStreets} in progress</span>
+            <span>{stats.notRunStreets} not started</span>
+          </div>
+        </div>
+
+        {/* Run stats */}
+        {pStats && (
+          <div className="space-y-1">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Run stats
+            </h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="font-medium text-text">{pStats.totalRuns}</p>
+                <p className="text-xs text-text-muted">runs</p>
+              </div>
+              <div>
+                <p className="font-medium text-text">{pStats.totalDistanceKm.toFixed(1)} km</p>
+                <p className="text-xs text-text-muted">total distance</p>
+              </div>
+              <div>
+                <p className="font-medium text-text">{formatDate(pStats.firstRunDate)}</p>
+                <p className="text-xs text-text-muted">first run</p>
+              </div>
+              <div>
+                <p className="font-medium text-text">{formatDate(pStats.lastRunDate)}</p>
+                <p className="text-xs text-text-muted">last run</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pace & projection */}
+        {project.streetsPerWeek > 0 && (
+          <div className="space-y-1">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Pace
+            </h3>
+            <p className="text-sm text-text">
+              <span className="font-medium">{project.streetsPerWeek.toFixed(1)}</span> streets/week
+            </p>
+            {project.projectedFinishDate && (
+              <p className="text-xs text-text-muted">
+                At this pace, done by {formatDate(project.projectedFinishDate)}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Quick wins */}
+        <QuickWinsList quickWins={quickWins} />
+
+        {/* Milestone */}
+        {project.realNextMilestone && !project.realNextMilestone.progress.isCompleted && (
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Next milestone
+            </h3>
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-sm font-medium text-text">{project.realNextMilestone.name}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <ProgressBar
+                  percentage={project.realNextMilestone.progress.ratio * 100}
+                  height={4}
+                  className="flex-1"
+                />
+                <span className="text-xs text-text-muted">
+                  {Math.round(project.realNextMilestone.progress.ratio * 100)}%
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-text-muted">
+                {project.realNextMilestone.progress.currentValue} / {project.realNextMilestone.progress.targetValue} {project.realNextMilestone.progress.unit}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function QuickWinsList({ quickWins }: { quickWins: ProjectQuickWin[] }) {
+  if (quickWins.length === 0) return null;
+  const title =
+    quickWins[0] != null && quickWins[0].percentage >= 75
+      ? "Quick wins"
+      : "Closest to done";
+  return (
+    <div className="space-y-2">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+        {title}
+      </h3>
+      {quickWins.slice(0, 5).map((qw) => (
+        <div key={qw.osmId} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-text">{qw.name}</p>
+            <p className="text-xs text-text-muted">
+              {Math.round(qw.remainingMeters)}m left
+            </p>
+          </div>
+          <span className="ml-2 shrink-0 text-sm font-medium text-text-muted">
+            {Math.round(qw.percentage)}%
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -41,15 +188,6 @@ export function ProjectDetailPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const toast = useToast();
-
-  // Street list state
-  const [search, setSearch] = useState("");
-
-  // Map highlight state
-  const [highlightOsmIds, setHighlightOsmIds] = useState<string[]>([]);
-  const [streetHighlightBbox, setStreetHighlightBbox] = useState<
-    [number, number, number, number] | null
-  >(null);
 
   const { traces: gpsTraces } = useGpsTraces({ projectId: id ?? null });
 
@@ -122,7 +260,7 @@ export function ProjectDetailPage() {
   }, [id, navigate, toast]);
 
   const [expanding, setExpanding] = useState(false);
-  
+
   const doExpand = useCallback(async () => {
     if (!id) return;
     setExpanding(true);
@@ -143,62 +281,9 @@ export function ProjectDetailPage() {
   const handleArchiveClick = () => setArchiveConfirmOpen(true);
   const handleDeleteClick = () => setDeleteConfirmOpen(true);
 
-  // Group streets by name for display
-  const groupedStreets = useMemo(() => {
-    if (!mapData?.streets) return [];
-    return groupProjectMapStreetsByName(mapData.streets);
-  }, [mapData?.streets]);
-
-  // Filter streets by search only (map legend handles status filtering)
-  const filteredStreets = useMemo(() => {
-    let result = groupedStreets;
-
-    // Apply search filter
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      result = result.filter((s) => s.name.toLowerCase().includes(q));
-    }
-
-    return result;
-  }, [groupedStreets, search]);
-
-  // Handle street hover/click to highlight on map
-  // Find ALL segments with matching normalized name from mapData.streets
-  // This uses the exact same approach as completion coloring - iterate through all streets
-  const handleStreetHighlight = useCallback(
-    (streetData: StreetListItemData) => {
-      if (!mapData?.streets?.length) return;
-      
-      // Find ALL streets in mapData.streets that have the same normalized name
-      // This is the same logic used for completion coloring - each segment is checked individually
-      const targetName = normalizeStreetName(streetData.name);
-      const allMatchingStreets = mapData.streets.filter(
-        (s) => normalizeStreetName(s.name || "Unnamed") === targetName
-      );
-      
-      if (allMatchingStreets.length === 0) return;
-      
-      // Use ALL matching osmIds for highlighting
-      const allOsmIds = allMatchingStreets.map((s) => s.osmId);
-      setHighlightOsmIds(allOsmIds);
-      setStreetHighlightBbox(computeBboxFromStreets(allMatchingStreets));
-    },
-    [mapData?.streets]
-  );
-
-  const handleStreetClear = useCallback(() => {
-    setHighlightOsmIds([]);
-    setStreetHighlightBbox(null);
-  }, []);
-
-  const handleQuickWinShowOnMap = useCallback(
-    (osmId: string) => {
-      const street = mapData?.streets?.find((s) => s.osmId === osmId);
-      if (!street) return;
-      setHighlightOsmIds([osmId]);
-      setStreetHighlightBbox(computeBboxFromStreets([street]));
-    },
-    [mapData?.streets]
+  const boundaryBbox = useMemo(
+    () => (mapData ? computeBoundaryBbox(mapData.boundary) : null),
+    [mapData],
   );
 
   if (!id) {
@@ -213,12 +298,10 @@ export function ProjectDetailPage() {
   if (loading && !project) {
     return (
       <div className="flex h-full flex-col overflow-hidden">
-        {/* Skeleton header */}
         <header className="flex shrink-0 items-center gap-4 border-b border-border bg-surface px-4 py-3">
           <Skeleton className="h-4 w-20" />
           <Skeleton className="h-6 w-48" />
         </header>
-        {/* Skeleton content */}
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           <div className="relative h-[45vh] w-full shrink-0 md:h-full md:flex-1">
             <UnifiedMap
@@ -229,19 +312,7 @@ export function ProjectDetailPage() {
               className="h-full w-full"
             />
           </div>
-          <aside className="flex min-h-0 flex-1 flex-col border-border bg-surface md:w-[380px] md:flex-none md:border-l">
-            <div className="border-b border-border p-4">
-              <Skeleton className="h-4 w-3/4" />
-            </div>
-            <div className="p-4">
-              <Skeleton className="mb-4 h-10 w-full rounded-lg" />
-              <div className="rounded-lg border border-border">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <SkeletonStreetRow key={i} />
-                ))}
-              </div>
-            </div>
-          </aside>
+          <ProjectSidePanel project={null} mapData={null} loading />
         </div>
       </div>
     );
@@ -264,18 +335,10 @@ export function ProjectDetailPage() {
   if (!project || !mapData) return null;
 
   const center = projectMapCenter(mapData);
-  const boundaryBbox = computeBoundaryBbox(mapData.boundary);
-
-  const highlightFocus =
-    streetHighlightBbox !== null
-      ? { bbox: streetHighlightBbox }
-      : boundaryBbox !== null
-        ? { bbox: boundaryBbox }
-        : null;
+  const highlightFocus = boundaryBbox !== null ? { bbox: boundaryBbox } : null;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      {/* Header */}
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-surface px-4 py-3">
         <div className="flex items-center gap-4">
           <Link to={ROUTES.PROJECTS_LIST} className="text-sm text-text-muted hover:underline">
@@ -291,11 +354,7 @@ export function ProjectDetailPage() {
         <div className="flex gap-2">
           {project.isArchived ? (
             <>
-              <Button
-                variant="secondary"
-                onClick={doRestore}
-                disabled={restoring}
-              >
+              <Button variant="secondary" onClick={doRestore} disabled={restoring}>
                 {restoring ? "Restoring…" : "Restore project"}
               </Button>
               <Button variant="danger" onClick={handleDeleteClick}>
@@ -347,9 +406,7 @@ export function ProjectDetailPage() {
         onConfirm={doDelete}
       />
 
-      {/* Main content: Map + Sidebar */}
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        {/* Map */}
         <div className="h-[45vh] w-full shrink-0 md:h-full md:min-h-0 md:flex-1 md:shrink">
           <UnifiedMap
             center={center}
@@ -359,90 +416,12 @@ export function ProjectDetailPage() {
             boundary={mapData.boundary}
             showBoundaryOutline
             highlightFocus={highlightFocus}
-            highlightOsmIds={highlightOsmIds}
+            highlightOsmIds={EMPTY_HIGHLIGHT_OSM_IDS}
             showLegend
             className="h-full w-full"
           />
         </div>
-
-        {/* Sidebar */}
-        <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-surface md:w-[380px] md:flex-none md:border-l">
-          {/* Scrollable content */}
-          <div className="space-y-4 p-4 pb-8 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-4">
-            {/* Your progress (ring) */}
-            <Card padding="md">
-              <h3 className="text-sm font-semibold text-text-muted mb-2">Your progress</h3>
-              <ProgressRing value={Math.round(project.progress)} animated size={72} strokeWidth={8}>
-                <div>
-                  <p className="text-base font-bold text-text">
-                    {mapData.stats.completedStreetNames ?? mapData.stats.completedStreets} streets conquered!
-                  </p>
-                  <p className="text-sm text-text-muted">
-                    {Math.round(project.progress)}% complete
-                  </p>
-                </div>
-              </ProgressRing>
-            </Card>
-
-            {/* Quick stats */}
-            {mapData.projectStats && (
-              <QuickStatsCard stats={mapData.projectStats} />
-            )}
-
-            {/* Quick wins */}
-            {mapData.quickWins && mapData.quickWins.length > 0 && (
-              <QuickWinsSection
-                quickWins={mapData.quickWins}
-                onShowOnMap={handleQuickWinShowOnMap}
-              />
-            )}
-
-            {/* Streets section */}
-            <div className="space-y-4">
-              <h3 className="text-base font-semibold text-text">All streets</h3>
-              {/* Search */}
-              <Input
-                type="search"
-                placeholder="Search streets…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                aria-label="Search streets"
-              />
-
-              {/* Street list */}
-              <div className="max-h-[40vh] overflow-y-auto rounded-lg border border-border">
-                {filteredStreets.length === 0 ? (
-                  <p className="p-4 text-center text-sm text-text-muted">
-                    {search.trim() ? "No streets match your search." : "No streets in this category."}
-                  </p>
-                ) : (
-                  <ul className="list-none divide-y divide-border p-0">
-                    {filteredStreets.map((street) => (
-                      <StreetListItem
-                        key={street.name}
-                        street={{
-                          name: street.name,
-                          osmIds: street.osmIds,
-                          percentage: street.percentage,
-                          segmentCount: street.segmentCount,
-                          completed: street.completed,
-                          runCount: street.runCount,
-                          lastRunDate: street.lastRunDate,
-                        }}
-                        onHighlight={handleStreetHighlight}
-                        onClearHighlight={handleStreetClear}
-                        variant="homepage"
-                      />
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* Milestones */}
-              <MilestonesSection projectId={project.id} />
-            </div>
-          </div>
-        </aside>
+        <ProjectSidePanel project={project} mapData={mapData} loading={loading} />
       </div>
     </div>
   );

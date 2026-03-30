@@ -1,7 +1,7 @@
 /**
  * HomePage
- * Unified homepage layout: map, search, sync, suggestions, and project cards.
- * Handles geolocation, map street fetching, and delegates to ReturningUserHomepage when data is ready.
+ * Unified homepage layout: map + placeholder side panel; sync banner when syncing.
+ * Handles geolocation, map street fetching, and delegates to ReturningUserHomepage.
  * Shows shell immediately; location issues use inline banner. EmptyState when street fetch fails.
  *
  * @example
@@ -9,31 +9,15 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { EmptyState, SyncBanner } from "../components/common";
-import { activitiesService } from "../services/activities.service";
+import { EmptyState } from "../components/common";
 import { ReturningUserHomepage } from "../components/homepage";
 import { useAnalytics } from "../contexts/AnalyticsContext";
-import { useToast } from "../contexts/ToastContext";
 import { useGeolocation, useHomepageData, useMapStreets, useGpsTraces, useSyncStatus } from "../hooks";
-import { ERROR_CODES } from "../config/constants";
-import { ApiError } from "../lib/api-client";
-import type { HomepagePayload } from "../services/homepage.service";
 import type { MapStreet, MapStreetsResponse } from "../types/api.types";
-import type { GeocodingResult } from "../types/api.types";
 
 const DEFAULT_RADIUS = 1000;
 const MIN_FETCH_DISTANCE_M = 200;
 const VIEWPORT_DEBOUNCE_MS = 800;
-
-const EMPTY_HOMEPAGE: HomepagePayload = {
-  hero: { message: "", stateKey: "loading" },
-  streak: { currentWeeks: 0, isAtRisk: false, lastRunDate: null, longestStreak: 0, qualifyingRunsThisWeek: 0 },
-  primarySuggestion: null,
-  alternates: [],
-  nextMilestone: null,
-  mapContext: { lat: 0, lng: 0, radius: DEFAULT_RADIUS },
-  isNewUser: false,
-};
 
 function haversineDistance(
   a: { lat: number; lng: number },
@@ -135,47 +119,16 @@ export function HomePage() {
   });
 
   const syncStatus = useSyncStatus();
-  const toast = useToast();
-
-  const handleSyncRetry = useCallback(async () => {
-    try {
-      await activitiesService.syncFromStrava({ background: true });
-      await syncStatus.refetch();
-    } catch (err) {
-      if (
-        err instanceof ApiError &&
-        err.status === 429 &&
-        err.code === ERROR_CODES.SYNC_RATE_LIMITED
-      ) {
-        const next = err.body?.nextSyncAt
-          ? new Date(err.body.nextSyncAt).toLocaleString(undefined, {
-              dateStyle: "short",
-              timeStyle: "short",
-            })
-          : null;
-        const msg = next
-          ? `Strava can only be synced once per day. Next sync available at ${next}.`
-          : err.message;
-        toast?.showToast(msg, "warning");
-      }
-      await syncStatus.refetch();
-    }
-  }, [syncStatus, toast]);
-
-  const clearSegments = useCallback(() => {
-    setAllSegments(new Map());
-  }, []);
 
   // Track homepage view only once when data changes, not on every render
   const homepageTrackedRef = useRef<string | null>(null);
   useEffect(() => {
     if (homepage) {
-      const key = `${homepage.hero.stateKey}_${homepage.isNewUser}_${!!homepage.primarySuggestion}_${!!homepage.firstStreet}`;
+      const key = `${homepage.userState}_${!!homepage.primarySuggestion}_${!!homepage.firstStreet}`;
       if (homepageTrackedRef.current !== key) {
         homepageTrackedRef.current = key;
         track("homepage_viewed", {
-          stateKey: homepage.hero.stateKey,
-          isNewUser: homepage.isNewUser,
+          userState: homepage.userState,
           hasSuggestion: !!homepage.primarySuggestion,
           hasFirstStreet: !!homepage.firstStreet,
         });
@@ -203,6 +156,12 @@ export function HomePage() {
   }, [data?.segments]);
 
   const viewportDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (viewportDebounceRef.current) clearTimeout(viewportDebounceRef.current);
+    };
+  }, []);
+
   const handleViewportChange = useCallback(
     (center: { lat: number; lng: number }) => {
       // Debounce + distance threshold to reduce Overpass API calls.
@@ -221,21 +180,6 @@ export function HomePage() {
     },
     [],
   );
-
-  const handleSearchSelect = useCallback((result: GeocodingResult) => {
-    const center = { lat: result.lat, lng: result.lng };
-    setMapCenter(center);
-    setFetchCenter(center);
-  }, []);
-
-  const handleFocusLocation = useCallback(
-    (center: { lat: number; lng: number }) => {
-      setMapCenter(center);
-      setFetchCenter(center);
-    },
-    []
-  );
-
 
   useEffect(() => {
     requestPermission();
@@ -318,28 +262,17 @@ export function HomePage() {
 
   return (
     <div className="flex h-full flex-col">
-      {syncStatus.status !== "idle" && (
-        <div className="shrink-0 px-3 py-2">
-          <SyncBanner sync={syncStatus} onRetry={handleSyncRetry} />
-        </div>
-      )}
       <ReturningUserHomepage
-        data={homepage ?? EMPTY_HOMEPAGE}
-        isLoading={homepageLoading}
         userLocation={position}
         mapCenter={mapCenter}
         streets={accumulatedSegments}
         gpsTraces={gpsTraces}
         onViewportChange={handleViewportChange}
-        onRefetch={refetchHomepage}
-        onClearSegments={clearSegments}
-        onRefetchMapStreets={refetchMapStreets}
-        onSearchSelect={handleSearchSelect}
-        onFocusLocation={handleFocusLocation}
-        backgroundSyncActive={syncStatus.isActive}
         showLocationAccessBanner={showLocationAccessBanner}
         locationErrorMessage={locationError ?? undefined}
         onRetryLocation={requestPermission}
+        homepage={homepage}
+        homepageLoading={homepageLoading}
       />
     </div>
   );
