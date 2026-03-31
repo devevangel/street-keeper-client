@@ -43,6 +43,10 @@ export interface HomepagePayload {
     distanceKm: number;
     newStreets: number;
     daysAgo: number;
+    activityId?: string;
+    completedStreetNames?: string[];
+    improvedStreetNames?: string[];
+    bbox?: [number, number, number, number];
   };
   userState: UserState;
   totalActivities?: number;
@@ -58,6 +62,34 @@ export interface HomepagePayload {
     geometry: Array<{ lat: number; lng: number }>;
     bbox: [number, number, number, number];
   };
+  /** 3–5 nearby short streets to explore */
+  nearbyStreets?: Array<{
+    osmId: string;
+    name: string;
+    lengthMeters: number;
+    distanceFromUser: number;
+    geometry: Array<{ lat: number; lng: number }>;
+    bbox: [number, number, number, number];
+  }>;
+  recentRuns?: Array<{
+    activityId: string;
+    name: string;
+    date: string;
+    distanceKm: number;
+    bbox: [number, number, number, number];
+  }>;
+  areaStats?: {
+    totalStreets: number;
+    completedCount: number;
+    partialCount: number;
+  };
+  projectContext?: {
+    id: string;
+    name: string;
+    totalStreets: number;
+    completedStreets: number;
+    progress: number;
+  };
 }
 
 export interface HomepageSuggestion {
@@ -66,6 +98,13 @@ export interface HomepageSuggestion {
   shortCopy: string;
   cooldownKey: string;
   reason: string;
+  clusterStats?: {
+    newStreets: number;
+    toFinish: number;
+    totalDistanceM: number;
+    estimatedDistanceM: number;
+    streetCount: number;
+  };
   focus: {
     bbox: [number, number, number, number];
     streetIds?: number[];

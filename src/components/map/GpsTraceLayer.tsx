@@ -52,6 +52,8 @@ function TracePolyline({
 
 interface GpsTraceLayerProps {
   traces: GpsTrace[];
+  /** When set, this trace is emphasized; others are dimmed. */
+  highlightActivityId?: string | null;
 }
 
 /**
@@ -68,7 +70,10 @@ function toPositions(coords: [number, number][]): LatLngTuple[] {
   ) as LatLngTuple[];
 }
 
-export function GpsTraceLayer({ traces }: GpsTraceLayerProps) {
+export function GpsTraceLayer({
+  traces,
+  highlightActivityId = null,
+}: GpsTraceLayerProps) {
   const polylines = useMemo(() => {
     return traces
       .map((trace) => ({
@@ -80,19 +85,23 @@ export function GpsTraceLayer({ traces }: GpsTraceLayerProps) {
 
   if (polylines.length === 0) return null;
 
-  const pathOptions: PathOptions = {
-    color: GPS_TRACE_STYLE.COLOR,
-    weight: GPS_TRACE_STYLE.WEIGHT,
-    opacity: GPS_TRACE_STYLE.OPACITY,
-    lineCap: GPS_TRACE_STYLE.LINE_CAP,
-    lineJoin: GPS_TRACE_STYLE.LINE_JOIN,
-  };
+  const hasHighlight = highlightActivityId != null && highlightActivityId !== "";
 
   return (
     <>
-      {polylines.map(({ id, positions }) => (
-        <TracePolyline key={id} id={id} positions={positions} pathOptions={pathOptions} />
-      ))}
+      {polylines.map(({ id, positions }) => {
+        const isHi = hasHighlight && id === highlightActivityId;
+        const pathOptions: PathOptions = {
+          color: GPS_TRACE_STYLE.COLOR,
+          weight: isHi ? GPS_TRACE_STYLE.WEIGHT + 2 : GPS_TRACE_STYLE.WEIGHT,
+          opacity: hasHighlight ? (isHi ? 0.95 : 0.2) : GPS_TRACE_STYLE.OPACITY,
+          lineCap: GPS_TRACE_STYLE.LINE_CAP,
+          lineJoin: GPS_TRACE_STYLE.LINE_JOIN,
+        };
+        return (
+          <TracePolyline key={id} id={id} positions={positions} pathOptions={pathOptions} />
+        );
+      })}
     </>
   );
 }

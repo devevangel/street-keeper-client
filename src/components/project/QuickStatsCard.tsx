@@ -36,7 +36,7 @@ function formatDaysAgo(iso: string | null): string {
 
 export function QuickStatsCard({ stats }: QuickStatsCardProps) {
   return (
-    <Card className="card-interactive" padding="md">
+    <Card className="card-hover" padding="md">
       <h3 className="text-sm font-semibold text-text-muted mb-3">Quick stats</h3>
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>

@@ -15,10 +15,19 @@ interface NextRunCardProps {
 
 const TYPE_LABELS: Record<string, { label: string; accent: string }> = {
   quick_win: { label: "Quick win", accent: "bg-success/15 text-success" },
-  explore: { label: "New street", accent: "bg-blue-500/15 text-blue-600 dark:text-blue-400" },
+  explore: {
+    label: "New street",
+    accent: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  },
   streak_saver: { label: "Streak saver", accent: "bg-warning/15 text-warning" },
-  milestone_push: { label: "Milestone push", accent: "bg-purple-500/15 text-purple-600 dark:text-purple-400" },
-  repeat_street: { label: "Keep going", accent: "bg-orange-500/15 text-orange-600 dark:text-orange-400" },
+  milestone_push: {
+    label: "Milestone push",
+    accent: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
+  },
+  repeat_street: {
+    label: "Keep going",
+    accent: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
+  },
 };
 
 function getTypeBadge(type?: string) {
@@ -26,7 +35,9 @@ function getTypeBadge(type?: string) {
   const info = TYPE_LABELS[type];
   if (!info) return null;
   return (
-    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${info.accent}`}>
+    <span
+      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${info.accent}`}
+    >
       {info.label}
     </span>
   );
@@ -40,7 +51,7 @@ export function NextRunCard({ data, onShowOnMap }: NextRunCardProps) {
   const copy =
     suggestion?.shortCopy ??
     (firstStreet
-      ? `${Math.round(firstStreet.lengthMeters)}m long · ${Math.round(firstStreet.distanceFromUser)}m from you`
+      ? `${Math.round(firstStreet.lengthMeters)}m long · ${Math.round(firstStreet.distanceFromUser)}m away from you`
       : "Head out and start conquering streets nearby.");
   const showButton = !!(suggestion?.focus || firstStreet);
   const badge = getTypeBadge(suggestion?.type);
@@ -60,9 +71,13 @@ export function NextRunCard({ data, onShowOnMap }: NextRunCardProps) {
       </div>
 
       {streetName ? (
-        <p className="mt-2 text-lg font-bold leading-tight text-text">{streetName}</p>
+        <p className="mt-2 text-lg font-bold leading-tight text-text">
+          {streetName}
+        </p>
       ) : (
-        <p className="mt-2 text-lg font-bold leading-tight text-text">Go for a run</p>
+        <p className="mt-2 text-lg font-bold leading-tight text-text">
+          Go for a run
+        </p>
       )}
 
       <p className="mt-1 text-sm text-text-muted">{copy}</p>

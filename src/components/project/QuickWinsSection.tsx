@@ -22,7 +22,7 @@ export function QuickWinsSection({ quickWins, onShowOnMap }: QuickWinsSectionPro
   if (!quickWins.length) return null;
 
   return (
-    <Card className="card-interactive" padding="md">
+    <Card className="card-hover" padding="md">
       <h3 className="text-sm font-semibold text-text-muted mb-3">So close!</h3>
       <ul className="space-y-3">
         {quickWins.map((qw) => (

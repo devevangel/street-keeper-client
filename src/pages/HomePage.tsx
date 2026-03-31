@@ -81,17 +81,19 @@ export function HomePage() {
       return null;
     }
     const segments = homepage.mapSegments;
+    const completedCount = segments.filter((s) => s.status === "completed").length;
+    const partialCount = segments.filter((s) => s.status === "partial").length;
     return {
       success: true,
       streets: segments,
       segments,
       center: { lat: homepage.mapContext.lat, lng: homepage.mapContext.lng },
       radiusMeters: homepage.mapContext.radius,
-      totalStreets: segments.length,
-      completedCount: segments.filter((s) => s.status === "completed").length,
-      partialCount: segments.filter((s) => s.status === "partial").length,
+      totalStreets: homepage.areaStats?.totalStreets ?? segments.length,
+      completedCount: homepage.areaStats?.completedCount ?? completedCount,
+      partialCount: homepage.areaStats?.partialCount ?? partialCount,
     };
-  }, [homepage?.mapSegments, homepage?.mapContext]);
+  }, [homepage?.mapSegments, homepage?.mapContext, homepage?.areaStats]);
 
   // Only update map center when position actually changes (not just object reference)
   const positionKey = position ? `${position.lat.toFixed(6)}_${position.lng.toFixed(6)}` : null;
@@ -156,6 +158,8 @@ export function HomePage() {
   }, [data?.segments]);
 
   const viewportDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Skip updating fetch center while map runs programmatic fitBounds (avoids zoom snap-back). */
+  const skipViewportFetchRef = useRef(false);
   useEffect(() => {
     return () => {
       if (viewportDebounceRef.current) clearTimeout(viewportDebounceRef.current);
@@ -164,6 +168,7 @@ export function HomePage() {
 
   const handleViewportChange = useCallback(
     (center: { lat: number; lng: number }) => {
+      if (skipViewportFetchRef.current) return;
       // Debounce + distance threshold to reduce Overpass API calls.
       // Only fetch new streets when user stops panning AND has moved past threshold.
       if (viewportDebounceRef.current) {
@@ -268,6 +273,7 @@ export function HomePage() {
         streets={accumulatedSegments}
         gpsTraces={gpsTraces}
         onViewportChange={handleViewportChange}
+        skipViewportFetchRef={skipViewportFetchRef}
         showLocationAccessBanner={showLocationAccessBanner}
         locationErrorMessage={locationError ?? undefined}
         onRetryLocation={requestPermission}

@@ -12,17 +12,19 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "ghost" | "danger" | "success";
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "success" | "gradient";
   size?: "sm" | "md" | "lg";
   children: ReactNode;
 }
 
 const variantStyles = {
-  primary: "bg-accent text-surface border-2 border-border",
+  primary: "bg-accent text-surface border border-border",
   secondary: "bg-bg text-text border-2 border-border hover:bg-border/10 hover:opacity-90",
   ghost: "bg-transparent text-text border-0 border-transparent hover:bg-border/10 hover:opacity-90",
   danger: "bg-danger text-surface border-2 border-border",
   success: "bg-success text-surface border-2 border-border",
+  gradient:
+    "bg-gradient-to-r from-accent-from to-accent-to text-white border-0 border-transparent shadow-card rounded-card",
 } as const;
 
 const sizeStyles = {

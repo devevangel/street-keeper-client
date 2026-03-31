@@ -8,14 +8,21 @@
 @theme {
   --color-bg: var(--color-bg);
   --color-surface: var(--color-surface);
+  --color-card-bg: var(--color-card-bg);
   --color-border: var(--color-border);
   --color-text: var(--color-text);
   --color-text-muted: var(--color-text-muted);
   --color-accent: var(--color-accent);
+  --color-accent-from: var(--color-accent-from);
+  --color-accent-to: var(--color-accent-to);
   --color-danger: var(--color-danger);
   --color-success: var(--color-success);
   --color-warning: var(--color-warning);
   --color-focus: var(--color-focus);
+  --radius-card: var(--border-radius-card);
+  --radius-pill: var(--border-radius-pill);
+  --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
 }
 
 /* Global base styles */
@@ -261,11 +268,20 @@ textarea:focus-visible {
   }
 }
 
-.card-interactive:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+.card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
 }
 
-.card-interactive {
+.card-hover {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Horizontal scroll strips (e.g. run suggestions) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

@@ -4,7 +4,7 @@
  * heatmap, viewport handler, highlight fit, legend, loading overlay, click handler, marker.
  */
 
-import { useState, useMemo, useEffect, useRef, type CSSProperties } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, type CSSProperties } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -94,6 +94,8 @@ export interface UnifiedMapProps {
   streets?: (MapStreet | ProjectMapStreet)[];
   /** GPS activity traces (thin polylines, rendered below streets) */
   gpsTraces?: GpsTrace[];
+  /** Emphasize one trace; dim others */
+  highlightTraceActivityId?: string | null;
   highlightOsmIds?: string[];
 
   boundary?: ProjectMapBoundary | null;
@@ -122,6 +124,13 @@ export interface UnifiedMapProps {
   helperText?: string;
 
   showDrawnCircle?: boolean;
+
+  /** Translucent circle overlay for cluster / area suggestions. */
+  areaOverlay?: { center: { lat: number; lng: number }; radiusM: number } | null;
+
+  /** Controlled legend filter (optional). When both set, homepage stats row can drive map filters. */
+  visibleStreetBins?: Set<FilterStatus>;
+  onVisibleStreetBinsChange?: (bins: Set<FilterStatus>) => void;
 }
 
 const DEFAULT_ZOOM = MAP_ZOOM.DEFAULT;
@@ -150,6 +159,7 @@ function MapContent(props: UnifiedMapProps) {
     showUserLocationMarker,
     streets = [],
     gpsTraces = [],
+    highlightTraceActivityId = null,
     highlightOsmIds = [],
     boundary,
     showBoundaryOutline,
@@ -167,17 +177,46 @@ function MapContent(props: UnifiedMapProps) {
     showLegend,
     showLegendGuide,
     showDrawnCircle,
+    areaOverlay,
+    visibleStreetBins: controlledBins,
+    onVisibleStreetBinsChange,
   } = props;
+
+  const [internalBins, setInternalBins] = useState<Set<FilterStatus>>(
+    () => new Set(AVAILABLE_BINS),
+  );
+  const isBinControlled =
+    controlledBins != null && onVisibleStreetBinsChange != null;
+  const visibleBins = isBinControlled ? controlledBins : internalBins;
+
+  const onLegendToggle = useCallback(
+    (bin: FilterStatus) => {
+      const next = new Set(visibleBins);
+      if (next.has(bin)) next.delete(bin);
+      else next.add(bin);
+      if (isBinControlled) {
+        onVisibleStreetBinsChange!(next);
+      } else {
+        setInternalBins(next);
+      }
+    },
+    [visibleBins, isBinControlled, onVisibleStreetBinsChange],
+  );
+
+  const onLegendShowAll = useCallback(() => {
+    const all = new Set(AVAILABLE_BINS);
+    if (isBinControlled) {
+      onVisibleStreetBinsChange!(all);
+    } else {
+      setInternalBins(all);
+    }
+  }, [isBinControlled, onVisibleStreetBinsChange]);
 
   // Safe center with validation
   const safeCenter = {
     lat: Number.isFinite(center?.lat) ? center.lat : 50.8,
     lng: Number.isFinite(center?.lng) ? center.lng : -1.09,
   };
-
-  const [visibleBins, setVisibleBins] = useState<Set<FilterStatus>>(
-    () => new Set(AVAILABLE_BINS)
-  );
 
   // Create set of highlighted osmIds for quick lookup (normalized for consistent comparison)
   const highlightSet = useMemo(
@@ -220,7 +259,10 @@ function MapContent(props: UnifiedMapProps) {
         <LocationMarker position={userLocation} />
       )}
       {gpsTraces && gpsTraces.length > 0 && (
-        <GpsTraceLayer traces={gpsTraces} />
+        <GpsTraceLayer
+          traces={gpsTraces}
+          highlightActivityId={highlightTraceActivityId}
+        />
       )}
       {filteredStreets.length > 0 && (
         <UnifiedStreetLayer
@@ -263,6 +305,19 @@ function MapContent(props: UnifiedMapProps) {
           }}
         />
       )}
+      {areaOverlay && (
+        <Circle
+          center={[areaOverlay.center.lat, areaOverlay.center.lng]}
+          radius={areaOverlay.radiusM}
+          pathOptions={{
+            color: "#10b981",
+            weight: 2,
+            fillColor: "#10b981",
+            fillOpacity: 0.1,
+            interactive: false,
+          }}
+        />
+      )}
       {drawingEnabled && onShapeChange && (
         <DrawingToolbar
           activeShape={activeShape ?? null}
@@ -293,16 +348,9 @@ function MapContent(props: UnifiedMapProps) {
       {showLegend && (
         <MapLegendFilterBins
           visibleBins={visibleBins}
-          onToggle={(bin) => {
-            setVisibleBins((prev) => {
-              const next = new Set(prev);
-              if (next.has(bin)) next.delete(bin);
-              else next.add(bin);
-              return next;
-            });
-          }}
+          onToggle={onLegendToggle}
           counts={binCounts}
-          onShowAll={() => setVisibleBins(new Set(AVAILABLE_BINS))}
+          onShowAll={onLegendShowAll}
         />
       )}
       {showLegendGuide && <MapLegendGuide />}

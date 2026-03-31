@@ -1,6 +1,6 @@
 /**
  * Card Component
- * Container for content. Uses surface background and border token.
+ * Container for content. Uses card background, radius, and soft shadow tokens.
  */
 
 import type { HTMLAttributes, ReactNode } from "react";
@@ -27,7 +27,7 @@ export function Card({
   return (
     <div
       className={[
-        "bg-surface border border-border",
+        "bg-card-bg rounded-card shadow-card",
         paddingStyles[padding],
         className,
       ].join(" ")}
