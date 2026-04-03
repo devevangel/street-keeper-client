@@ -6,7 +6,8 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button, Card, ConfirmModal, ProgressBar, Skeleton } from "../components/common";
-import { UnifiedMap } from "../components/map";
+import { UnifiedMap, type MapViewHighlightFocus } from "../components/map";
+import { ProjectStreetList } from "../components/projects/ProjectStreetList";
 import { useGpsTraces } from "../hooks";
 import { MAP_ZOOM } from "../components/map/mapConstants";
 import { projectsService } from "../services/projects.service";
@@ -29,10 +30,12 @@ function ProjectSidePanel({
   project,
   mapData,
   loading,
+  onStreetClick,
 }: {
   project: ProjectDetail | null;
   mapData: ProjectMapData | null;
   loading: boolean;
+  onStreetClick?: (osmIds: string[], name: string) => void;
 }) {
   if (loading && !project) {
     return (
@@ -141,6 +144,22 @@ function ProjectSidePanel({
                 {project.realNextMilestone.progress.currentValue} / {project.realNextMilestone.progress.targetValue} {project.realNextMilestone.progress.unit}
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Street list */}
+        {project.streets.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Streets
+            </h3>
+            <ProjectStreetList
+              streets={project.streets}
+              totalStreets={project.totalStreets}
+              totalLengthMeters={project.totalLengthMeters}
+              overallProgressPercent={stats.completionPercentage}
+              onStreetClick={onStreetClick}
+            />
           </div>
         )}
       </div>
@@ -281,10 +300,59 @@ export function ProjectDetailPage() {
   const handleArchiveClick = () => setArchiveConfirmOpen(true);
   const handleDeleteClick = () => setDeleteConfirmOpen(true);
 
+  const [highlightOsmIds, setHighlightOsmIds] = useState<string[]>([]);
+  const [streetHighlightFocus, setStreetHighlightFocus] =
+    useState<MapViewHighlightFocus | null>(null);
+
   const boundaryBbox = useMemo(
     () => (mapData ? computeBoundaryBbox(mapData.boundary) : null),
     [mapData],
   );
+
+  const streetBboxLookup = useMemo(() => {
+    if (!mapData) return new Map<string, [number, number, number, number]>();
+    const lookup = new Map<string, [number, number, number, number]>();
+    for (const s of mapData.streets) {
+      const coords = s.geometry.coordinates;
+      if (coords.length === 0) continue;
+      let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+      for (const [lng, lat] of coords) {
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
+      }
+      lookup.set(s.osmId, [minLat, minLng, maxLat, maxLng]);
+    }
+    return lookup;
+  }, [mapData]);
+
+  const handleStreetClick = useCallback(
+    (osmIds: string[], _name: string) => {
+      let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+      let found = false;
+      for (const id of osmIds) {
+        const bbox = streetBboxLookup.get(id);
+        if (bbox) {
+          found = true;
+          if (bbox[0] < minLat) minLat = bbox[0];
+          if (bbox[1] < minLng) minLng = bbox[1];
+          if (bbox[2] > maxLat) maxLat = bbox[2];
+          if (bbox[3] > maxLng) maxLng = bbox[3];
+        }
+      }
+      setHighlightOsmIds(osmIds);
+      if (found) {
+        setStreetHighlightFocus({ bbox: [minLat, minLng, maxLat, maxLng] });
+      }
+    },
+    [streetBboxLookup],
+  );
+
+  const resetStreetHighlight = useCallback(() => {
+    setHighlightOsmIds([]);
+    setStreetHighlightFocus(null);
+  }, []);
 
   if (!id) {
     return (
@@ -335,7 +403,11 @@ export function ProjectDetailPage() {
   if (!project || !mapData) return null;
 
   const center = projectMapCenter(mapData);
-  const highlightFocus = boundaryBbox !== null ? { bbox: boundaryBbox } : null;
+  const effectiveHighlightFocus =
+    streetHighlightFocus ?? (boundaryBbox !== null ? { bbox: boundaryBbox } : null);
+  const effectiveHighlightOsmIds =
+    highlightOsmIds.length > 0 ? highlightOsmIds : EMPTY_HIGHLIGHT_OSM_IDS;
+  const isStreetHighlighted = highlightOsmIds.length > 0;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -407,7 +479,7 @@ export function ProjectDetailPage() {
       />
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <div className="h-[45vh] w-full shrink-0 md:h-full md:min-h-0 md:flex-1 md:shrink">
+        <div className="relative h-[45vh] w-full shrink-0 md:h-full md:min-h-0 md:flex-1 md:shrink">
           <UnifiedMap
             center={center}
             zoom={MAP_ZOOM.PROJECT_DETAIL}
@@ -415,13 +487,27 @@ export function ProjectDetailPage() {
             gpsTraces={gpsTraces}
             boundary={mapData.boundary}
             showBoundaryOutline
-            highlightFocus={highlightFocus}
-            highlightOsmIds={EMPTY_HIGHLIGHT_OSM_IDS}
+            highlightFocus={effectiveHighlightFocus}
+            highlightOsmIds={effectiveHighlightOsmIds}
             showLegend
             className="h-full w-full"
           />
+          {isStreetHighlighted && (
+            <button
+              type="button"
+              className="absolute left-3 top-3 z-[1000] rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-text shadow-md hover:opacity-90"
+              onClick={resetStreetHighlight}
+            >
+              Back to overview
+            </button>
+          )}
         </div>
-        <ProjectSidePanel project={project} mapData={mapData} loading={loading} />
+        <ProjectSidePanel
+          project={project}
+          mapData={mapData}
+          loading={loading}
+          onStreetClick={handleStreetClick}
+        />
       </div>
     </div>
   );

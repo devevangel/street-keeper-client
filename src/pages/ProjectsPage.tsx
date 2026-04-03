@@ -5,7 +5,14 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Button, Card, ConfirmModal, SkeletonProjectCard } from "../components/common";
+import {
+  Button,
+  Card,
+  ChipGroup,
+  ConfirmModal,
+  PageHeader,
+  SkeletonProjectCard,
+} from "../components/common";
 import { ProjectCard } from "../components/projects";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
@@ -109,40 +116,27 @@ export function ProjectsPage() {
 
   return (
     <div className="p-4 pb-8">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-text">Projects</h1>
-        <Link to="/projects/new" className="shrink-0">
-          <Button variant="primary" size="md">
-            Create new project
-          </Button>
-        </Link>
-      </div>
+      <PageHeader
+        title="Projects"
+        actions={(
+          <Link to="/projects/new" className="shrink-0">
+            <Button variant="primary" size="md">
+              Create new project
+            </Button>
+          </Link>
+        )}
+      />
 
       {/* Filter tabs — counts fill in when data loads */}
-      <div className="mb-4 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setFilterMode("active")}
-          className={`rounded-lg border-2 px-3 py-1.5 text-sm font-medium transition-colors ${
-            filterMode === "active"
-              ? "border-primary bg-primary/10 text-primary"
-              : "border-border bg-surface text-text-muted hover:border-border-hover"
-          }`}
-        >
-          Active ({listLoading ? "…" : activeCount})
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilterMode("archived")}
-          className={`rounded-lg border-2 px-3 py-1.5 text-sm font-medium transition-colors ${
-            filterMode === "archived"
-              ? "border-primary bg-primary/10 text-primary"
-              : "border-border bg-surface text-text-muted hover:border-border-hover"
-          }`}
-        >
-          Archived ({listLoading ? "…" : archivedCount})
-        </button>
-      </div>
+      <ChipGroup
+        className="mb-4"
+        value={filterMode}
+        onChange={(value) => setFilterMode(value as FilterMode)}
+        items={[
+          { value: "active", label: `Active (${listLoading ? "…" : activeCount})` },
+          { value: "archived", label: `Archived (${listLoading ? "…" : archivedCount})` },
+        ]}
+      />
 
       {listLoading ? (
         <ul className="grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">

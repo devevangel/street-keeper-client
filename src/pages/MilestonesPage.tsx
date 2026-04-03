@@ -11,7 +11,15 @@ import {
   deleteMilestone,
 } from "../services/milestones.service";
 import { projectsService } from "../services/projects.service";
-import { Button, ConfirmModal, Input, Select, SkeletonMilestoneCard } from "../components/common";
+import {
+  Button,
+  ChipGroup,
+  ConfirmModal,
+  Input,
+  PageHeader,
+  Select,
+  SkeletonMilestoneCard,
+} from "../components/common";
 import { CreateMilestoneModal } from "../components/projects/CreateMilestoneModal";
 import { ROUTES } from "../config/constants";
 import type { MilestoneWithProgress } from "../types/api.types";
@@ -171,8 +179,8 @@ export function MilestonesPage() {
   if (loading && milestones.length === 0) {
     return (
       <div className="mx-auto max-w-2xl p-4 pb-8">
-        <h1 className="text-2xl font-bold text-text mb-2">Milestones</h1>
-        <p className="text-text-muted text-sm mb-4">
+        <PageHeader title="Milestones" />
+        <p className="mb-4 text-sm text-text-muted">
           Track and complete goals. Filter to find easy wins or ones you're close to finishing.
         </p>
         <div className="space-y-3">
@@ -186,8 +194,15 @@ export function MilestonesPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-4 pb-8">
-      <h1 className="text-2xl font-bold text-text mb-2">Milestones</h1>
-      <p className="text-text-muted text-sm mb-4">
+      <PageHeader
+        title="Milestones"
+        actions={
+          <Button type="button" variant="secondary" size="md" onClick={() => setCreateModalOpen(true)}>
+            Add global milestone
+          </Button>
+        }
+      />
+      <p className="mb-4 text-sm text-text-muted">
         Track and complete goals. Filter to find easy wins or ones you’re close to finishing.
       </p>
 
@@ -200,17 +215,15 @@ export function MilestonesPage() {
           className="min-w-[180px] flex-1"
           aria-label="Search milestones by name"
         />
-        <Select
+        <ChipGroup
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          options={[
+          onChange={(value) => setStatusFilter(value as StatusFilter)}
+          items={[
             { value: "all", label: "All" },
             { value: "almost_there", label: "Almost there (≥70%)" },
             { value: "in_progress", label: "In progress" },
             { value: "not_started", label: "Not started" },
           ]}
-          aria-label="Filter by progress"
-          className="min-w-[180px]"
         />
         <Select
           value={scopeFilter}
@@ -253,19 +266,6 @@ export function MilestonesPage() {
               onDelete={handleDeleteRequest}
             />
           ))}
-        </div>
-      )}
-
-      {milestones.length > 0 && (
-        <div className="mt-4">
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={() => setCreateModalOpen(true)}
-          >
-            Add global milestone
-          </Button>
         </div>
       )}
 

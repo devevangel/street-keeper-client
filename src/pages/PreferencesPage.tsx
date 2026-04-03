@@ -4,8 +4,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { Button, Card, Select, ProgressLoader } from "../components/common";
+import { Button, Card, Select, ProgressLoader, PageHeader } from "../components/common";
 import { usePreferences } from "../contexts/PreferencesContext";
 import { useToast } from "../contexts/ToastContext";
 import { ROUTES, DEFAULT_PROJECT_RADIUS_METERS } from "../config/constants";
@@ -71,18 +70,24 @@ export function PreferencesPage() {
 
   return (
     <div className="p-4 pb-8 md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto md:pb-4">
-      <nav className="mb-2 flex items-center gap-2 text-sm text-text-muted" aria-label="Breadcrumb">
-        <Link to={ROUTES.HOME} className="hover:underline">Home</Link>
-        <span aria-hidden>›</span>
-        <span className="text-text" aria-current="page">Preferences</span>
-      </nav>
-
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-text">Preferences</h1>
-        <Button variant="primary" size="md" onClick={handleSave} disabled={saving || !updatePreferencesFn} className="shrink-0">
-          {saving ? "Saving…" : "Save preferences"}
-        </Button>
-      </div>
+      <PageHeader
+        title="Preferences"
+        breadcrumbs={[
+          { label: "Home", to: ROUTES.HOME },
+          { label: "Preferences" },
+        ]}
+        actions={
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleSave}
+            disabled={saving || !updatePreferencesFn}
+            className="shrink-0"
+          >
+            {saving ? "Saving…" : "Save preferences"}
+          </Button>
+        }
+      />
 
       <div className="grid gap-4 lg:grid-cols-2 lg:max-w-4xl">
           {/* Display preferences */}

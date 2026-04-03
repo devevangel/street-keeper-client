@@ -12,10 +12,30 @@ export type StreetStatus = "completed" | "partial" | "not_started";
 
 /** Legend entries matching filter pill colors for polylines */
 const PILL_LEGEND_ENTRIES = [
-  { key: "completed", label: "Completed", color: MAP_COLORS.COMPLETED, dashed: false },
-  { key: "almostThere", label: "Almost there", color: MAP_COLORS.ALMOST_THERE, dashed: true },
-  { key: "inProgress", label: "In progress", color: MAP_COLORS.IN_PROGRESS, dashed: true },
-  { key: "notStarted", label: "Not started", color: MAP_COLORS.NOT_RUN, dashed: true },
+  {
+    key: "completed",
+    label: "Completed",
+    color: MAP_COLORS.COMPLETED,
+    dashed: false,
+  },
+  {
+    key: "almostThere",
+    label: "Almost there",
+    color: MAP_COLORS.ALMOST_THERE,
+    dashed: true,
+  },
+  {
+    key: "inProgress",
+    label: "In progress",
+    color: MAP_COLORS.IN_PROGRESS,
+    dashed: true,
+  },
+  {
+    key: "notStarted",
+    label: "Not started",
+    color: MAP_COLORS.NOT_RUN,
+    dashed: true,
+  },
 ] as const;
 
 const STATUS_CONFIG: Record<
@@ -85,15 +105,31 @@ interface MapLegendFilterBinsProps {
   onShowAll?: () => void;
 }
 
-const BIN_CONFIG: Record<FilterStatus, { label: string; color: string; dashed: boolean }> = {
+const BIN_CONFIG: Record<
+  FilterStatus,
+  { label: string; color: string; dashed: boolean }
+> = {
   all: { label: "All", color: MAP_COLORS.COMPLETED, dashed: false },
   completed: { label: "Completed", color: MAP_COLORS.COMPLETED, dashed: false },
-  almostThere: { label: "Almost there", color: MAP_COLORS.ALMOST_THERE, dashed: true },
-  inProgress: { label: "In progress", color: MAP_COLORS.IN_PROGRESS, dashed: true },
+  almostThere: {
+    label: "Almost there",
+    color: MAP_COLORS.ALMOST_THERE,
+    dashed: true,
+  },
+  inProgress: {
+    label: "In progress",
+    color: MAP_COLORS.IN_PROGRESS,
+    dashed: true,
+  },
   notStarted: { label: "Not started", color: MAP_COLORS.NOT_RUN, dashed: true },
 };
 
-const AVAILABLE_BINS: FilterStatus[] = ["completed", "almostThere", "inProgress", "notStarted"];
+const AVAILABLE_BINS: FilterStatus[] = [
+  "completed",
+  "almostThere",
+  "inProgress",
+  "notStarted",
+];
 
 export function MapLegendFilterBins({
   visibleBins,
@@ -128,7 +164,10 @@ export function MapLegendFilterBins({
               <span
                 key={bin}
                 className="inline-block h-2 w-2 rounded-full"
-                style={{ backgroundColor: cfg.color, opacity: visible ? 1 : 0.3 }}
+                style={{
+                  backgroundColor: cfg.color,
+                  opacity: visible ? 1 : 0.3,
+                }}
               />
             );
           })}
@@ -173,7 +212,8 @@ export function MapLegendFilterBins({
                 }
               />
               <span className={`text-text ${!isVisible ? "line-through" : ""}`}>
-                {config.label}{countText}
+                {config.label}
+                {countText}
               </span>
             </button>
           );
@@ -219,7 +259,9 @@ export function MapLegendFilter({
   counts,
   onShowAll,
 }: MapLegendFilterProps) {
-  const allVisible = availableStatuses.every((status) => visibleStatuses.has(status));
+  const allVisible = availableStatuses.every((status) =>
+    visibleStatuses.has(status),
+  );
   const hasHiddenStatuses = !allVisible;
 
   return (
@@ -259,10 +301,9 @@ export function MapLegendFilter({
                   : { backgroundColor: config.color }
               }
             />
-            <span
-              className={`text-text ${!isVisible ? "line-through" : ""}`}
-            >
-              {config.label}{countText}
+            <span className={`text-text ${!isVisible ? "line-through" : ""}`}>
+              {config.label}
+              {countText}
             </span>
           </button>
         );

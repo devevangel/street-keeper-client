@@ -1,12 +1,14 @@
 /**
  * LastRunCard
- * Last activity: time ago, distance, new streets — compact inline stats.
+ * Compact summary for the most recent run with optional map focus action.
  */
 
+import { Button, Card, SectionHeading } from "../common";
 import type { HomepagePayload } from "../../services/homepage.service";
 
 interface LastRunCardProps {
-  data: HomepagePayload;
+  homepage: HomepagePayload;
+  onShowOnMap: (activityId: string, bbox: [number, number, number, number]) => void;
 }
 
 function formatDaysAgo(daysAgo: number): string {
@@ -18,28 +20,48 @@ function formatDaysAgo(daysAgo: number): string {
   return `${weeks}w ago`;
 }
 
-export function LastRunCard({ data }: LastRunCardProps) {
-  const lastRun = data.lastRun;
-  if (!lastRun) return null;
+export function LastRunCard({ homepage, onShowOnMap }: LastRunCardProps) {
+  if (!homepage.lastRun) return null;
 
   return (
-    <div className="rounded-lg border-2 border-border bg-surface p-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-        Last run
-      </h3>
-      <div className="mt-2 flex items-baseline gap-3">
-        <span className="text-lg font-bold text-text">
-          {lastRun.distanceKm.toFixed(1)} km
-        </span>
-        <span className="text-sm text-text-muted">
-          {formatDaysAgo(lastRun.daysAgo)}
-        </span>
-      </div>
-      {lastRun.newStreets > 0 && (
-        <p className="mt-1 text-sm font-medium text-success">
-          +{lastRun.newStreets} new street{lastRun.newStreets !== 1 ? "s" : ""}
-        </p>
-      )}
-    </div>
+    <Card padding="none" className="w-full p-3">
+      <SectionHeading>Last run</SectionHeading>
+      <p className="text-xl font-bold leading-tight text-text">
+        {formatDaysAgo(homepage.lastRun.daysAgo)} · {homepage.lastRun.distanceKm} km
+        {homepage.lastRun.newStreets > 0 ? ` · +${homepage.lastRun.newStreets} streets` : ""}
+      </p>
+      {homepage.lastRun.activityId && homepage.lastRun.bbox ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="mt-2 text-xs"
+          onClick={() => onShowOnMap(homepage.lastRun!.activityId!, homepage.lastRun!.bbox!)}
+        >
+          Show on map
+        </Button>
+      ) : null}
+      {homepage.lastRun.completedStreetNames?.length ||
+      homepage.lastRun.improvedStreetNames?.length ? (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {homepage.lastRun.completedStreetNames?.map((name) => (
+            <span
+              key={`c-${name}`}
+              className="inline-block rounded border border-border bg-surface px-1.5 py-0.5 text-xs text-text"
+            >
+              {name}
+            </span>
+          ))}
+          {homepage.lastRun.improvedStreetNames?.map((name) => (
+            <span
+              key={`i-${name}`}
+              className="inline-block rounded border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted"
+            >
+              {name}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </Card>
   );
 }

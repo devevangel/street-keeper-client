@@ -13,6 +13,7 @@
   --color-text: var(--color-text);
   --color-text-muted: var(--color-text-muted);
   --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
   --color-accent-from: var(--color-accent-from);
   --color-accent-to: var(--color-accent-to);
   --color-danger: var(--color-danger);
@@ -20,9 +21,11 @@
   --color-warning: var(--color-warning);
   --color-focus: var(--color-focus);
   --radius-card: var(--border-radius-card);
+  --radius-button: var(--radius-button);
   --radius-pill: var(--border-radius-pill);
   --shadow-card: var(--shadow-card);
   --shadow-card-hover: var(--shadow-card-hover);
+  --shadow-lg: var(--shadow-lg);
 }
 
 /* Global base styles */

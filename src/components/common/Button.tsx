@@ -15,22 +15,23 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "ghost" | "danger" | "success" | "gradient";
   size?: "sm" | "md" | "lg";
   children: ReactNode;
+  icon?: ReactNode;
 }
 
 const variantStyles = {
-  primary: "bg-accent text-surface border border-border",
-  secondary: "bg-bg text-text border-2 border-border hover:bg-border/10 hover:opacity-90",
-  ghost: "bg-transparent text-text border-0 border-transparent hover:bg-border/10 hover:opacity-90",
-  danger: "bg-danger text-surface border-2 border-border",
-  success: "bg-success text-surface border-2 border-border",
+  primary: "bg-accent text-white border border-transparent hover:bg-accent-hover",
+  secondary: "bg-card-bg text-text border border-border hover:bg-border/35",
+  ghost: "bg-transparent text-text-muted border border-transparent hover:bg-card-bg hover:text-text",
+  danger: "bg-danger text-white border border-transparent hover:brightness-95",
+  success: "bg-success text-white border border-transparent hover:brightness-95",
   gradient:
-    "bg-gradient-to-r from-accent-from to-accent-to text-white border-0 border-transparent shadow-card rounded-card",
+    "bg-gradient-to-r from-accent-from to-accent-to text-white border border-transparent shadow-card hover:brightness-95",
 } as const;
 
 const sizeStyles = {
-  sm: "min-h-[44px] px-3 py-2 text-sm",
-  md: "min-h-[44px] px-4 py-2 text-base",
-  lg: "min-h-[48px] px-6 py-3 text-lg",
+  sm: "h-8 px-3 text-xs",
+  md: "h-10 px-4 text-sm",
+  lg: "h-12 px-6 text-base",
 } as const;
 
 export function Button({
@@ -39,6 +40,7 @@ export function Button({
   className = "",
   disabled,
   children,
+  icon,
   type = "button",
   ...props
 }: ButtonProps) {
@@ -47,13 +49,14 @@ export function Button({
       type={type}
       disabled={disabled}
       className={[
-        "inline-flex cursor-pointer items-center justify-center rounded-lg font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed",
+        "inline-flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-button)] font-semibold transition-colors duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
         variantStyles[variant],
         sizeStyles[size],
         className,
       ].join(" ")}
       {...props}
     >
+      {icon ? <span className="inline-flex items-center">{icon}</span> : null}
       {children}
     </button>
   );

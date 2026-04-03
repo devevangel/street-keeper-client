@@ -18,11 +18,14 @@ interface ProjectStreetListProps {
   totalLengthMeters?: number;
   /** Overall project progress 0–100. If provided, shown in summary. */
   overallProgressPercent?: number;
+  /** Called when a street row is clicked. Receives the grouped osmIds and display name. */
+  onStreetClick?: (osmIds: string[], name: string) => void;
 }
 
 /** One row after grouping by name: combined length, weighted % and status. */
 interface GroupedStreet {
   name: string;
+  osmIds: string[];
   totalLengthMeters: number;
   percentage: number;
   completed: boolean;
@@ -51,6 +54,7 @@ function groupStreetsByName(streets: SnapshotStreet[]): GroupedStreet[] {
     const completed = ways.every((w) => w.completed);
     result.push({
       name: data.displayName,
+      osmIds: ways.map((w) => w.osmId),
       totalLengthMeters,
       percentage: Math.round(weightedPct),
       completed,
@@ -78,6 +82,7 @@ export function ProjectStreetList({
   totalStreets,
   totalLengthMeters,
   overallProgressPercent,
+  onStreetClick,
 }: ProjectStreetListProps) {
   const [search, setSearch] = useState("");
   const preferences = usePreferences();
@@ -122,7 +127,26 @@ export function ProjectStreetList({
           {filtered.map((row) => (
             <li
               key={row.name}
-              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 even:bg-border/5"
+              className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 even:bg-border/5${
+                onStreetClick ? " cursor-pointer hover:bg-border/10" : ""
+              }`}
+              role={onStreetClick ? "button" : undefined}
+              tabIndex={onStreetClick ? 0 : undefined}
+              onClick={
+                onStreetClick
+                  ? () => onStreetClick(row.osmIds, row.name)
+                  : undefined
+              }
+              onKeyDown={
+                onStreetClick
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onStreetClick(row.osmIds, row.name);
+                      }
+                    }
+                  : undefined
+              }
             >
               <span className="font-medium text-text">
                 {row.name}

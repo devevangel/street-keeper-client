@@ -1,7 +1,7 @@
 /**
  * HomePage
  * Unified homepage layout: map + placeholder side panel; sync banner when syncing.
- * Handles geolocation, map street fetching, and delegates to ReturningUserHomepage.
+ * Handles geolocation, map street fetching, and delegates to HomepageDashboard.
  * Shows shell immediately; location issues use inline banner. EmptyState when street fetch fails.
  *
  * @example
@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EmptyState } from "../components/common";
-import { ReturningUserHomepage } from "../components/homepage";
+import { HomepageDashboard } from "../components/homepage";
 import { useAnalytics } from "../contexts/AnalyticsContext";
 import { useGeolocation, useHomepageData, useMapStreets, useGpsTraces, useSyncStatus } from "../hooks";
 import type { MapStreet, MapStreetsResponse } from "../types/api.types";
@@ -267,7 +267,7 @@ export function HomePage() {
 
   return (
     <div className="flex h-full flex-col">
-      <ReturningUserHomepage
+      <HomepageDashboard
         userLocation={position}
         mapCenter={mapCenter}
         streets={accumulatedSegments}

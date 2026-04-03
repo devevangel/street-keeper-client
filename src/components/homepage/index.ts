@@ -1,5 +1,9 @@
 export { SuggestionCard } from "./SuggestionCard";
 export { NextRunCard } from "./NextRunCard";
-export { LastRunCard } from "./LastRunCard";
 export { ProjectCardWithStreets } from "./ProjectCardWithStreets";
-export { ReturningUserHomepage } from "./ReturningUserHomepage";
+export { HomepageMetrics } from "./HomepageMetrics";
+export { HomepageSkeleton } from "./HomepageSkeleton";
+export { RecentRuns } from "./RecentRuns";
+export { RunSuggestions } from "./RunSuggestions";
+export { HomepageDashboard } from "./HomepageDashboard";
+export { ProjectStatsCard } from "./ProjectStatsCard";

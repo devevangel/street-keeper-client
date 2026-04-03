@@ -4,7 +4,14 @@
  * heatmap, viewport handler, highlight fit, legend, loading overlay, click handler, marker.
  */
 
-import { useState, useMemo, useEffect, useRef, useCallback, type CSSProperties } from "react";
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useCallback,
+  type CSSProperties,
+} from "react";
 import {
   MapContainer,
   TileLayer,
@@ -36,7 +43,13 @@ function StreetPane() {
 }
 
 /** Syncs map view when center/zoom props change (including first valid values) */
-function MapViewSync({ center, zoom }: { center: { lat: number; lng: number }; zoom: number }) {
+function MapViewSync({
+  center,
+  zoom,
+}: {
+  center: { lat: number; lng: number };
+  zoom: number;
+}) {
   const map = useMap();
   const lastCenter = useRef<{ lat: number; lng: number } | null>(null);
   const lastZoom = useRef<number | null>(null);
@@ -72,10 +85,19 @@ import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
 import { normalizeOsmId } from "../../utils/map-utils";
 import { MapLoadingOverlay } from "./MapLoadingOverlay";
 import { MAP_ZOOM } from "./mapConstants";
-import { getMapTheme, getMapTileUrl, getMapAttribution } from "../../config/map-themes";
+import {
+  getMapTheme,
+  getMapTileUrl,
+  getMapAttribution,
+} from "../../config/map-themes";
 import { usePreferences } from "../../contexts/PreferencesContext";
 import type { ShapeData } from "./DrawingToolbar";
-import type { ProjectMapBoundary, MapStreet, ProjectMapStreet, GpsTrace } from "../../types/api.types";
+import type {
+  ProjectMapBoundary,
+  MapStreet,
+  ProjectMapStreet,
+  GpsTrace,
+} from "../../types/api.types";
 
 export interface MapViewHighlightFocus {
   bbox?: [number, number, number, number];
@@ -126,7 +148,10 @@ export interface UnifiedMapProps {
   showDrawnCircle?: boolean;
 
   /** Translucent circle overlay for cluster / area suggestions. */
-  areaOverlay?: { center: { lat: number; lng: number }; radiusM: number } | null;
+  areaOverlay?: {
+    center: { lat: number; lng: number };
+    radiusM: number;
+  } | null;
 
   /** Controlled legend filter (optional). When both set, homepage stats row can drive map filters. */
   visibleStreetBins?: Set<FilterStatus>;
@@ -149,7 +174,12 @@ const markerIcon = L.divIcon({
   iconAnchor: [12, 12],
 });
 
-const AVAILABLE_BINS: FilterStatus[] = ["completed", "almostThere", "inProgress", "notStarted"];
+const AVAILABLE_BINS: FilterStatus[] = [
+  "completed",
+  "almostThere",
+  "inProgress",
+  "notStarted",
+];
 
 function MapContent(props: UnifiedMapProps) {
   const {
@@ -221,7 +251,7 @@ function MapContent(props: UnifiedMapProps) {
   // Create set of highlighted osmIds for quick lookup (normalized for consistent comparison)
   const highlightSet = useMemo(
     () => new Set(highlightOsmIds.map(normalizeOsmId)),
-    [highlightOsmIds]
+    [highlightOsmIds],
   );
 
   // Compute bin counts from streets
@@ -284,7 +314,9 @@ function MapContent(props: UnifiedMapProps) {
       )}
       {showBoundaryOutline && boundary && boundary.type === "polygon" && (
         <Polygon
-          positions={boundary.coordinates.map(([lng, lat]: [number, number]) => [lat, lng] as LatLngTuple)}
+          positions={boundary.coordinates.map(
+            ([lng, lat]: [number, number]) => [lat, lng] as LatLngTuple,
+          )}
           pathOptions={{
             color: "#7c3aed",
             weight: 2,
@@ -328,16 +360,13 @@ function MapContent(props: UnifiedMapProps) {
       {heatmapPoints.length > 0 && (
         <HeatmapLayer points={heatmapPoints} bounds={heatmapBounds} />
       )}
-      {onViewportChange && <MapViewportHandler onViewportChange={onViewportChange} />}
+      {onViewportChange && (
+        <MapViewportHandler onViewportChange={onViewportChange} />
+      )}
       {highlightFocus?.bbox && (
         <FitBoundsToHighlight bbox={highlightFocus.bbox} />
       )}
-      {onClick && (
-        <MapClickHandler
-          enabled={true}
-          onMapClick={onClick}
-        />
-      )}
+      {onClick && <MapClickHandler enabled={true} onMapClick={onClick} />}
       {markerPosition && (
         <Marker
           position={[markerPosition.lat, markerPosition.lng]}
@@ -399,9 +428,7 @@ export function UnifiedMap(props: UnifiedMapProps) {
         />
         <MapContent {...props} />
       </MapContainer>
-      {isLoading && (
-        <MapLoadingOverlay message={loadingMessage} />
-      )}
+      {isLoading && <MapLoadingOverlay message={loadingMessage} />}
       {helperText && (
         <div
           className="absolute bottom-4 left-1/2 z-[1000] -translate-x-1/2 rounded border border-border bg-bg/95 px-3 py-2 text-xs text-text shadow"
