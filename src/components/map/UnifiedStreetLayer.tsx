@@ -129,23 +129,8 @@ function UnifiedStreetPolyline({
   const statusLabel = BIN_LABELS[bin];
 
   if (highlight) {
-    // Multi-layer highlight approach to maximize label visibility:
-    // 1. Very subtle glow background (provides soft highlight)
-    // 2. White outline/halo (creates contrast, makes labels pop)
-    // 3. Ultra-thin dashed colored line (minimal coverage, gaps show labels)
     return (
       <>
-        {/* Layer 1: Very subtle glow background */}
-        <Polyline
-          positions={fullPositions}
-          pathOptions={{
-            ...PATH_OPTIONS_BASE,
-            color: MAP_COLORS.HIGHLIGHT,
-            weight: HIGHLIGHT_STYLE.GLOW_WEIGHT,
-            opacity: HIGHLIGHT_STYLE.GLOW_OPACITY * fade,
-          }}
-        />
-        {/* Layer 2: White outline/halo - creates contrast and makes labels readable */}
         <Polyline
           positions={fullPositions}
           pathOptions={{
@@ -153,10 +138,8 @@ function UnifiedStreetPolyline({
             color: HIGHLIGHT_STYLE.OUTLINE_COLOR,
             weight: HIGHLIGHT_STYLE.OUTLINE_WEIGHT,
             opacity: HIGHLIGHT_STYLE.OUTLINE_OPACITY * fade,
-            dashArray: HIGHLIGHT_STYLE.DASH_PATTERN,
           }}
         />
-        {/* Layer 3: Ultra-thin colored dashed line - minimal coverage, gaps show labels */}
         <Polyline
           positions={fullPositions}
           pathOptions={{
@@ -164,7 +147,6 @@ function UnifiedStreetPolyline({
             color: MAP_COLORS.HIGHLIGHT,
             weight: MAP_WEIGHTS.HIGHLIGHT,
             opacity: MAP_OPACITY.HIGHLIGHT * fade,
-            dashArray: HIGHLIGHT_STYLE.DASH_PATTERN, // Longer gaps = more label visibility
           }}
         >
           <Popup>
@@ -191,7 +173,7 @@ function UnifiedStreetPolyline({
           ...PATH_OPTIONS_BASE,
           color: MAP_COLORS.NOT_RUN,
           weight: MAP_WEIGHTS.DEFAULT,
-          opacity: MAP_OPACITY.NOT_RUN * fade,
+            opacity: MAP_OPACITY.NOT_RUN * fade,
           dashArray: MAP_DASH.NOT_RUN,
         }}
       >
@@ -317,7 +299,6 @@ export function UnifiedStreetLayer({
   highlightOsmIds = [],
 }: UnifiedStreetLayerProps) {
   if (!streets.length) return null;
-  // Normalize all osmIds for consistent comparison (handles "way/123" vs "123" format differences)
   const highlightSet = new Set(highlightOsmIds.map(normalizeOsmId));
   const normalized = streets.map(toUnified);
 

@@ -92,6 +92,13 @@ export interface HomepagePayload {
   };
 }
 
+export interface SuggestionStreet {
+  osmId: string;
+  name: string;
+  percentage: number;
+  geometry: { type: "LineString"; coordinates: [number, number][] };
+}
+
 export interface HomepageSuggestion {
   type: string;
   title: string;
@@ -110,6 +117,7 @@ export interface HomepageSuggestion {
     streetIds?: number[];
     startPoint?: { lat: number; lng: number };
   };
+  streets?: SuggestionStreet[];
 }
 
 interface HomepageResponse {

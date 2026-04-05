@@ -76,24 +76,44 @@ export function getMapTheme(themeId: string | undefined | null): MapTheme {
   return MAP_THEMES.find((t) => t.id === themeId) ?? MAP_THEMES[0];
 }
 
-/** Build the Mapbox raster tile URL for a given theme. When no token, uses free tiles with excellent label visibility. */
-export function getMapTileUrl(theme: MapTheme): string {
+/**
+ * Build tile URLs for base + optional labels-only overlay.
+ *
+ * - No Mapbox token: Carto "nolabels" base plus Carto labels-only in
+ *   labelsPane so names sit above our polylines (no duplicate text).
+ * - Mapbox: full style tiles only (they already include labels). Do not stack
+ *   Carto labels on top — that duplicated every street name.
+ */
+export function getMapTileUrls(theme: MapTheme): {
+  base: string;
+  labels: string;
+  isMapbox: boolean;
+} {
   const token = import.meta.env.VITE_MAPBOX_TOKEN;
+
+  const labelsUrl =
+    theme.id === "dark" || theme.id === "satellite"
+      ? "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png"
+      : "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png";
+
   if (!token) {
-    if (theme.id === "dark") {
-      // CartoDB Dark Matter - has light labels on dark background
-      return "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-    }
-    // CartoDB Positron - white background with dark labels, excellent readability
-    // Much better label visibility than standard OSM tiles
-    return "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+    const baseUrl =
+      theme.id === "dark"
+        ? "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
+        : "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png";
+    return { base: baseUrl, labels: labelsUrl, isMapbox: false };
   }
-  // Mapbox tiles with @2x for better label rendering
-  // Use satellite-streets for best label visibility if available
-  if (theme.id === "satellite") {
-    return `https://api.mapbox.com/styles/v1/${theme.styleId}/tiles/512/{z}/{x}/{y}@2x?access_token=${token}`;
-  }
-  return `https://api.mapbox.com/styles/v1/${theme.styleId}/tiles/512/{z}/{x}/{y}@2x?access_token=${token}`;
+
+  return {
+    base: `https://api.mapbox.com/styles/v1/${theme.styleId}/tiles/512/{z}/{x}/{y}@2x?access_token=${token}`,
+    labels: labelsUrl,
+    isMapbox: true,
+  };
+}
+
+/** @deprecated Use getMapTileUrls instead */
+export function getMapTileUrl(theme: MapTheme): string {
+  return getMapTileUrls(theme).base;
 }
 
 /** Attribution string (Mapbox/Carto/OSM as appropriate) */

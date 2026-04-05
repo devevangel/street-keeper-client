@@ -23,6 +23,12 @@ import {
   matchStreetIdsToOsmIds,
   isValidBbox,
 } from "../../utils/homepage-map-focus";
+import {
+  bboxToPolygonRing,
+  bufferHull,
+  convexHull,
+} from "../../utils/convex-hull";
+import { normalizeOsmId } from "../../utils/map-utils";
 import { HomepageMetrics } from "./HomepageMetrics";
 import { HomepageSkeleton } from "./HomepageSkeleton";
 import { RecentRuns } from "./RecentRuns";
@@ -37,11 +43,17 @@ const ALL_BINS: FilterStatus[] = [
   "notStarted",
 ];
 
-const BIN_CONFIG: { key: FilterStatus; dotClass: string; label: string }[] = [
-  { key: "completed", dotClass: "bg-success", label: "done" },
-  { key: "almostThere", dotClass: "bg-amber-500", label: "almost" },
-  { key: "inProgress", dotClass: "bg-cyan-500", label: "in progress" },
-  { key: "notStarted", dotClass: "bg-neutral-400 dark:bg-neutral-500", label: "to go" },
+const BIN_CONFIG: {
+  key: FilterStatus;
+  color: string;
+  activeBg: string;
+  label: string;
+  description: string;
+}[] = [
+  { key: "completed", color: "bg-success", activeBg: "bg-success/15 ring-success/40 text-success", label: "Done", description: "100%" },
+  { key: "almostThere", color: "bg-amber-500", activeBg: "bg-amber-500/15 ring-amber-500/40 text-amber-600 dark:text-amber-400", label: "Almost done", description: "50%+" },
+  { key: "inProgress", color: "bg-cyan-500", activeBg: "bg-cyan-500/15 ring-cyan-500/40 text-cyan-600 dark:text-cyan-400", label: "Just started", description: "1–49%" },
+  { key: "notStarted", color: "bg-neutral-400 dark:bg-neutral-500", activeBg: "bg-neutral-400/15 ring-neutral-400/40 text-text-muted", label: "To go", description: "Not run yet" },
 ];
 
 type RunScrollItem = ScrollItem;
@@ -97,6 +109,7 @@ export function HomepageDashboard({
   const [visibleBins, setVisibleBins] = useState<Set<FilterStatus>>(
     () => new Set(ALL_BINS),
   );
+  const [showTraces, setShowTraces] = useState(false);
   const [highlightFocus, setHighlightFocus] =
     useState<MapViewHighlightFocus | null>(null);
   const [highlightOsmIds, setHighlightOsmIds] = useState<string[]>([]);
@@ -104,11 +117,20 @@ export function HomepageDashboard({
     string | null
   >(null);
   const [areaOverlay, setAreaOverlay] = useState<{
-    center: { lat: number; lng: number };
-    radiusM: number;
+    polygon: [number, number][];
   } | null>(null);
+  const [suggestionFocusActive, setSuggestionFocusActive] = useState(false);
+  const savedBinsRef = useRef<Set<FilterStatus> | null>(null);
+  const [overlayStreets, setOverlayStreets] = useState<MapStreet[]>([]);
 
   const mapRef = useRef<HTMLDivElement>(null);
+
+  const mergedStreets = useMemo(() => {
+    if (overlayStreets.length === 0) return streets;
+    const existingIds = new Set(streets.map((s) => s.osmId));
+    const extras = overlayStreets.filter((s) => !existingIds.has(s.osmId));
+    return extras.length > 0 ? [...streets, ...extras] : streets;
+  }, [streets, overlayStreets]);
 
   const suppressViewport = useCallback(
     (ms: number) => {
@@ -127,39 +149,110 @@ export function HomepageDashboard({
     setHighlightOsmIds([]);
     setHighlightTraceActivityId(null);
     setAreaOverlay(null);
-  }, []);
+    setOverlayStreets([]);
+    if (suggestionFocusActive && savedBinsRef.current) {
+      setVisibleBins(savedBinsRef.current);
+      savedBinsRef.current = null;
+    }
+    setSuggestionFocusActive(false);
+  }, [suggestionFocusActive]);
 
   const focusClusterArea = useCallback(
     (s: HomepageSuggestion) => {
       suppressViewport(1700);
       setHighlightTraceActivityId(null);
-      const bbox = s.focus.bbox;
-      setHighlightFocus(isValidBbox(bbox) ? { bbox } : null);
-      const ids = matchStreetIdsToOsmIds(s.focus.streetIds, streets);
-      setHighlightOsmIds(ids);
-      if (isValidBbox(bbox)) {
-        const centerLat = (bbox[0] + bbox[2]) / 2;
-        const centerLng = (bbox[1] + bbox[3]) / 2;
-        const latSpan = Math.abs(bbox[2] - bbox[0]);
-        const lngSpan = Math.abs(bbox[3] - bbox[1]);
-        const avgLatRad = (centerLat * Math.PI) / 180;
-        const latM = latSpan * 111_320;
-        const lngM = lngSpan * 111_320 * Math.cos(avgLatRad);
-        const radiusM = Math.max(latM, lngM) / 2 + 50;
-        setAreaOverlay({ center: { lat: centerLat, lng: centerLng }, radiusM });
+
+      savedBinsRef.current = new Set(visibleBins);
+      setVisibleBins(new Set());
+      setSuggestionFocusActive(true);
+
+      const backendStreets = s.streets ?? [];
+
+      if (backendStreets.length > 0) {
+        const osmIds = backendStreets.map((st) => normalizeOsmId(st.osmId));
+        setHighlightOsmIds(osmIds);
+
+        const mapStreetOverlays: MapStreet[] = backendStreets.map((st) => ({
+          osmId: st.osmId,
+          name: st.name,
+          highwayType: "residential",
+          lengthMeters: 0,
+          percentage: st.percentage,
+          status: st.percentage >= 100 ? ("completed" as const) : ("partial" as const),
+          geometry: st.geometry,
+          stats: {
+            runCount: 0,
+            completionCount: 0,
+            firstRunDate: null,
+            lastRunDate: null,
+            totalLengthMeters: 0,
+            currentPercentage: st.percentage,
+            everCompleted: st.percentage >= 100,
+            weightedCompletionRatio: st.percentage / 100,
+            segmentCount: 1,
+            connectorCount: 0,
+          },
+        }));
+        setOverlayStreets(mapStreetOverlays);
+
+        const rawPoints: [number, number][] = [];
+        for (const st of backendStreets) {
+          for (const c of st.geometry.coordinates) {
+            if (c.length >= 2 && Number.isFinite(c[0]) && Number.isFinite(c[1])) {
+              rawPoints.push([c[1], c[0]]);
+            }
+          }
+        }
+
+        let ring: [number, number][] = [];
+        if (rawPoints.length >= 3) {
+          const hull = convexHull(rawPoints);
+          const buffered = hull.length >= 3 ? bufferHull(hull, 30) : [];
+          ring = buffered.length >= 3 ? buffered : isValidBbox(s.focus.bbox) ? bboxToPolygonRing(s.focus.bbox) : [];
+        } else if (isValidBbox(s.focus.bbox)) {
+          ring = bboxToPolygonRing(s.focus.bbox);
+        }
+        setAreaOverlay(ring.length >= 3 ? { polygon: ring } : null);
+
+        if (rawPoints.length > 0) {
+          const lats = rawPoints.map(([lat]) => lat);
+          const lngs = rawPoints.map(([, lng]) => lng);
+          setHighlightFocus({
+            bbox: [Math.min(...lats), Math.min(...lngs), Math.max(...lats), Math.max(...lngs)],
+          });
+        } else if (isValidBbox(s.focus.bbox)) {
+          setHighlightFocus({ bbox: s.focus.bbox });
+        }
+      } else {
+        const ids = matchStreetIdsToOsmIds(s.focus.streetIds, streets);
+        setHighlightOsmIds(ids);
+        setOverlayStreets([]);
+        setAreaOverlay(null);
+        if (isValidBbox(s.focus.bbox)) {
+          setHighlightFocus({ bbox: s.focus.bbox });
+        } else {
+          setHighlightFocus(null);
+        }
       }
     },
-    [streets, suppressViewport],
+    [streets, visibleBins, suppressViewport],
   );
 
   const focusRecentRun = useCallback(
     (activityId: string, bbox: [number, number, number, number]) => {
       suppressViewport(1700);
       setHighlightOsmIds([]);
+      setOverlayStreets([]);
       setHighlightTraceActivityId(activityId);
       setHighlightFocus(isValidBbox(bbox) ? { bbox } : null);
+      setAreaOverlay(null);
+      if (suggestionFocusActive && savedBinsRef.current) {
+        setVisibleBins(savedBinsRef.current);
+        savedBinsRef.current = null;
+      }
+      setSuggestionFocusActive(false);
     },
-    [suppressViewport],
+    [suppressViewport, suggestionFocusActive],
   );
 
   const toggleBin = useCallback((bin: FilterStatus) => {
@@ -230,49 +323,87 @@ export function HomepageDashboard({
 
   const allBinsActive = visibleBins.size === ALL_BINS.length;
 
+  const noneActive = visibleBins.size === 0;
+
   const mapFilterSection = streets.length > 0 ? (
     <Card padding="none" className="w-full p-3">
-      <SectionHeading>Map filter</SectionHeading>
-      <div className="flex flex-wrap gap-2">
-        {BIN_CONFIG.map(({ key, dotClass, label }) => {
+      <div className="flex items-center justify-between">
+        <SectionHeading>Streets on map</SectionHeading>
+        <button
+          type="button"
+          className="text-[11px] font-medium text-text-muted underline decoration-border underline-offset-2 hover:text-text"
+          onClick={() =>
+            allBinsActive
+              ? setVisibleBins(new Set())
+              : setVisibleBins(new Set(ALL_BINS))
+          }
+        >
+          {allBinsActive ? "Hide all" : "Show all"}
+        </button>
+      </div>
+      <p className="mb-2.5 text-[11px] text-text-muted">
+        Toggle which streets appear on the map
+      </p>
+      <div className="grid grid-cols-2 gap-1.5">
+        {BIN_CONFIG.map(({ key, color, activeBg, label, description }) => {
           const active = visibleBins.has(key);
+          const count = binCounts[key];
           return (
             <button
               key={key}
               type="button"
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-sm transition-all hover:opacity-90 ${
+              className={`group flex items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-all ${
                 active
-                  ? "bg-card-bg ring-1 ring-border"
-                  : "bg-card-bg opacity-40"
+                  ? `${activeBg} ring-1 ring-inset`
+                  : "bg-bg text-text-muted/60 hover:bg-bg/80"
               }`}
               onClick={() => toggleBin(key)}
             >
-              <span
-                className={`size-2 shrink-0 rounded-full ${dotClass}`}
-                aria-hidden
-              />
-              {binCounts[key]} {label}
+              <span className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${active ? `${color} border-transparent` : "border-neutral-300 dark:border-neutral-600"}`}>
+                {active && (
+                  <svg viewBox="0 0 16 16" className="size-3 text-white">
+                    <path d="M3 8l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold leading-tight">
+                  {count} <span className="font-semibold">street{count !== 1 ? "s" : ""}</span>
+                </span>
+                <span className={`block text-[11px] leading-tight ${active ? "" : "text-text-muted/50"}`}>
+                  {label} · {description}
+                </span>
+              </span>
             </button>
           );
         })}
         <button
           type="button"
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-sm transition-all hover:opacity-90 ${
-            allBinsActive
-              ? "bg-card-bg ring-1 ring-border"
-              : "bg-card-bg opacity-40"
+          className={`col-span-2 flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all ${
+            showTraces
+              ? "bg-violet-500/15 ring-1 ring-inset ring-violet-500/40 text-violet-600 dark:text-violet-400"
+              : "bg-bg text-text-muted/60 hover:bg-bg/80"
           }`}
-          onClick={() => setVisibleBins(new Set(ALL_BINS))}
+          onClick={() => setShowTraces((v) => !v)}
         >
-          All
+          <span className={`flex size-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${showTraces ? "border-transparent bg-violet-500" : "border-neutral-300 dark:border-neutral-600"}`}>
+            {showTraces && (
+              <svg viewBox="0 0 16 16" className="size-3 text-white">
+                <path d="M3 8l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold leading-tight">Run traces</span>
+            <span className={`block text-[11px] leading-tight ${showTraces ? "" : "text-text-muted/50"}`}>
+              Strava GPS lines
+            </span>
+          </span>
         </button>
       </div>
-      {homepage?.totalActivities != null && (
-        <p className="mt-2 text-xs text-text-muted">
-          {homepage.totalActivities} runs logged
-          {homepage.totalDistanceKm != null
-            ? ` · ${homepage.totalDistanceKm} km total`
-            : ""}
+      {noneActive && !showTraces && (
+        <p className="mt-2 text-center text-[11px] text-text-muted/70">
+          All map layers hidden
         </p>
       )}
     </Card>
@@ -287,8 +418,8 @@ export function HomepageDashboard({
             zoom={mapZoom}
             userLocation={userLocation}
             showUserLocationMarker
-            streets={streets}
-            gpsTraces={gpsTraces}
+            streets={mergedStreets}
+            gpsTraces={showTraces ? gpsTraces : []}
             highlightFocus={highlightFocus}
             highlightOsmIds={highlightOsmIds}
             highlightTraceActivityId={highlightTraceActivityId}
@@ -301,10 +432,22 @@ export function HomepageDashboard({
             className="h-full w-full"
             isLoading={false}
           />
-          {(highlightFocus?.bbox ||
-            highlightOsmIds.length > 0 ||
-            highlightTraceActivityId ||
-            areaOverlay) && (
+          {suggestionFocusActive && (
+            <button
+              type="button"
+              className="absolute left-3 top-3 z-[1000] flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-xs font-semibold text-text shadow-lg hover:bg-card-bg"
+              onClick={resetMapFocus}
+            >
+              <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 8H4M4 8l3-3M4 8l3 3" />
+              </svg>
+              Exit suggested run view
+            </button>
+          )}
+          {!suggestionFocusActive &&
+            (highlightFocus?.bbox ||
+              highlightOsmIds.length > 0 ||
+              highlightTraceActivityId) && (
             <button
               type="button"
               className="absolute left-3 top-3 z-[1000] rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-text shadow-md hover:opacity-90"

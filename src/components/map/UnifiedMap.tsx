@@ -31,31 +31,46 @@ const MAP_CONTAINER_STYLE: CSSProperties = {
 };
 
 /** Creates the "streetPane" with z-index below default overlayPane so labels show above streets */
-function StreetPane() {
+function EnsureCustomPanes() {
   const map = useMap();
   useEffect(() => {
     if (!map.getPane("streetPane")) {
       const pane = map.createPane("streetPane");
       pane.style.zIndex = "350";
     }
+    if (!map.getPane("labelsPane")) {
+      const pane = map.createPane("labelsPane");
+      pane.style.zIndex = "450";
+      pane.style.pointerEvents = "none";
+    }
   }, [map]);
   return null;
 }
 
-/** Syncs map view when center/zoom props change (including first valid values) */
+/**
+ * Syncs map view when center/zoom props change (initial load + geolocation updates).
+ * Suppressed when highlightFocus is active so FitBoundsToHighlight controls the view.
+ */
 function MapViewSync({
   center,
   zoom,
+  suppressSync,
 }: {
   center: { lat: number; lng: number };
   zoom: number;
+  suppressSync?: boolean;
 }) {
   const map = useMap();
   const lastCenter = useRef<{ lat: number; lng: number } | null>(null);
   const lastZoom = useRef<number | null>(null);
 
   useEffect(() => {
-    // Only fly if center or zoom actually changed
+    if (suppressSync) {
+      lastCenter.current = null;
+      lastZoom.current = null;
+      return;
+    }
+
     const centerChanged =
       !lastCenter.current ||
       Math.abs(lastCenter.current.lat - center.lat) > 0.0001 ||
@@ -67,7 +82,7 @@ function MapViewSync({
       lastCenter.current = center;
       lastZoom.current = zoom;
     }
-  }, [map, center.lat, center.lng, zoom]);
+  }, [map, center.lat, center.lng, zoom, suppressSync]);
 
   return null;
 }
@@ -87,7 +102,7 @@ import { MapLoadingOverlay } from "./MapLoadingOverlay";
 import { MAP_ZOOM } from "./mapConstants";
 import {
   getMapTheme,
-  getMapTileUrl,
+  getMapTileUrls,
   getMapAttribution,
 } from "../../config/map-themes";
 import { usePreferences } from "../../contexts/PreferencesContext";
@@ -147,10 +162,9 @@ export interface UnifiedMapProps {
 
   showDrawnCircle?: boolean;
 
-  /** Translucent circle overlay for cluster / area suggestions. */
+  /** Translucent polygon overlay (convex hull of suggested streets) for cluster suggestions. */
   areaOverlay?: {
-    center: { lat: number; lng: number };
-    radiusM: number;
+    polygon: [number, number][];
   } | null;
 
   /** Controlled legend filter (optional). When both set, homepage stats row can drive map filters. */
@@ -283,8 +297,7 @@ function MapContent(props: UnifiedMapProps) {
   return (
     <>
       <MapInvalidateSize />
-      <StreetPane />
-      <MapViewSync center={safeCenter} zoom={zoom} />
+      <MapViewSync center={safeCenter} zoom={zoom} suppressSync={!!highlightFocus} />
       {showUserLocationMarker && userLocation && (
         <LocationMarker position={userLocation} />
       )}
@@ -337,16 +350,19 @@ function MapContent(props: UnifiedMapProps) {
           }}
         />
       )}
-      {areaOverlay && (
-        <Circle
-          center={[areaOverlay.center.lat, areaOverlay.center.lng]}
-          radius={areaOverlay.radiusM}
+      {areaOverlay && areaOverlay.polygon.length >= 3 && (
+        <Polygon
+          positions={areaOverlay.polygon.map(
+            ([lat, lng]) => [lat, lng] as LatLngTuple,
+          )}
           pathOptions={{
-            color: "#10b981",
+            color: "#ec4899",
             weight: 2,
-            fillColor: "#10b981",
-            fillOpacity: 0.1,
+            opacity: 0.4,
+            fillColor: "#ec4899",
+            fillOpacity: 0.06,
             interactive: false,
+            dashArray: "6, 4",
           }}
         />
       )}
@@ -399,9 +415,8 @@ export function UnifiedMap(props: UnifiedMapProps) {
 
   const prefsCtx = usePreferences();
   const mapTheme = getMapTheme(prefsCtx?.preferences?.mapStyle);
-  const tileUrl = getMapTileUrl(mapTheme);
+  const { base: baseTileUrl, labels: labelsTileUrl, isMapbox } = getMapTileUrls(mapTheme);
   const attribution = getMapAttribution(mapTheme);
-  const isMapbox = tileUrl.includes("mapbox.com");
 
   const safeCenter = {
     lat: Number.isFinite(center?.lat) ? center.lat : 50.8,
@@ -419,14 +434,23 @@ export function UnifiedMap(props: UnifiedMapProps) {
         scrollWheelZoom
         style={MAP_CONTAINER_STYLE}
       >
+        <EnsureCustomPanes />
         <TileLayer
           attribution={attribution}
-          url={tileUrl}
+          url={baseTileUrl}
           maxNativeZoom={19}
           maxZoom={MAP_ZOOM.MAX}
           {...(isMapbox ? { tileSize: 512, zoomOffset: -1 } : {})}
         />
         <MapContent {...props} />
+        {!isMapbox && (
+          <TileLayer
+            url={labelsTileUrl}
+            maxNativeZoom={19}
+            maxZoom={MAP_ZOOM.MAX}
+            pane="labelsPane"
+          />
+        )}
       </MapContainer>
       {isLoading && <MapLoadingOverlay message={loadingMessage} />}
       {helperText && (

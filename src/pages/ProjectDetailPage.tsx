@@ -31,11 +31,15 @@ function ProjectSidePanel({
   mapData,
   loading,
   onStreetClick,
+  showTraces,
+  onToggleTraces,
 }: {
   project: ProjectDetail | null;
   mapData: ProjectMapData | null;
   loading: boolean;
   onStreetClick?: (osmIds: string[], name: string) => void;
+  showTraces: boolean;
+  onToggleTraces: () => void;
 }) {
   if (loading && !project) {
     return (
@@ -74,6 +78,31 @@ function ProjectSidePanel({
             <span>{stats.notRunStreets} not started</span>
           </div>
         </div>
+
+        {/* Strava traces toggle */}
+        <button
+          type="button"
+          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all ${
+            showTraces
+              ? "bg-violet-500/15 ring-1 ring-inset ring-violet-500/40 text-violet-600 dark:text-violet-400"
+              : "bg-bg text-text-muted/60 hover:bg-bg/80"
+          }`}
+          onClick={onToggleTraces}
+        >
+          <span className={`flex size-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${showTraces ? "border-transparent bg-violet-500" : "border-neutral-300 dark:border-neutral-600"}`}>
+            {showTraces && (
+              <svg viewBox="0 0 16 16" className="size-3 text-white">
+                <path d="M3 8l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold leading-tight">Run traces</span>
+            <span className={`block text-[11px] leading-tight ${showTraces ? "" : "text-text-muted/50"}`}>
+              Show Strava GPS lines on map
+            </span>
+          </span>
+        </button>
 
         {/* Run stats */}
         {pStats && (
@@ -209,6 +238,7 @@ export function ProjectDetailPage() {
   const toast = useToast();
 
   const { traces: gpsTraces } = useGpsTraces({ projectId: id ?? null });
+  const [showTraces, setShowTraces] = useState(false);
 
   const fetchData = useCallback(async (signal?: AbortSignal) => {
     if (!id) return;
@@ -380,7 +410,7 @@ export function ProjectDetailPage() {
               className="h-full w-full"
             />
           </div>
-          <ProjectSidePanel project={null} mapData={null} loading />
+          <ProjectSidePanel project={null} mapData={null} loading showTraces={false} onToggleTraces={() => {}} />
         </div>
       </div>
     );
@@ -484,7 +514,7 @@ export function ProjectDetailPage() {
             center={center}
             zoom={MAP_ZOOM.PROJECT_DETAIL}
             streets={mapData.streets}
-            gpsTraces={gpsTraces}
+            gpsTraces={showTraces ? gpsTraces : []}
             boundary={mapData.boundary}
             showBoundaryOutline
             highlightFocus={effectiveHighlightFocus}
@@ -507,6 +537,8 @@ export function ProjectDetailPage() {
           mapData={mapData}
           loading={loading}
           onStreetClick={handleStreetClick}
+          showTraces={showTraces}
+          onToggleTraces={() => setShowTraces((v) => !v)}
         />
       </div>
     </div>

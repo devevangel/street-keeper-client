@@ -2,6 +2,11 @@
 @import "./styles/tokens.css";
 @import "./styles/confetti.css";
 @import "leaflet/dist/leaflet.css";
+
+/* Smooth opacity when suggestion focus dims non-highlighted streets */
+.leaflet-pane path {
+  transition: opacity 250ms ease;
+}
 @import "highlight.js/styles/github.css";
 
 /* Tailwind v4: Map CSS variables to theme utilities */
