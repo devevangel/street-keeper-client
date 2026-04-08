@@ -12,7 +12,7 @@ import {
 } from "../map";
 import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
 import { usePreferences } from "../../contexts/PreferencesContext";
-import { useSyncStatus } from "../../hooks/useSyncStatus";
+import type { UseSyncStatusResult } from "../../hooks/useSyncStatus";
 import { Card, SectionHeading } from "../common";
 import type {
   HomepagePayload,
@@ -71,6 +71,7 @@ export interface HomepageDashboardProps {
   onRetryLocation?: () => void;
   homepage: HomepagePayload | null;
   homepageLoading: boolean;
+  syncStatus: UseSyncStatusResult;
 }
 
 const MAX_SUGGESTIONS = 4;
@@ -103,9 +104,9 @@ export function HomepageDashboard({
   onRetryLocation,
   homepage,
   homepageLoading,
+  syncStatus,
 }: HomepageDashboardProps) {
   const preferences = usePreferences();
-  const syncStatus = useSyncStatus();
   const [visibleBins, setVisibleBins] = useState<Set<FilterStatus>>(
     () => new Set(ALL_BINS),
   );
@@ -121,6 +122,8 @@ export function HomepageDashboard({
   } | null>(null);
   const [suggestionFocusActive, setSuggestionFocusActive] = useState(false);
   const savedBinsRef = useRef<Set<FilterStatus> | null>(null);
+  const savedTracesRef = useRef<boolean | null>(null);
+  const [runFocusActive, setRunFocusActive] = useState(false);
   const [overlayStreets, setOverlayStreets] = useState<MapStreet[]>([]);
 
   const mapRef = useRef<HTMLDivElement>(null);
@@ -150,12 +153,17 @@ export function HomepageDashboard({
     setHighlightTraceActivityId(null);
     setAreaOverlay(null);
     setOverlayStreets([]);
-    if (suggestionFocusActive && savedBinsRef.current) {
+    if ((suggestionFocusActive || runFocusActive) && savedBinsRef.current) {
       setVisibleBins(savedBinsRef.current);
       savedBinsRef.current = null;
     }
+    if (runFocusActive && savedTracesRef.current !== null) {
+      setShowTraces(savedTracesRef.current);
+      savedTracesRef.current = null;
+    }
     setSuggestionFocusActive(false);
-  }, [suggestionFocusActive]);
+    setRunFocusActive(false);
+  }, [suggestionFocusActive, runFocusActive]);
 
   const focusClusterArea = useCallback(
     (s: HomepageSuggestion) => {
@@ -243,16 +251,37 @@ export function HomepageDashboard({
       suppressViewport(1700);
       setHighlightOsmIds([]);
       setOverlayStreets([]);
-      setHighlightTraceActivityId(activityId);
-      setHighlightFocus(isValidBbox(bbox) ? { bbox } : null);
       setAreaOverlay(null);
-      if (suggestionFocusActive && savedBinsRef.current) {
-        setVisibleBins(savedBinsRef.current);
-        savedBinsRef.current = null;
+
+      if (!runFocusActive) {
+        savedBinsRef.current = new Set(visibleBins);
+        savedTracesRef.current = showTraces;
       }
-      setSuggestionFocusActive(false);
+      setVisibleBins(new Set());
+      setShowTraces(true);
+      setRunFocusActive(true);
+
+      if (suggestionFocusActive) {
+        setSuggestionFocusActive(false);
+      }
+
+      setHighlightTraceActivityId(activityId);
+
+      if (isValidBbox(bbox)) {
+        const [minLat, minLng, maxLat, maxLng] = bbox;
+        const latSpan = maxLat - minLat;
+        const lngSpan = maxLng - minLng;
+        const PAD = 0.001;
+        const paddedBbox: [number, number, number, number] =
+          latSpan < 0.002 || lngSpan < 0.002
+            ? [minLat - PAD, minLng - PAD, maxLat + PAD, maxLng + PAD]
+            : bbox;
+        setHighlightFocus({ bbox: paddedBbox });
+      } else {
+        setHighlightFocus(null);
+      }
     },
-    [suppressViewport, suggestionFocusActive],
+    [suppressViewport, suggestionFocusActive, runFocusActive, visibleBins, showTraces],
   );
 
   const toggleBin = useCallback((bin: FilterStatus) => {
@@ -450,9 +479,12 @@ export function HomepageDashboard({
               highlightTraceActivityId) && (
             <button
               type="button"
-              className="absolute left-3 top-3 z-[1000] rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-text shadow-md hover:opacity-90"
+              className="absolute left-3 top-3 z-[1000] flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3.5 py-2 text-sm font-semibold text-text shadow-lg transition-colors hover:bg-card-bg"
               onClick={resetMapFocus}
             >
+              <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 8H4M4 8l3-3M4 8l3 3" />
+              </svg>
               Back to overview
             </button>
           )}

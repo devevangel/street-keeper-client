@@ -22,112 +22,76 @@ export function useHomepageData(params: UseHomepageDataParams) {
   const [data, setData] = useState<HomepagePayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [initialUserLat, setInitialUserLat] = useState<number | undefined>(params.userLat);
-  const [initialUserLng, setInitialUserLng] = useState<number | undefined>(params.userLng);
-  
-  // Track if initial user position has been set to prevent duplicate fetches
-  const initialUserPositionSetRef = useRef(false);
-  // Track params key to prevent duplicate fetches when params haven't actually changed
-  const paramsKeyRef = useRef<string>("");
 
-  // Only update initial user position once (for firstStreet calculation)
-  // Don't update on every geolocation change to avoid constant re-renders
-  useEffect(() => {
-    if (params.userLat != null && params.userLng != null && 
-        !initialUserPositionSetRef.current) {
-      initialUserPositionSetRef.current = true;
-      setInitialUserLat(params.userLat);
-      setInitialUserLng(params.userLng);
-    }
-  }, [params.userLat, params.userLng]);
+  // Capture initial user position once to avoid re-fetching on every geolocation update
+  const initialUserPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  if (
+    !initialUserPosRef.current &&
+    params.userLat != null &&
+    params.userLng != null
+  ) {
+    initialUserPosRef.current = { lat: params.userLat, lng: params.userLng };
+  }
 
-  // Memoize params to prevent unnecessary re-fetches
-  const memoizedParams = useMemo(
-    () => ({
-      lat: params.lat,
-      lng: params.lng,
-      radius: params.radius,
-      projectId: params.projectId,
-      userLat: initialUserLat,
-      userLng: initialUserLng,
-    }),
-    [params.lat, params.lng, params.radius, params.projectId, initialUserLat, initialUserLng]
+  const hasLocation = params.lat != null && params.lng != null;
+
+  // Stable params key — only changes when meaningful inputs change
+  const paramsKey = useMemo(
+    () =>
+      hasLocation
+        ? JSON.stringify({
+            lat: params.lat,
+            lng: params.lng,
+            radius: params.radius,
+            projectId: params.projectId,
+            userLat: initialUserPosRef.current?.lat,
+            userLng: initialUserPosRef.current?.lng,
+          })
+        : "",
+    [hasLocation, params.lat, params.lng, params.radius, params.projectId],
   );
 
-  // Create a stable key for params to detect actual changes
-  const currentParamsKey = useMemo(
-    () => JSON.stringify(memoizedParams),
-    [memoizedParams]
-  );
+  const prevKeyRef = useRef("");
 
-  const hasLocation = memoizedParams.lat != null && memoizedParams.lng != null;
-
-  const fetchData = useCallback(async (signal?: AbortSignal) => {
-    if (!hasLocation) {
-      if (import.meta.env.DEV) console.log(`[useHomepageData] Skipping fetch — no lat/lng yet`);
-      return;
-    }
-    if (import.meta.env.DEV) {
-      console.log(`[useHomepageData] fetchData called`, {
-        params: memoizedParams,
-        paramsKey: currentParamsKey,
-        previousParamsKey: paramsKeyRef.current,
-      });
-    }
-    setIsLoading(true);
-    setError(null);
-    try {
-      const payload = await getHomepageData(memoizedParams);
-      if (signal?.aborted) {
-        if (import.meta.env.DEV) console.log(`[useHomepageData] Request aborted`);
-        return;
-      }
-      if (import.meta.env.DEV) console.log(`[useHomepageData] Data received successfully`);
-      setData(payload);
-    } catch (e) {
-      if (signal?.aborted) {
-        if (import.meta.env.DEV) console.log(`[useHomepageData] Request aborted during error`);
-        return;
-      }
-      if (import.meta.env.DEV) console.error(`[useHomepageData] Error:`, e);
-      setError(e instanceof Error ? e : new Error("Failed to load homepage"));
-      setData(null);
-    } finally {
-      if (!signal?.aborted) setIsLoading(false);
-    }
-  }, [memoizedParams, currentParamsKey, hasLocation]);
-
-  useEffect(() => {
-    // Only fetch if params actually changed
-    if (paramsKeyRef.current === currentParamsKey) {
-      if (import.meta.env.DEV) {
-        console.log(`[useHomepageData] useEffect skipped - params unchanged`, {
-          currentParamsKey,
-          previousParamsKey: paramsKeyRef.current,
+  const fetchData = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!hasLocation) return;
+      setIsLoading(true);
+      setError(null);
+      try {
+        const payload = await getHomepageData({
+          lat: params.lat,
+          lng: params.lng,
+          radius: params.radius,
+          projectId: params.projectId,
+          userLat: initialUserPosRef.current?.lat,
+          userLng: initialUserPosRef.current?.lng,
         });
+        if (!signal?.aborted) setData(payload);
+      } catch (e) {
+        if (!signal?.aborted) {
+          setError(e instanceof Error ? e : new Error("Failed to load homepage"));
+          setData(null);
+        }
+      } finally {
+        if (!signal?.aborted) setIsLoading(false);
       }
-      return;
-    }
-    if (import.meta.env.DEV) {
-      console.log(`[useHomepageData] useEffect triggering fetch`, {
-        previousParamsKey: paramsKeyRef.current,
-        newParamsKey: currentParamsKey,
-        params: memoizedParams,
-      });
-    }
-    paramsKeyRef.current = currentParamsKey;
-    
+    },
+    [hasLocation, params.lat, params.lng, params.radius, params.projectId],
+  );
+
+  useEffect(() => {
+    if (!paramsKey || prevKeyRef.current === paramsKey) return;
+    prevKeyRef.current = paramsKey;
+
     const controller = new AbortController();
     fetchData(controller.signal);
-    return () => {
-      if (import.meta.env.DEV) console.log(`[useHomepageData] useEffect cleanup - aborting request`);
-      controller.abort();
-    };
-  }, [currentParamsKey, fetchData, memoizedParams]);
+    return () => controller.abort();
+  }, [paramsKey, fetchData]);
 
   const refetch = useCallback(() => {
     invalidateHomepageCache();
-    paramsKeyRef.current = ""; // Reset to force refetch
+    prevKeyRef.current = "";
     return fetchData();
   }, [fetchData]);
 

@@ -2,22 +2,18 @@
  * OnboardingModal
  * Immersive first-time user flow over a live animated map background.
  * Mobile-first bottom-anchored cards with step indicators and smooth transitions.
- * 3 steps: Welcome → Map Legend → Sync progress.
+ * 2 steps: Welcome → Map Legend. Strava sync runs in background workers.
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { Footprints, Palette, RefreshCw, ArrowRight, ArrowLeft, X } from "lucide-react";
-import { ProgressLoader } from "../common";
-import { useToast } from "../../contexts/ToastContext";
-import { ERROR_CODES } from "../../config/constants";
-import { ApiError } from "../../lib/api-client";
+import { Footprints, Palette, ArrowRight, ArrowLeft, X } from "lucide-react";
 import { StepIndicator } from "./StepIndicator";
 import { IconBadge } from "../landing/IconBadge";
 import { ANIMATION_DURATION } from "../landing/constants";
 
 interface OnboardingModalProps {
   isOpen: boolean;
-  onComplete: (syncedCount?: number) => void;
+  onComplete: () => void;
 }
 
 const STEPS = [
@@ -34,7 +30,7 @@ const STEPS = [
     title: "Reading your map",
     body: "Streets change colour as you run them:",
     hint: null,
-    cta: "Next",
+    cta: "Let's go",
     color: "from-blue-500 to-indigo-500",
     legend: [
       { color: "bg-green-500", label: "Completed", desc: "You've run this street" },
@@ -42,20 +38,10 @@ const STEPS = [
       { color: "bg-gray-500", label: "Unexplored", desc: "Still waiting for you" },
     ],
   },
-  {
-    icon: RefreshCw,
-    title: "Syncing your runs",
-    body: "We're importing your Strava activities now. You'll be taken to your homepage shortly — streets will appear as they're processed.",
-    hint: null,
-    cta: null,
-    color: "from-orange-500 to-amber-500",
-  },
 ];
 
 export function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps) {
-  const toast = useToast();
   const [step, setStep] = useState(0);
-  const [syncing, setSyncing] = useState(false);
   const [entering, setEntering] = useState(true);
 
   useEffect(() => {
@@ -65,62 +51,19 @@ export function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps) {
     }
   }, [isOpen]);
 
-  const stableComplete = useCallback(
-    (count?: number) => onComplete(count),
-    [onComplete],
-  );
+  const stableComplete = useCallback(() => onComplete(), [onComplete]);
 
+  // Fire-and-forget background sync when the modal opens
   useEffect(() => {
-    if (!isOpen || step !== 2 || syncing) return;
-    setSyncing(true);
-
-    let cancelled = false;
-    let raceTimeoutId: ReturnType<typeof setTimeout> | undefined;
-
-    // Start background sync (POST /activities/sync?background=true). Returns immediately with syncId/total.
-    // Move user to homepage after a short delay; sync continues in the background and SyncBanner shows progress.
-    void import("../../services/activities.service").then(({ activitiesService }) => {
-      if (cancelled) return;
-      const syncPromise = activitiesService.syncFromStrava({ background: true });
-
-      const timeout = new Promise<null>((resolve) => {
-        raceTimeoutId = setTimeout(() => resolve(null), 4000);
-      });
-
-      return Promise.race([syncPromise, timeout]);
-    })
-      .then(() => {
-        if (cancelled) return;
-        setSyncing(false);
-        stableComplete();
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if (
-          err instanceof ApiError &&
-          err.status === 429 &&
-          err.code === ERROR_CODES.SYNC_RATE_LIMITED
-        ) {
-          const next = err.body?.nextSyncAt
-            ? new Date(err.body.nextSyncAt).toLocaleString(undefined, {
-                dateStyle: "short",
-                timeStyle: "short",
-              })
-            : null;
-          const msg = next
-            ? `Strava can only be synced once per day. Next sync available at ${next}.`
-            : err.message;
-          toast?.showToast(msg, "warning");
-        }
-        setSyncing(false);
-        stableComplete();
-      });
-
-    return () => {
-      cancelled = true;
-      if (raceTimeoutId) clearTimeout(raceTimeoutId);
-    };
-  }, [isOpen, step, syncing, stableComplete, toast]);
+    if (!isOpen) return;
+    void import("../../services/activities.service").then(
+      ({ activitiesService }) => {
+        activitiesService
+          .syncFromStrava({ background: true })
+          .catch(() => {});
+      },
+    );
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -201,14 +144,6 @@ export function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps) {
             </div>
           )}
 
-          {/* Sync progress (step 3 only) */}
-          {step === 2 && (
-            <div className="my-4 flex flex-col items-center">
-              <ProgressLoader type="sync" size="md" title="Syncing" />
-              <p className="mt-3 text-xs text-white/40">This usually takes a few seconds</p>
-            </div>
-          )}
-
           {/* Hint */}
           {current.hint && (
             <p className="mb-4 rounded-lg bg-white/5 px-3 py-2 text-xs italic text-white/50">
@@ -227,7 +162,15 @@ export function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps) {
                 Previous
               </button>
             )}
-            {!isLast && (
+            {isLast ? (
+              <button
+                onClick={() => stableComplete()}
+                className="group flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-gray-900 transition-all hover:bg-green-400 hover:text-white"
+              >
+                {current.cta}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </button>
+            ) : (
               <button
                 onClick={() => setStep((s) => s + 1)}
                 className={`group flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-gray-900 transition-all hover:bg-green-400 hover:text-white ${

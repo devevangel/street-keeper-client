@@ -92,9 +92,9 @@ export function GpsTraceLayer({
       {polylines.map(({ id, positions }) => {
         const isHi = hasHighlight && id === highlightActivityId;
         const pathOptions: PathOptions = {
-          color: GPS_TRACE_STYLE.COLOR,
-          weight: isHi ? GPS_TRACE_STYLE.WEIGHT + 2 : GPS_TRACE_STYLE.WEIGHT,
-          opacity: hasHighlight ? (isHi ? 0.95 : 0.2) : GPS_TRACE_STYLE.OPACITY,
+          color: isHi ? "#7C3AED" : GPS_TRACE_STYLE.COLOR,
+          weight: isHi ? GPS_TRACE_STYLE.WEIGHT + 3 : GPS_TRACE_STYLE.WEIGHT,
+          opacity: hasHighlight ? (isHi ? 1 : 0.12) : GPS_TRACE_STYLE.OPACITY,
           lineCap: GPS_TRACE_STYLE.LINE_CAP,
           lineJoin: GPS_TRACE_STYLE.LINE_JOIN,
         };

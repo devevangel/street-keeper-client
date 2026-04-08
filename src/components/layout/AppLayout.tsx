@@ -10,8 +10,11 @@
  * </Route>
  */
 
+import { useState, useCallback } from "react";
 import { Link, Outlet } from "react-router-dom";
+import { RefreshCw } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { activitiesService } from "../../services/activities.service";
 import { Button } from "../common";
 import { TabNav } from "./TabNav";
 import { PendingCelebrationsChecker } from "../milestones/PendingCelebrationsChecker";
@@ -19,6 +22,19 @@ import { ROUTES } from "../../config/constants";
 
 export function AppLayout() {
   const { user, logout } = useAuth();
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = useCallback(async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      await activitiesService.syncFromStrava({ background: true });
+    } catch {
+      // swallow — SyncBanner / useSyncStatus on HomePage will surface errors
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing]);
 
   return (
     <div className="flex h-screen flex-col bg-bg text-text">
@@ -53,6 +69,16 @@ export function AppLayout() {
               {user?.name ?? "User"}
             </span>
           )}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleSync}
+            disabled={syncing}
+            title="Sync activities from Strava"
+          >
+            <RefreshCw className={`mr-1.5 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing…" : "Sync"}
+          </Button>
           <Button type="button" variant="secondary" onClick={logout}>
             Log out
           </Button>

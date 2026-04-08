@@ -279,6 +279,7 @@ export function HomePage() {
         onRetryLocation={requestPermission}
         homepage={homepage}
         homepageLoading={homepageLoading}
+        syncStatus={syncStatus}
       />
     </div>
   );

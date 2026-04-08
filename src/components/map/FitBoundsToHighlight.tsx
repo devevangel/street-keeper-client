@@ -11,8 +11,8 @@ export interface FitBoundsToHighlightProps {
   bbox: [number, number, number, number];
 }
 
-const FIT_PADDING: [number, number] = [40, 40];
-const FIT_MAX_ZOOM = 19;
+const FIT_PADDING: [number, number] = [50, 50];
+const FIT_MAX_ZOOM = 17;
 
 export function FitBoundsToHighlight({ bbox }: FitBoundsToHighlightProps) {
   const map = useMap();

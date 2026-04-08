@@ -1,4 +1,5 @@
-import { Button, Card, SectionHeading } from "../common";
+import { ChevronRight, Eye } from "lucide-react";
+import { Card, SectionHeading } from "../common";
 import type { HomepagePayload } from "../../services/homepage.service";
 
 function formatDaysAgo(daysAgo: number): string {
@@ -33,21 +34,39 @@ export function RecentRuns({ lastRun, runs, onSelect }: RecentRunsProps) {
 
   if (!lastRun && otherRuns.length === 0) return null;
 
+  const canClickLastRun = !!(lastRun?.activityId && lastRun?.bbox);
+
   return (
     <Card padding="none" className="w-full p-3">
       <SectionHeading>Your runs</SectionHeading>
 
       {lastRun && (
-        <div className="mb-1">
-          <div className="flex items-baseline justify-between gap-2">
+        <button
+          type="button"
+          disabled={!canClickLastRun}
+          className={`group mb-1 w-full rounded-lg text-left transition-colors ${
+            canClickLastRun
+              ? "cursor-pointer px-2 py-1.5 hover:bg-border/30 active:bg-border/50"
+              : ""
+          }`}
+          onClick={() => {
+            if (canClickLastRun) onSelect(lastRun.activityId!, lastRun.bbox!);
+          }}
+        >
+          <div className="flex items-center justify-between gap-2">
             <p className="text-lg font-bold leading-tight text-text">
               {formatDaysAgo(lastRun.daysAgo)} · {lastRun.distanceKm} km
             </p>
-            {lastRun.newStreets > 0 && (
-              <span className="shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success">
-                +{lastRun.newStreets} street{lastRun.newStreets !== 1 ? "s" : ""}
-              </span>
-            )}
+            <div className="flex items-center gap-1.5">
+              {lastRun.newStreets > 0 && (
+                <span className="shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success">
+                  +{lastRun.newStreets} street{lastRun.newStreets !== 1 ? "s" : ""}
+                </span>
+              )}
+              {canClickLastRun && (
+                <ChevronRight className="size-4 text-text-muted/50 transition-transform group-hover:translate-x-0.5 group-hover:text-text" />
+              )}
+            </div>
           </div>
           {(lastRun.completedStreetNames?.length ||
             lastRun.improvedStreetNames?.length) ? (
@@ -70,38 +89,37 @@ export function RecentRuns({ lastRun, runs, onSelect }: RecentRunsProps) {
               ))}
             </div>
           ) : null}
-          {lastRun.activityId && lastRun.bbox ? (
-            <button
-              type="button"
-              className="mt-1.5 text-xs font-medium text-text-muted underline decoration-border underline-offset-2 hover:text-text"
-              onClick={() => onSelect(lastRun.activityId!, lastRun.bbox!)}
-            >
+          {canClickLastRun && (
+            <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-text-muted opacity-70 transition-opacity group-hover:opacity-100">
+              <Eye className="size-3" />
               Show on map
-            </button>
-          ) : null}
-        </div>
+            </span>
+          )}
+        </button>
       )}
 
       {otherRuns.length > 0 && (
         <ul className={`divide-y divide-border/40 ${lastRun ? "mt-2 border-t border-border/40 pt-1" : ""}`}>
           {otherRuns.map((r) => (
             <li key={r.activityId}>
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                className="h-auto w-full justify-start px-0 py-1.5 text-left text-xs font-normal text-text"
+                className="group flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-border/30 active:bg-border/50"
                 onClick={() => onSelect(r.activityId, r.bbox)}
               >
-                <span className="font-medium text-text">{r.name}</span>
-                <span className="text-text-muted"> · </span>
-                <span className="text-text-muted">{r.distanceKm} km</span>
-                {formatRunRecency(r.date) && (
-                  <>
-                    <span className="text-text-muted"> · </span>
-                    <span className="text-text-muted">{formatRunRecency(r.date)}</span>
-                  </>
-                )}
-              </Button>
+                <div className="min-w-0 flex-1">
+                  <span className="text-sm font-medium text-text">{r.name}</span>
+                  <span className="ml-1.5 text-xs text-text-muted">
+                    {r.distanceKm} km
+                  </span>
+                  {formatRunRecency(r.date) && (
+                    <span className="ml-1.5 text-xs text-text-muted">
+                      {formatRunRecency(r.date)}
+                    </span>
+                  )}
+                </div>
+                <ChevronRight className="size-4 shrink-0 text-text-muted/40 transition-transform group-hover:translate-x-0.5 group-hover:text-text" />
+              </button>
             </li>
           ))}
         </ul>

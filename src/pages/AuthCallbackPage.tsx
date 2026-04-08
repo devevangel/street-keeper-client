@@ -10,7 +10,7 @@ import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { authService } from "../services/auth.service";
 import { activitiesService } from "../services/activities.service";
-import { Button, Card, CelebrationModal } from "../components/common";
+import { Button, Card } from "../components/common";
 import { OnboardingModal } from "../components/onboarding/OnboardingModal";
 import { AnimatedMapDemo, ErrorAlert, OAUTH_ERROR_MESSAGES } from "../components/landing";
 import { useFirstTimeUser } from "../hooks/useFirstTimeUser";
@@ -26,7 +26,6 @@ export function AuthCallbackPage() {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [celebrationCount, setCelebrationCount] = useState<number | null>(null);
   const [activityCountChecked, setActivityCountChecked] = useState(false);
 
   const userId = searchParams.get("userId");
@@ -111,18 +110,9 @@ export function AuthCallbackPage() {
     };
   }, [status, activityCountChecked, isFirstTime, markComplete, navigate]);
 
-  const handleOnboardingComplete = (syncedCount?: number) => {
+  const handleOnboardingComplete = () => {
     setShowOnboarding(false);
     markComplete();
-    if (syncedCount != null && syncedCount > 0) {
-      setCelebrationCount(syncedCount);
-    } else {
-      navigate(ROUTES.HOME, { replace: true });
-    }
-  };
-
-  const handleCelebrationClose = () => {
-    setCelebrationCount(null);
     navigate(ROUTES.HOME, { replace: true });
   };
 
@@ -180,18 +170,6 @@ export function AuthCallbackPage() {
         />
       )}
 
-      {/* Celebration overlay */}
-      {celebrationCount != null && (
-        <CelebrationModal
-          isOpen={true}
-          onClose={handleCelebrationClose}
-          title="You've already conquered some streets!"
-          count={celebrationCount}
-          countSuffix=" activities synced"
-          message="Your map is ready. Head home to explore."
-          autoDismissMs={0}
-        />
-      )}
     </div>
   );
 }

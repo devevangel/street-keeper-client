@@ -1,15 +1,19 @@
 /**
  * Polls GET /activities/sync/status every 3s while a sync is active (queued or running).
  * Backs off to 10s when sync appears stuck (queued with no progress for 90s).
- * Stops when status is completed or failed. Exposes transition (e.g. running -> completed) for map refetch.
+ * Stops when status is completed or failed.
+ *
+ * Waits for auth before making any requests. Does one initial check once
+ * authenticated; enters the polling loop only if an active sync is found.
+ * Call startPolling() after triggering a new sync.
  */
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import { activitiesService } from "../services/activities.service";
 import type { SyncStatusResponse } from "../services/activities.service";
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_INTERVAL_STUCK_MS = 10000;
-/** Match backend QUEUED_STALE_MS (2 min) so Retry triggers new job */
 const STUCK_THRESHOLD_MS = 2 * 60 * 1000;
 
 export interface UseSyncStatusResult {
@@ -21,23 +25,31 @@ export interface UseSyncStatusResult {
   errors: number;
   lastErrorMessage: string | null;
   updatedAt: string | null;
-  /** True when status is queued or running */
   isActive: boolean;
-  /** True when status just transitioned from running to completed (for triggering map refetch) */
   didComplete: boolean;
-  /** True when queued with 0 processed for >90s (worker never picked up) — show Retry */
   appearsStuck: boolean;
+  startPolling: () => void;
   refetch: () => Promise<void>;
 }
 
 export function useSyncStatus(): UseSyncStatusResult {
+  const { isAuthenticated } = useAuth();
   const [data, setData] = useState<SyncStatusResponse | null>(null);
+  const [polling, setPolling] = useState(false);
   const prevStatusRef = useRef<SyncStatusResponse["status"] | null>(null);
   const [didComplete, setDidComplete] = useState(false);
+  const mountedRef = useRef(true);
+  const initialCheckDone = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const fetchStatus = useCallback(async () => {
     try {
       const res = await activitiesService.getSyncStatus();
+      if (!mountedRef.current) return;
       setData(res);
 
       const prev = prevStatusRef.current;
@@ -45,13 +57,23 @@ export function useSyncStatus(): UseSyncStatusResult {
       if (prev === "running" && res.status === "completed") {
         setDidComplete(true);
       }
+      if (res.status === "queued" || res.status === "running") {
+        setPolling(true);
+      }
     } catch {
-      // Auth failures (401) or network errors — treat as idle, stop polling
-      setData(null);
+      if (mountedRef.current) setData(null);
     }
   }, []);
 
+  // One check once auth is ready to pick up any in-progress sync
   useEffect(() => {
+    if (!isAuthenticated || initialCheckDone.current) return;
+    initialCheckDone.current = true;
+    void fetchStatus();
+  }, [isAuthenticated, fetchStatus]);
+
+  const startPolling = useCallback(() => {
+    setPolling(true);
     void fetchStatus();
   }, [fetchStatus]);
 
@@ -65,17 +87,18 @@ export function useSyncStatus(): UseSyncStatusResult {
     Date.now() - updatedAtMs > STUCK_THRESHOLD_MS;
 
   useEffect(() => {
-    if (!isActive) return;
-
+    if (!polling || !isActive) return;
     const intervalMs = appearsStuck ? POLL_INTERVAL_STUCK_MS : POLL_INTERVAL_MS;
-    const interval = setInterval(() => {
-      void fetchStatus();
-    }, intervalMs);
-
+    const interval = setInterval(() => void fetchStatus(), intervalMs);
     return () => clearInterval(interval);
-  }, [data?.status, data?.processed, data?.updatedAt, fetchStatus, isActive, appearsStuck]);
+  }, [polling, isActive, appearsStuck, fetchStatus]);
 
-  // Reset didComplete after consumption (e.g. after parent triggers refetch)
+  useEffect(() => {
+    if (polling && !isActive && data != null) {
+      setPolling(false);
+    }
+  }, [polling, isActive, data]);
+
   useEffect(() => {
     if (!didComplete) return;
     const t = setTimeout(() => setDidComplete(false), 100);
@@ -94,6 +117,7 @@ export function useSyncStatus(): UseSyncStatusResult {
     isActive,
     didComplete,
     appearsStuck,
+    startPolling,
     refetch: fetchStatus,
   };
 }
