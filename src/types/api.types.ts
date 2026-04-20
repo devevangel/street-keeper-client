@@ -44,6 +44,8 @@ export interface AuthUser {
   stravaId?: string | null;
   garminId?: string | null;
   profilePic?: string | null;
+  /** True when user's Strava grant is missing activity:write — prompt re-authorization */
+  needsReauth?: boolean;
 }
 
 export interface AuthSuccessResponse {
@@ -207,6 +209,8 @@ export interface ProjectPreview {
       type: "LineString";
       coordinates: [number, number][];
     };
+    percentage?: number;
+    status?: "completed" | "partial" | "not_started";
   }>;
 }
 
@@ -255,6 +259,25 @@ export interface ProjectMapStreet {
     type: "LineString";
     coordinates: [number, number][];
   };
+  runCount?: number;
+  firstRunDate?: string | null;
+  lastRunDate?: string | null;
+}
+
+/** Quick win: street at 75%+ completion */
+export interface ProjectQuickWin {
+  osmId: string;
+  name: string;
+  percentage: number;
+  remainingMeters: number;
+}
+
+/** Project-level run stats for sidebar */
+export interface ProjectMapProjectStats {
+  totalRuns: number;
+  totalDistanceKm: number;
+  firstRunDate: string | null;
+  lastRunDate: string | null;
 }
 
 /** Boundary for project map (circle or polygon) */
@@ -275,6 +298,8 @@ export interface ProjectMapStats {
   completionPercentage: number;
   totalStreetNames: number;
   completedStreetNames: number;
+  partialStreetNames: number;
+  notStartedStreetNames: number;
 }
 
 export interface ProjectMapData {
@@ -288,6 +313,8 @@ export interface ProjectMapData {
   stats: ProjectMapStats;
   streets: ProjectMapStreet[];
   geometryCacheHit: boolean;
+  projectStats?: ProjectMapProjectStats;
+  quickWins?: ProjectQuickWin[];
 }
 
 export interface ProjectMapResponse {
@@ -331,7 +358,7 @@ export interface SuggestionsResponse {
       streetsNeeded: number;
       streets: StreetSuggestion[];
     } | null;
-    clusters: Array<{
+    clusters?: Array<{
       centroid: { lat: number; lng: number };
       streets: StreetSuggestion[];
       totalLength: number;
@@ -516,4 +543,18 @@ export interface MapStreetsResponse {
   totalStreets: number;
   completedCount: number;
   partialCount: number;
+}
+
+/** Single GPS trace for map rendering (simplified coordinates) */
+export interface GpsTrace {
+  activityId: string;
+  name: string;
+  startDate: string;
+  coordinates: [number, number][]; // [lat, lng]
+}
+
+/** Response for GET /api/v1/map/traces and GET /api/v1/projects/:id/traces */
+export interface GpsTracesResponse {
+  success: true;
+  traces: GpsTrace[];
 }

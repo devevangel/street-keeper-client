@@ -1,6 +1,9 @@
-export { DynamicHero } from "./DynamicHero";
 export { SuggestionCard } from "./SuggestionCard";
-export { ProgressRing } from "./ProgressRing";
-export { StreakBlock } from "./StreakBlock";
-export { TodaysHighlight } from "./TodaysHighlight";
-export { ReturningUserHomepage } from "./ReturningUserHomepage";
+export { NextRunCard } from "./NextRunCard";
+export { ProjectCardWithStreets } from "./ProjectCardWithStreets";
+export { HomepageMetrics } from "./HomepageMetrics";
+export { HomepageSkeleton } from "./HomepageSkeleton";
+export { RecentRuns } from "./RecentRuns";
+export { RunSuggestions } from "./RunSuggestions";
+export { HomepageDashboard } from "./HomepageDashboard";
+export { ProjectStatsCard } from "./ProjectStatsCard";

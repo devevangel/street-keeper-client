@@ -1,6 +1,6 @@
 /**
  * Card Component
- * Container for content. Uses surface background and border token.
+ * Container for content. Uses card background, radius, and soft shadow tokens.
  */
 
 import type { HTMLAttributes, ReactNode } from "react";
@@ -9,25 +9,39 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   /** Padding: none | sm | md | lg */
   padding?: "none" | "sm" | "md" | "lg";
+  /** Visual style for common card use cases */
+  variant?: "default" | "outlined" | "elevated";
+  /** Apply interactive hover treatment for clickable cards */
+  hover?: boolean;
 }
 
 const paddingStyles = {
   none: "p-0",
-  sm: "p-2",
+  sm: "p-3",
   md: "p-4",
   lg: "p-6",
+} as const;
+
+const variantStyles = {
+  default: "bg-card-bg border border-border shadow-sm",
+  outlined: "bg-transparent border border-border shadow-none",
+  elevated: "bg-card-bg border border-transparent shadow-md",
 } as const;
 
 export function Card({
   children,
   padding = "md",
+  variant = "default",
+  hover = false,
   className = "",
   ...props
 }: CardProps) {
   return (
     <div
       className={[
-        "bg-surface border border-border",
+        "rounded-card",
+        variantStyles[variant],
+        hover ? "transition-shadow duration-200 hover:shadow-md" : "",
         paddingStyles[padding],
         className,
       ].join(" ")}

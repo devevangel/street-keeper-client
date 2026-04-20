@@ -9,12 +9,19 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { useAuth } from "./AuthContext";
 import { getPreferences, updatePreferences, type UserPreferences, type UpdatePreferencesInput } from "../services/preferences.service";
-import { formatDistance as formatDistanceUtil, formatRadius as formatRadiusUtil, type DistanceUnit } from "../utils/format-distance";
+import {
+  formatDistance as formatDistanceUtil,
+  formatLength as formatLengthUtil,
+  formatRadius as formatRadiusUtil,
+  DEFAULT_DISTANCE_UNIT,
+  type DistanceUnit,
+} from "../utils/format-distance";
 import { setTheme } from "../lib/theme";
 
 const THEME_KEY = "theme";
@@ -24,6 +31,7 @@ interface PreferencesContextValue {
   isLoading: boolean;
   updatePreferences: (data: UpdatePreferencesInput) => Promise<void>;
   formatDistance: (meters: number, precision?: number) => string;
+  formatLength: (meters: number, precision?: number) => string;
   formatRadius: (meters: number) => string;
   formatDate: (date: Date | string) => string;
 }
@@ -81,20 +89,27 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const unit = (preferences?.distanceUnit ?? DEFAULT_DISTANCE_UNIT) as DistanceUnit;
+
   const formatDistance = useCallback(
     (meters: number, precision = 1) => {
-      const unit = (preferences?.distanceUnit ?? "km") as DistanceUnit;
       return formatDistanceUtil(meters, unit, precision);
     },
-    [preferences?.distanceUnit]
+    [unit]
+  );
+
+  const formatLength = useCallback(
+    (meters: number, precision = 1) => {
+      return formatLengthUtil(meters, unit, precision);
+    },
+    [unit]
   );
 
   const formatRadius = useCallback(
     (meters: number) => {
-      const unit = (preferences?.distanceUnit ?? "km") as DistanceUnit;
       return formatRadiusUtil(meters, unit);
     },
-    [preferences?.distanceUnit]
+    [unit]
   );
 
   const formatDate = useCallback(
@@ -121,6 +136,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     isLoading,
     updatePreferences: updatePreferencesFn,
     formatDistance,
+    formatLength,
     formatRadius,
     formatDate,
   };
@@ -134,4 +150,33 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
 export function usePreferences(): PreferencesContextValue | null {
   return useContext(PreferencesContext);
+}
+
+function defaultFormatDate(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
+}
+
+/**
+ * Stable formatters that always work — uses user distance unit or {@link DEFAULT_DISTANCE_UNIT}
+ * when preferences are not loaded or provider is missing.
+ */
+export function useFormatters(): Pick<
+  PreferencesContextValue,
+  "formatDistance" | "formatLength" | "formatRadius" | "formatDate"
+> {
+  const ctx = useContext(PreferencesContext);
+  const unit = (ctx?.preferences?.distanceUnit ?? DEFAULT_DISTANCE_UNIT) as DistanceUnit;
+
+  return useMemo(
+    () => ({
+      formatDistance: (meters: number, precision = 1) =>
+        formatDistanceUtil(meters, unit, precision),
+      formatLength: (meters: number, precision = 1) =>
+        formatLengthUtil(meters, unit, precision),
+      formatRadius: (meters: number) => formatRadiusUtil(meters, unit),
+      formatDate: ctx?.formatDate ?? defaultFormatDate,
+    }),
+    [ctx?.formatDate, unit],
+  );
 }

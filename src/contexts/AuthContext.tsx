@@ -57,7 +57,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    // Clear all user data and caches
     authService.logout();
+    // Clear user state
     setUserState(null);
   }, []);
 
@@ -74,6 +76,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const stored = localStorage.getItem(USER_STORAGE_KEY);
+      if (!stored) {
+        // No dev user and no stored session — skip /auth/me to avoid 401 on landing page
+        if (!cancelled) setIsLoading(false);
+        return;
+      }
+
       try {
         const res = await authService.getCurrentUser();
         if (!cancelled && res.user) {
@@ -81,17 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           authService.setDevUserId(res.user.id);
         }
       } catch {
-        const stored = localStorage.getItem(USER_STORAGE_KEY);
-        if (!cancelled && stored) {
-          try {
-            const parsed = JSON.parse(stored) as AuthUser;
-            if (parsed?.id) {
-              setUserState(parsed);
-              authService.setDevUserId(parsed.id);
-            }
-          } catch {
-            // ignore
+        try {
+          const parsed = JSON.parse(stored) as AuthUser;
+          if (!cancelled && parsed?.id) {
+            setUserState(parsed);
+            authService.setDevUserId(parsed.id);
           }
+        } catch {
+          // ignore
         }
       } finally {
         if (!cancelled) setIsLoading(false);

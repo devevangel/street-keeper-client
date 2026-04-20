@@ -13,6 +13,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { useFormatters } from "../../contexts/PreferencesContext";
 import type { ProjectActivityItem } from "../../types/api.types";
 
 export interface RunImpactChartProps {
@@ -34,7 +35,7 @@ function buildData(activities: ProjectActivityItem[]) {
     name: a.activityName,
     completed: a.streetsCompleted,
     improved: a.streetsImproved,
-    distanceKm: +(a.distanceMeters / 1000).toFixed(1),
+    distanceMeters: a.distanceMeters,
   }));
 }
 
@@ -42,6 +43,7 @@ export function RunImpactChart({
   activities,
   className = "",
 }: RunImpactChartProps) {
+  const { formatDistance } = useFormatters();
   const data = buildData(activities);
   const totalActivities = activities.length;
   const showingLimited = totalActivities > DISPLAY_LIMIT;
@@ -83,8 +85,10 @@ export function RunImpactChart({
               fontFamily: "var(--font-family)",
             }}
             labelFormatter={(_, payload) => {
-              const p = payload[0]?.payload;
-              return p?.name ? `${p.name} · ${p.distanceKm} km` : "";
+              const p = payload[0]?.payload as { name?: string; distanceMeters?: number } | undefined;
+              return p?.name && p.distanceMeters != null
+                ? `${p.name} · ${formatDistance(p.distanceMeters)}`
+                : "";
             }}
             formatter={(value: number | undefined, name?: string) => [
               value ?? 0,

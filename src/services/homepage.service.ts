@@ -2,16 +2,16 @@
  * Homepage API – single aggregated payload
  */
 import { apiClient } from "../lib/api-client";
+import type { MapStreet } from "../types/api.types";
+
+export type UserState =
+  | "brand_new"
+  | "syncing"
+  | "has_runs_no_project"
+  | "project_processing"
+  | "active";
 
 export interface HomepagePayload {
-  hero: { message: string; stateKey: string };
-  streak: {
-    currentWeeks: number;
-    isAtRisk: boolean;
-    lastRunDate: string | null;
-    longestStreak: number;
-    qualifyingRunsThisWeek: number;
-  };
   primarySuggestion: HomepageSuggestion | null;
   alternates: HomepageSuggestion[];
   nextMilestone: {
@@ -35,16 +35,22 @@ export interface HomepagePayload {
     radius: number;
     projectId?: string;
   };
+  /** Inlined street segments for the map (same as GET /map/streets segments). Omitted when no real location. */
+  mapSegments?: MapStreet[];
   /** Last run summary – always set when user has any processed activity. */
   lastRun?: {
     date: string;
     distanceKm: number;
     newStreets: number;
     daysAgo: number;
+    activityId?: string;
+    completedStreetNames?: string[];
+    improvedStreetNames?: string[];
+    bbox?: [number, number, number, number];
   };
-  recentHighlights?: { newStreets: number; distanceKm: number };
-  /** Whether this is a new user (no activities yet) */
-  isNewUser: boolean;
+  userState: UserState;
+  totalActivities?: number;
+  totalDistanceKm?: number;
   /** User's display name for personalization */
   userName?: string;
   /** First street suggestion for new users (nearest shortest street) */
@@ -56,6 +62,41 @@ export interface HomepagePayload {
     geometry: Array<{ lat: number; lng: number }>;
     bbox: [number, number, number, number];
   };
+  /** 3–5 nearby short streets to explore */
+  nearbyStreets?: Array<{
+    osmId: string;
+    name: string;
+    lengthMeters: number;
+    distanceFromUser: number;
+    geometry: Array<{ lat: number; lng: number }>;
+    bbox: [number, number, number, number];
+  }>;
+  recentRuns?: Array<{
+    activityId: string;
+    name: string;
+    date: string;
+    distanceKm: number;
+    bbox: [number, number, number, number];
+  }>;
+  areaStats?: {
+    totalStreets: number;
+    completedCount: number;
+    partialCount: number;
+  };
+  projectContext?: {
+    id: string;
+    name: string;
+    totalStreets: number;
+    completedStreets: number;
+    progress: number;
+  };
+}
+
+export interface SuggestionStreet {
+  osmId: string;
+  name: string;
+  percentage: number;
+  geometry: { type: "LineString"; coordinates: [number, number][] };
 }
 
 export interface HomepageSuggestion {
@@ -64,11 +105,19 @@ export interface HomepageSuggestion {
   shortCopy: string;
   cooldownKey: string;
   reason: string;
+  clusterStats?: {
+    newStreets: number;
+    toFinish: number;
+    totalDistanceM: number;
+    estimatedDistanceM: number;
+    streetCount: number;
+  };
   focus: {
     bbox: [number, number, number, number];
     streetIds?: number[];
     startPoint?: { lat: number; lng: number };
   };
+  streets?: SuggestionStreet[];
 }
 
 interface HomepageResponse {
@@ -92,18 +141,32 @@ export async function getHomepageData(params: {
   if (params.lat != null) q.set("lat", String(params.lat));
   if (params.lng != null) q.set("lng", String(params.lng));
   if (params.radius != null) q.set("radius", String(params.radius));
-  if (params.projectId != null) q.set("projectId", params.projectId);
+  if (params.projectId != null) q.set("projectId", String(params.projectId));
   if (params.userLat != null) q.set("userLat", String(params.userLat));
   if (params.userLng != null) q.set("userLng", String(params.userLng));
   const query = q.toString();
   const cacheKey = query || "default";
+
+  if (import.meta.env.DEV) {
+    const stackTrace = new Error().stack?.split("\n")[2]?.trim() || "unknown";
+    console.log(`[getHomepageData] Called at ${new Date().toISOString()}`, {
+      params: { ...params },
+      cacheKey,
+      fromCache: cached && cached.key === cacheKey && cached.at > Date.now() - CACHE_MS,
+      caller: stackTrace,
+    });
+  }
+
   if (cached && cached.key === cacheKey && cached.at > Date.now() - CACHE_MS) {
+    if (import.meta.env.DEV) console.log(`[getHomepageData] Returning cached data (age: ${Date.now() - cached.at}ms)`);
     return cached.payload;
   }
   const url = query ? `/homepage?${query}` : "/homepage";
+  if (import.meta.env.DEV) console.log(`[getHomepageData] Making API request to: ${url}`);
   const res = await apiClient.get<HomepageResponse>(url);
   if (!res.success || !res.data) throw new Error("Homepage request failed");
   cached = { payload: res.data, at: Date.now(), key: cacheKey };
+  if (import.meta.env.DEV) console.log(`[getHomepageData] API request completed, cached with key: ${cacheKey}`);
   return res.data;
 }
 

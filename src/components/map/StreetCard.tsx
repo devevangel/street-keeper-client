@@ -4,7 +4,7 @@
  * Green dot = completed, yellow dot = partial. Click to expand/collapse stats.
  */
 
-import { usePreferences } from "../../contexts/PreferencesContext";
+import { useFormatters } from "../../contexts/PreferencesContext";
 import type { MapStreet } from "../../types/api.types";
 
 interface StreetCardProps {
@@ -14,8 +14,7 @@ interface StreetCardProps {
 }
 
 export function StreetCard({ street, isExpanded, onToggle }: StreetCardProps) {
-  const preferences = usePreferences();
-  const formatDate = preferences?.formatDate ?? ((d: Date | string) => new Date(d).toLocaleDateString());
+  const { formatLength, formatDate } = useFormatters();
   const isCompleted = street.status === "completed";
 
   return (
@@ -51,7 +50,7 @@ export function StreetCard({ street, isExpanded, onToggle }: StreetCardProps) {
           className="border-t-2 border-border px-4 py-3 text-sm text-text-muted"
         >
           <p>Type: {street.highwayType}</p>
-          <p>Length: {Math.round(street.lengthMeters)} m</p>
+          <p>Length: {formatLength(street.lengthMeters)}</p>
           <p title="Number of sections this street is drawn as on the map (e.g. split by intersections)">
             Parts on map: {street.stats.segmentCount}
           </p>

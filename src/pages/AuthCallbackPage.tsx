@@ -1,31 +1,32 @@
 /**
  * AuthCallbackPage
- * Handles redirect from backend after Strava OAuth. Backend redirects here with userId.
- * Sets auth state (and x-user-id header), fetches user, then navigates home.
+ * Handles redirect from backend after Strava OAuth.
+ * Renders AnimatedMapDemo as a live background so the loading, onboarding,
+ * and celebration states all feel immersive instead of floating on a void.
  */
 
 import { useEffect, useState } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { authService } from "../services/auth.service";
+import { activitiesService } from "../services/activities.service";
 import { Button, Card } from "../components/common";
+import { OnboardingModal } from "../components/onboarding/OnboardingModal";
+import { AnimatedMapDemo, ErrorAlert, OAUTH_ERROR_MESSAGES } from "../components/landing";
+import { useFirstTimeUser } from "../hooks/useFirstTimeUser";
+import { useLandingTheme } from "../hooks/useLandingTheme";
 import { ROUTES } from "../config/constants";
-
-const ERROR_MESSAGES: Record<string, string> = {
-  access_denied: "You denied access to Street Keeper.",
-  missing_code: "Missing authorization. Please try logging in again.",
-  invalid_code: "Invalid or expired login. Please try again.",
-  auth_failed: "Login failed. Please try again.",
-};
 
 export function AuthCallbackPage() {
   const { setUser } = useAuth();
   const navigate = useNavigate();
+  const { isFirstTime, markComplete } = useFirstTimeUser();
+  const { theme, isDark } = useLandingTheme();
   const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState<"loading" | "success" | "error">(
-    "loading"
-  );
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [activityCountChecked, setActivityCountChecked] = useState(false);
 
   const userId = searchParams.get("userId");
   const errorParam = searchParams.get("error");
@@ -34,7 +35,7 @@ export function AuthCallbackPage() {
     if (errorParam) {
       setStatus("error");
       setErrorMessage(
-        ERROR_MESSAGES[errorParam] ?? "Something went wrong. Please try again."
+        OAUTH_ERROR_MESSAGES[errorParam] ?? "Something went wrong. Please try again.",
       );
       return;
     }
@@ -54,7 +55,6 @@ export function AuthCallbackPage() {
         if (!cancelled && res.user) {
           setUser(res.user);
           setStatus("success");
-          navigate(ROUTES.HOME, { replace: true });
         }
       })
       .catch((err) => {
@@ -67,33 +67,109 @@ export function AuthCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [userId, errorParam, setUser, navigate]);
+  }, [userId, errorParam, setUser]);
 
-  if (status === "loading") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-bg text-text">
-        <p className="text-text-muted">Completing login...</p>
+  // After login success: check backend for activity count. Returning users (count > 0) skip onboarding.
+  useEffect(() => {
+    if (status !== "success" || activityCountChecked) return;
+
+    let cancelled = false;
+
+    activitiesService
+      .getAll(1, 1)
+      .then((res) => {
+        if (cancelled) return;
+        const hasActivities = (res.total ?? 0) > 0;
+        if (hasActivities) {
+          markComplete();
+          setActivityCountChecked(true);
+          navigate(ROUTES.HOME, { replace: true });
+          return;
+        }
+        if (isFirstTime === false) {
+          setActivityCountChecked(true);
+          navigate(ROUTES.HOME, { replace: true });
+          return;
+        }
+        if (isFirstTime === true) {
+          setActivityCountChecked(true);
+          setShowOnboarding(true);
+          return;
+        }
+        // isFirstTime still null (localStorage not read yet); effect will re-run when it resolves
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setActivityCountChecked(true);
+        if (isFirstTime === true) setShowOnboarding(true);
+        else navigate(ROUTES.HOME, { replace: true });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [status, activityCountChecked, isFirstTime, markComplete, navigate]);
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    markComplete();
+    navigate(ROUTES.HOME, { replace: true });
+  };
+
+  return (
+    <div className="relative h-[100dvh] w-screen overflow-hidden">
+      {/* Live map background */}
+      <div className="absolute inset-0" style={{ zIndex: 0 }}>
+        <AnimatedMapDemo theme={theme} />
       </div>
-    );
-  }
 
-  if (status === "error") {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-bg p-4 text-text">
-        <Card className="w-full max-w-md space-y-4">
-          <h2 className="text-base font-semibold">Login failed</h2>
-          <p className="text-sm text-text-muted" role="alert">
-            {errorMessage}
-          </p>
-          <Link to={ROUTES.LOGIN}>
-            <Button type="button" variant="primary">
-              Try again
-            </Button>
-          </Link>
-        </Card>
+      {/* Gradient for readability */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          zIndex: 5,
+          background: isDark
+            ? "linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.5) 100%)"
+            : "linear-gradient(to bottom, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.7) 100%)",
+        }}
+      />
+
+      {/* Content layer */}
+      <div className="relative flex h-full w-full items-center justify-center" style={{ zIndex: 10 }}>
+        {/* Loading state */}
+        {status === "loading" && (
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className={`h-8 w-8 animate-spin rounded-full border-2 ${
+              isDark ? "border-white/30 border-t-white" : "border-gray-300 border-t-gray-700"
+            }`} />
+            <p className={`text-sm ${isDark ? "text-white/80" : "text-gray-700"}`}>Completing login…</p>
+          </div>
+        )}
+
+        {/* Error state */}
+        {status === "error" && (
+          <Card className={`mx-4 w-full max-w-md space-y-4 border backdrop-blur-xl ${
+            isDark ? "border-white/15 bg-black/85" : "border-gray-200/70 bg-white/90"
+          }`}>
+            <h2 className={`text-base font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Login failed</h2>
+            <ErrorAlert message={errorMessage} />
+            <Link to={ROUTES.LANDING}>
+              <Button type="button" variant="primary">
+                Try again
+              </Button>
+            </Link>
+          </Card>
+        )}
       </div>
-    );
-  }
 
-  return null;
+      {/* Onboarding overlay (renders over the map) */}
+      {showOnboarding && (
+        <OnboardingModal
+          isOpen={showOnboarding}
+          onComplete={handleOnboardingComplete}
+        />
+      )}
+
+    </div>
+  );
 }

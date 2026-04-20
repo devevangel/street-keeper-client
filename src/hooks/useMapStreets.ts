@@ -2,6 +2,7 @@
  * useMapStreets Hook
  * Fetches GET /map/streets for the given lat/lng. Uses in-memory cache by (center, radius)
  * so panning back to an area reuses data. Returns data, loading state, error, and refetch.
+ * Aborts in-flight requests on unmount or when params change.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -43,10 +44,31 @@ export interface UseMapStreetsResult {
   refetch: () => void;
 }
 
+function initialDataMatches(
+  initialData: MapStreetsResponse,
+  lat: number,
+  lng: number,
+  radius: number
+): boolean {
+  return (
+    initialData.center.lat === lat &&
+    initialData.center.lng === lng &&
+    initialData.radiusMeters === radius
+  );
+}
+
+function isAbortError(err: unknown): boolean {
+  return (
+    err instanceof DOMException && err.name === "AbortError"
+  );
+}
+
 export function useMapStreets(
   lat: number | null,
   lng: number | null,
-  radiusMeters?: number
+  radiusMeters?: number,
+  /** When provided (e.g. from homepage mapSegments), seeds the cache and avoids a separate GET /map/streets call when key matches. */
+  initialData?: MapStreetsResponse | null
 ): UseMapStreetsResult {
   const radius = radiusMeters ?? 1000;
   const [data, setData] = useState<MapStreetsResponse | null>(null);
@@ -54,9 +76,22 @@ export function useMapStreets(
   const [error, setError] = useState<string | null>(null);
 
   const fetchStreets = useCallback(() => {
-    if (lat == null || lng == null) return undefined;
+    if (lat == null || lng == null) {
+      return undefined;
+    }
 
     const key = cacheKey(lat, lng, radius);
+
+    if (
+      initialData &&
+      initialDataMatches(initialData, lat, lng, radius)
+    ) {
+      setCached(key, initialData);
+      setData(initialData);
+      setError(null);
+      return undefined;
+    }
+
     const cached = getCached(key);
     if (cached) {
       setData(cached);
@@ -64,38 +99,33 @@ export function useMapStreets(
       return undefined;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
     setError(null);
     setIsLoading(true);
 
     mapService
-      .getStreets(lat, lng, radiusMeters)
+      .getStreets(lat, lng, radius, controller.signal)
       .then((res) => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setData(res);
           setCached(key, res);
         }
       })
       .catch((err) => {
-        if (!cancelled) {
-          setError(err?.message ?? "Failed to load streets.");
-        }
+        if (controller.signal.aborted || isAbortError(err)) return;
+        setError(err?.message ?? "Failed to load streets.");
       })
       .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [lat, lng, radius, radiusMeters]);
+    return () => controller.abort();
+  }, [lat, lng, radius, initialData]);
 
   useEffect(() => {
     const cleanup = fetchStreets();
-    return () => {
-      cleanup?.();
-    };
-  }, [fetchStreets]);
+    return () => cleanup?.();
+  }, [fetchStreets, lat, lng, radius]);
 
   const refetch = useCallback(() => {
     if (lat != null && lng != null) {

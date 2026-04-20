@@ -5,6 +5,9 @@
 
 export type DistanceUnit = "km" | "miles" | "meters";
 
+/** Default when preferences are not loaded yet — matches backend default. */
+export const DEFAULT_DISTANCE_UNIT: DistanceUnit = "km";
+
 export function formatDistance(
   meters: number,
   unit: DistanceUnit,
@@ -37,4 +40,16 @@ export function formatRadius(meters: number, unit: DistanceUnit): string {
       }
       return `${meters} m`;
   }
+}
+
+/**
+ * Short lengths (street segment, "X away"): same rules as formatDistance.
+ * Use for inline labels like "500 m long · 300 m away".
+ */
+export function formatLength(
+  meters: number,
+  unit: DistanceUnit,
+  precision = 1,
+): string {
+  return formatDistance(meters, unit, precision);
 }

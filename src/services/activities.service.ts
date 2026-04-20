@@ -17,6 +17,25 @@ export interface SyncFromStravaResponse {
   errors: Array<{ stravaId: string; reason: string }>;
 }
 
+export interface SyncStatusResponse {
+  syncId: string | null;
+  status: "idle" | "queued" | "running" | "completed" | "failed";
+  type: string | null;
+  total: number;
+  processed: number;
+  skipped: number;
+  errors: number;
+  lastErrorMessage: string | null;
+  updatedAt: string | null;
+}
+
+export interface StartBackgroundSyncResponse {
+  success: boolean;
+  syncId: string;
+  total: number;
+  status: string;
+}
+
 export const activitiesService = {
   async getAll(page = 1, pageSize = 20): Promise<ActivitiesListResponse> {
     return apiClient.get<ActivitiesListResponse>("/activities", {
@@ -43,14 +62,26 @@ export const activitiesService = {
     after?: number;
     before?: number;
     perPage?: number;
-  }): Promise<SyncFromStravaResponse> {
+    background?: boolean;
+  }): Promise<SyncFromStravaResponse | StartBackgroundSyncResponse> {
     const params = new URLSearchParams();
     if (options?.after != null) params.set("after", String(options.after));
     if (options?.before != null) params.set("before", String(options.before));
     if (options?.perPage != null)
       params.set("perPage", String(options.perPage));
+    if (options?.background === true) params.set("background", "true");
     const query = params.toString();
     const endpoint = query ? `/activities/sync?${query}` : "/activities/sync";
-    return apiClient.post<SyncFromStravaResponse>(endpoint);
+    return apiClient.post<SyncFromStravaResponse | StartBackgroundSyncResponse>(
+      endpoint
+    );
+  },
+
+  /**
+   * Get current background sync status (GET /activities/sync/status).
+   * Used for polling to show SyncBanner progress.
+   */
+  async getSyncStatus(): Promise<SyncStatusResponse> {
+    return apiClient.get<SyncStatusResponse>("/activities/sync/status");
   },
 };

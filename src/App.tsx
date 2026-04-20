@@ -1,7 +1,8 @@
 /**
  * App
  * Root component. Wraps the app in AuthProvider and React Router.
- * Public routes: /login, /auth/callback. Protected routes use AppLayout and TabNav.
+ * Public routes: /, /auth/callback. Protected routes use AppLayout and TabNav.
+ * Login is handled by the landing page "Connect with Strava" button; /login redirects to /.
  */
 
 import {
@@ -10,6 +11,7 @@ import {
   Route,
   Routes,
   Outlet,
+  useLocation,
 } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { PreferencesProvider } from "./contexts/PreferencesContext";
@@ -18,20 +20,25 @@ import { ToastProvider } from "./contexts/ToastContext";
 import { ProtectedRoute } from "./components/routing";
 import { AppLayout } from "./components/layout";
 import {
-  LoginPage,
   AuthCallbackPage,
   HomePage,
+  LandingPage,
   ProjectsPage,
   ProjectDetailPage,
   ProjectCreatePage,
   ProjectSuggestionsMapPage,
   CampaignPage,
-  MilestonesPage,
   PreferencesPage,
   DocsPage,
 } from "./pages";
 import { DocsLayout } from "./components/docs";
 import { ROUTES } from "./config/constants";
+
+/** Redirects /login to landing, preserving query params (e.g. ?error=access_denied). */
+function LoginRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={`${ROUTES.LANDING}${search}`} replace />;
+}
 
 function App() {
   return (
@@ -41,7 +48,8 @@ function App() {
       <AnalyticsProvider>
       <BrowserRouter>
         <Routes>
-          <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+          <Route path={ROUTES.LANDING} element={<LandingPage />} />
+          <Route path={ROUTES.LOGIN} element={<LoginRedirect />} />
           <Route path={ROUTES.AUTH_CALLBACK} element={<AuthCallbackPage />} />
           <Route path={ROUTES.DOCS} element={<DocsLayout />}>
             <Route index element={<DocsPage />} />
@@ -54,7 +62,7 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<HomePage />} />
+            <Route path={ROUTES.HOME} element={<HomePage />} />
             <Route path="projects" element={<Outlet />}>
               <Route index element={<ProjectsPage />} />
               <Route path="new" element={<ProjectCreatePage />} />
@@ -65,10 +73,9 @@ function App() {
               <Route path=":id" element={<ProjectDetailPage />} />
             </Route>
             <Route path="campaign" element={<CampaignPage />} />
-            <Route path="milestones" element={<MilestonesPage />} />
             <Route path="preferences" element={<PreferencesPage />} />
           </Route>
-          <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
+          <Route path="*" element={<Navigate to={ROUTES.LANDING} replace />} />
         </Routes>
       </BrowserRouter>
       </AnalyticsProvider>

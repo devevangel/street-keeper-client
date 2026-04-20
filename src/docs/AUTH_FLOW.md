@@ -8,10 +8,11 @@ This document describes how authentication works in the Street Keeper frontend: 
 
 1. [Overview](#overview)
 2. [Strava OAuth Flow](#strava-oauth-flow)
-3. [Development Mode](#development-mode)
-4. [Auth Context](#auth-context)
-5. [Protected Routes](#protected-routes)
-6. [Backend Integration](#backend-integration)
+3. [Returning User Detection](#returning-user-detection)
+4. [Development Mode](#development-mode)
+5. [Auth Context](#auth-context)
+6. [Protected Routes](#protected-routes)
+7. [Backend Integration](#backend-integration)
 
 ---
 
@@ -46,8 +47,18 @@ sequenceDiagram
     AuthCallbackPage->>Backend: GET /auth/strava/callback?code=...
     Backend->>AuthCallbackPage: Return { user }
     AuthCallbackPage->>AuthCallbackPage: setUser(res.user)
-    AuthCallbackPage->>HomePage: navigate("/")
+    AuthCallbackPage->>AuthCallbackPage: Check activity count
+    alt Returning user (activityCount > 0)
+        AuthCallbackPage->>HomePage: navigate("/")
+    else New user (activityCount === 0)
+        AuthCallbackPage->>AuthCallbackPage: Show OnboardingModal
+        OnboardingModal->>HomePage: navigate("/") after sync started
+    end
 ```
+
+### Returning User Detection
+
+**Backend is the source of truth.** After login, the **Auth callback page** calls `GET /api/v1/activities?page=1&pageSize=1` and reads the response `total`. If **`total > 0`**, the user is treated as a **returning user** and is sent straight to the Home page; onboarding is **skipped** regardless of localStorage. If `total === 0`, the frontend then checks localStorage: if onboarding was previously completed, go to Home; otherwise show the onboarding modal (which starts a background sync). This way, users who clear browser data or use a new device still skip onboarding if they already have activities in the app.
 
 ### Steps
 

@@ -18,6 +18,10 @@ export interface ProgressBarProps {
   showLabel?: boolean;
   /** Additional CSS classes for the root wrapper */
   className?: string;
+  /** Optional fill color utility class (defaults to theme border color). */
+  fillClassName?: string;
+  /** Optional track color utility class. */
+  trackClassName?: string;
 }
 
 const heightStyles = {
@@ -31,20 +35,22 @@ export function ProgressBar({
   height = 6,
   showLabel = false,
   className = "",
+  fillClassName = "bg-border",
+  trackClassName = "bg-border/30",
 }: ProgressBarProps) {
   const clamped = Math.min(100, Math.max(0, percentage));
 
   return (
     <div className={`w-full ${className}`.trim()}>
       <div
-        className={`w-full overflow-hidden rounded-full bg-border/30 ${heightStyles[height]}`}
+        className={`w-full overflow-hidden rounded-full ${trackClassName} ${heightStyles[height]}`}
         role="progressbar"
         aria-valuenow={clamped}
         aria-valuemin={0}
         aria-valuemax={100}
       >
         <div
-          className="h-full bg-border transition-[width]"
+          className={`h-full transition-[width] ${fillClassName}`}
           style={{ width: `${clamped}%` }}
         />
       </div>

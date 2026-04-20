@@ -15,14 +15,16 @@ export const DEFAULT_PROJECT_RADIUS_METERS = 300;
 
 /** App route paths. Used by React Router and navigation. */
 export const ROUTES = {
-  HOME: "/",
+  /** Public landing page (unauthenticated). Authenticated users are redirected to HOME. */
+  LANDING: "/",
+  /** Authenticated app home. */
+  HOME: "/home",
   LOGIN: "/login",
   AUTH_CALLBACK: "/auth/callback",
   PROJECTS_LIST: "/projects",
   PROJECT_DETAIL: "/projects/:id",
   PROJECT_SUGGESTIONS: "/projects/:id/suggestions",
   CAMPAIGN: "/campaign",
-  MILESTONES: "/milestones",
   PREFERENCES: "/preferences",
   ACTIVITIES: "/activities",
   GPX_UPLOAD: "/gpx",
@@ -46,6 +48,7 @@ export const ERROR_CODES = {
   PROJECT_NO_STREETS: "PROJECT_NO_STREETS",
   PROJECT_ACCESS_DENIED: "PROJECT_ACCESS_DENIED",
   ACTIVITY_NOT_FOUND: "ACTIVITY_NOT_FOUND",
+  SYNC_RATE_LIMITED: "SYNC_RATE_LIMITED",
   GPX_FILE_REQUIRED: "GPX_FILE_REQUIRED",
   GPX_PARSE_ERROR: "GPX_PARSE_ERROR",
   GPX_FILE_TOO_LARGE: "GPX_FILE_TOO_LARGE",

@@ -1,59 +1,42 @@
 /**
- * Milestones Service
- * List milestones, pin/unpin, create, delete. Uses API client for backend calls.
+ * Milestones are currently disabled.
+ * This module remains as a compatibility shim for legacy imports.
  */
 
-import { apiClient } from "../lib/api-client";
 import type {
   MilestoneWithProgress,
   MilestoneType,
   CreateMilestoneInput,
 } from "../types/api.types";
 
+const MILESTONES_DISABLED_ERROR = new Error("Milestones are disabled.");
+
 export async function getMilestoneTypes(): Promise<MilestoneType[]> {
-  const res = await apiClient.get<{
-    success: boolean;
-    data: MilestoneType[];
-  }>("/milestones/milestone-types");
-  return res.data ?? [];
+  return [];
 }
 
 export async function getMilestones(
-  projectId?: string,
+  _projectId?: string,
 ): Promise<MilestoneWithProgress[]> {
-  const url = projectId
-    ? `/milestones?projectId=${encodeURIComponent(projectId)}`
-    : "/milestones";
-  const res = await apiClient.get<{
-    success: boolean;
-    data: MilestoneWithProgress[];
-  }>(url);
-  return res.data ?? [];
+  return [];
 }
 
 export async function createMilestone(
-  input: CreateMilestoneInput,
+  _input: CreateMilestoneInput,
 ): Promise<{ id: string; name: string }> {
-  const res = await apiClient.post<{
-    success: boolean;
-    data: { id: string; name: string };
-  }>("/milestones", input);
-  if (!res.data) throw new Error("Create milestone returned no data");
-  return res.data;
+  throw MILESTONES_DISABLED_ERROR;
 }
 
 export async function pinMilestone(
-  id: string,
-  isPinned: boolean,
+  _id: string,
+  _isPinned: boolean,
 ): Promise<void> {
-  await apiClient.patch(`/milestones/${id}/pin`, { isPinned });
+  throw MILESTONES_DISABLED_ERROR;
 }
 
-export async function deleteMilestone(id: string): Promise<void> {
-  await apiClient.delete(`/milestones/${id}`);
+export async function deleteMilestone(_id: string): Promise<void> {
+  throw MILESTONES_DISABLED_ERROR;
 }
-
-// MVP Milestone Methods
 
 export interface ProjectMilestonesResponse {
   active: Array<{
@@ -80,21 +63,15 @@ export interface ProjectMilestonesResponse {
 }
 
 export async function getProjectMilestones(
-  projectId: string,
+  _projectId: string,
 ): Promise<ProjectMilestonesResponse> {
-  const res = await apiClient.get<{
-    success: boolean;
-    active: ProjectMilestonesResponse["active"];
-    completed: ProjectMilestonesResponse["completed"];
-    pendingCelebrations: ProjectMilestonesResponse["pendingCelebrations"];
-  }>(`/projects/${projectId}/milestones`);
   return {
-    active: res.active ?? [],
-    completed: res.completed ?? [],
-    pendingCelebrations: res.pendingCelebrations ?? [],
+    active: [],
+    completed: [],
+    pendingCelebrations: [],
   };
 }
 
-export async function acknowledgeMilestone(milestoneId: string): Promise<void> {
-  await apiClient.post(`/milestones/${milestoneId}/acknowledge`);
+export async function acknowledgeMilestone(_milestoneId: string): Promise<void> {
+  throw MILESTONES_DISABLED_ERROR;
 }

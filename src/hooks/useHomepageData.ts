@@ -1,8 +1,8 @@
 /**
- * Fetches homepage payload (hero, streak, suggestion, milestone, mapContext).
+ * Fetches homepage payload (suggestion, milestone, mapContext).
  * Cache 30–60s; refetch invalidates cache.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   getHomepageData,
   invalidateHomepageCache,
@@ -22,44 +22,76 @@ export function useHomepageData(params: UseHomepageDataParams) {
   const [data, setData] = useState<HomepagePayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [initialUserLat, setInitialUserLat] = useState<number | undefined>(params.userLat);
-  const [initialUserLng, setInitialUserLng] = useState<number | undefined>(params.userLng);
 
-  // Only update initial user position once (for firstStreet calculation)
-  // Don't update on every geolocation change to avoid constant re-renders
+  // Capture initial user position once to avoid re-fetching on every geolocation update
+  const initialUserPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  if (
+    !initialUserPosRef.current &&
+    params.userLat != null &&
+    params.userLng != null
+  ) {
+    initialUserPosRef.current = { lat: params.userLat, lng: params.userLng };
+  }
+
+  const hasLocation = params.lat != null && params.lng != null;
+
+  // Stable params key — only changes when meaningful inputs change
+  const paramsKey = useMemo(
+    () =>
+      hasLocation
+        ? JSON.stringify({
+            lat: params.lat,
+            lng: params.lng,
+            radius: params.radius,
+            projectId: params.projectId,
+            userLat: initialUserPosRef.current?.lat,
+            userLng: initialUserPosRef.current?.lng,
+          })
+        : "",
+    [hasLocation, params.lat, params.lng, params.radius, params.projectId],
+  );
+
+  const prevKeyRef = useRef("");
+
+  const fetchData = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!hasLocation) return;
+      setIsLoading(true);
+      setError(null);
+      try {
+        const payload = await getHomepageData({
+          lat: params.lat,
+          lng: params.lng,
+          radius: params.radius,
+          projectId: params.projectId,
+          userLat: initialUserPosRef.current?.lat,
+          userLng: initialUserPosRef.current?.lng,
+        });
+        if (!signal?.aborted) setData(payload);
+      } catch (e) {
+        if (!signal?.aborted) {
+          setError(e instanceof Error ? e : new Error("Failed to load homepage"));
+          setData(null);
+        }
+      } finally {
+        if (!signal?.aborted) setIsLoading(false);
+      }
+    },
+    [hasLocation, params.lat, params.lng, params.radius, params.projectId],
+  );
+
   useEffect(() => {
-    if (params.userLat != null && params.userLng != null && 
-        (initialUserLat == null || initialUserLng == null)) {
-      setInitialUserLat(params.userLat);
-      setInitialUserLng(params.userLng);
-    }
-  }, [params.userLat, params.userLng, initialUserLat, initialUserLng]);
+    if (!paramsKey || prevKeyRef.current === paramsKey) return;
+    prevKeyRef.current = paramsKey;
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      // Use initial user position for firstStreet, but current map center for other data
-      const payload = await getHomepageData({
-        ...params,
-        userLat: initialUserLat,
-        userLng: initialUserLng,
-      });
-      setData(payload);
-    } catch (e) {
-      setError(e instanceof Error ? e : new Error("Failed to load homepage"));
-      setData(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [params.lat, params.lng, params.radius, params.projectId, initialUserLat, initialUserLng]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    const controller = new AbortController();
+    fetchData(controller.signal);
+    return () => controller.abort();
+  }, [paramsKey, fetchData]);
 
   const refetch = useCallback(() => {
     invalidateHomepageCache();
+    prevKeyRef.current = "";
     return fetchData();
   }, [fetchData]);
 

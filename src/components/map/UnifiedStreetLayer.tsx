@@ -1,8 +1,10 @@
 /**
  * UnifiedStreetLayer – Renders streets from either home map (MapStreet) or project map (ProjectMapStreet).
  * Normalizes both to a common shape and uses a single polyline component.
+ * New streets fade in over ~400ms when they first appear (incremental map load).
  */
 
+import { useEffect, useState } from "react";
 import { Polyline, Popup } from "react-leaflet";
 import type { LatLngTuple } from "leaflet";
 import type { MapStreet, ProjectMapStreet } from "../../types/api.types";
@@ -70,6 +72,26 @@ const PATH_OPTIONS_BASE = {
   pane: "streetPane",
 };
 
+const STREET_FADE_MS = 400;
+
+/** 0 → 1 while street mounts; re-runs when highlight toggles or osmId changes */
+function useFadeInFactor(streetId: string, highlight: boolean) {
+  const [factor, setFactor] = useState(0);
+  useEffect(() => {
+    setFactor(0);
+    const start = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / STREET_FADE_MS);
+      setFactor(t);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [streetId, highlight]);
+  return factor;
+}
+
 function UnifiedStreetPolyline({
   street,
   highlight,
@@ -77,6 +99,8 @@ function UnifiedStreetPolyline({
   street: UnifiedStreetItem;
   highlight: boolean;
 }) {
+  const fade = useFadeInFactor(street.osmId, highlight);
+
   // Guard: skip if geometry is missing or empty (prevents Leaflet crash)
   if (
     !street.geometry?.coordinates ||
@@ -105,49 +129,43 @@ function UnifiedStreetPolyline({
   const statusLabel = BIN_LABELS[bin];
 
   if (highlight) {
-    // Multi-layer highlight approach to maximize label visibility:
-    // 1. Very subtle glow background (provides soft highlight)
-    // 2. White outline/halo (creates contrast, makes labels pop)
-    // 3. Ultra-thin dashed colored line (minimal coverage, gaps show labels)
+    const highlightColor =
+      street.percentage === 0
+        ? MAP_COLORS.HIGHLIGHT_NEW
+        : street.percentage < 100
+          ? MAP_COLORS.HIGHLIGHT_FINISH
+          : MAP_COLORS.HIGHLIGHT;
+    const highlightLabel =
+      street.percentage === 0
+        ? "New — to discover"
+        : street.percentage < 100
+          ? `${street.percentage.toFixed(0)}% — to finish`
+          : "Completed";
     return (
       <>
-        {/* Layer 1: Very subtle glow background */}
-        <Polyline
-          positions={fullPositions}
-          pathOptions={{
-            ...PATH_OPTIONS_BASE,
-            color: MAP_COLORS.HIGHLIGHT,
-            weight: HIGHLIGHT_STYLE.GLOW_WEIGHT,
-            opacity: HIGHLIGHT_STYLE.GLOW_OPACITY,
-          }}
-        />
-        {/* Layer 2: White outline/halo - creates contrast and makes labels readable */}
         <Polyline
           positions={fullPositions}
           pathOptions={{
             ...PATH_OPTIONS_BASE,
             color: HIGHLIGHT_STYLE.OUTLINE_COLOR,
             weight: HIGHLIGHT_STYLE.OUTLINE_WEIGHT,
-            opacity: HIGHLIGHT_STYLE.OUTLINE_OPACITY,
-            dashArray: HIGHLIGHT_STYLE.DASH_PATTERN,
+            opacity: HIGHLIGHT_STYLE.OUTLINE_OPACITY * fade,
           }}
         />
-        {/* Layer 3: Ultra-thin colored dashed line - minimal coverage, gaps show labels */}
         <Polyline
           positions={fullPositions}
           pathOptions={{
             ...PATH_OPTIONS_BASE,
-            color: MAP_COLORS.HIGHLIGHT,
+            color: highlightColor,
             weight: MAP_WEIGHTS.HIGHLIGHT,
-            opacity: MAP_OPACITY.HIGHLIGHT,
-            dashArray: HIGHLIGHT_STYLE.DASH_PATTERN, // Longer gaps = more label visibility
+            opacity: MAP_OPACITY.HIGHLIGHT * fade,
           }}
         >
           <Popup>
             <div className="min-w-[140px] text-left text-neutral-800">
               <p className="font-bold text-neutral-900">{street.name}</p>
               <p className="text-sm text-neutral-600">
-                {street.percentage.toFixed(0)}% · {statusLabel}
+                {highlightLabel}
                 {street.runCount != null &&
                   street.runCount > 0 &&
                   ` · ${street.runCount} run${street.runCount !== 1 ? "s" : ""}`}
@@ -167,7 +185,7 @@ function UnifiedStreetPolyline({
           ...PATH_OPTIONS_BASE,
           color: MAP_COLORS.NOT_RUN,
           weight: MAP_WEIGHTS.DEFAULT,
-          opacity: MAP_OPACITY.NOT_RUN,
+            opacity: MAP_OPACITY.NOT_RUN * fade,
           dashArray: MAP_DASH.NOT_RUN,
         }}
       >
@@ -191,7 +209,7 @@ function UnifiedStreetPolyline({
           ...PATH_OPTIONS_BASE,
           color: MAP_COLORS.COMPLETED,
           weight: MAP_WEIGHTS.DEFAULT,
-          opacity: MAP_OPACITY.COMPLETED,
+          opacity: MAP_OPACITY.COMPLETED * fade,
         }}
       >
         <Popup>
@@ -227,7 +245,7 @@ function UnifiedStreetPolyline({
               ...PATH_OPTIONS_BASE,
               color: MAP_COLORS.UNCOVERED,
               weight: 2,
-              opacity: MAP_OPACITY.UNCOVERED,
+              opacity: MAP_OPACITY.UNCOVERED * fade,
               dashArray: MAP_DASH.UNCOVERED,
             }}
           />
@@ -237,7 +255,7 @@ function UnifiedStreetPolyline({
               ...PATH_OPTIONS_BASE,
               color: polyColor,
               weight: MAP_WEIGHTS.DEFAULT,
-              opacity: polyOpacity,
+              opacity: polyOpacity * fade,
             }}
           >
             <Popup>
@@ -264,7 +282,7 @@ function UnifiedStreetPolyline({
         ...PATH_OPTIONS_BASE,
         color: polyColor,
         weight: MAP_WEIGHTS.DEFAULT,
-        opacity: polyOpacity,
+        opacity: polyOpacity * fade,
         dashArray: polyDash,
       }}
     >
@@ -293,7 +311,6 @@ export function UnifiedStreetLayer({
   highlightOsmIds = [],
 }: UnifiedStreetLayerProps) {
   if (!streets.length) return null;
-  // Normalize all osmIds for consistent comparison (handles "way/123" vs "123" format differences)
   const highlightSet = new Set(highlightOsmIds.map(normalizeOsmId));
   const normalized = streets.map(toUnified);
 

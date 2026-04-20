@@ -19,7 +19,7 @@ interface SuggestionsData {
     streetsNeeded: number;
     streets: StreetSuggestion[];
   } | null;
-  clusters: Array<{
+  clusters?: Array<{
     centroid: { lat: number; lng: number };
     streets: StreetSuggestion[];
     totalLength: number;
@@ -81,7 +81,7 @@ export function SuggestionsPanel() {
     data.almostComplete.length > 0 ||
     data.nearest.length > 0 ||
     (data.milestone && data.milestone.streets.length > 0) ||
-    data.clusters.length > 0;
+    (data.clusters?.length ?? 0) > 0;
 
   if (!hasAny) {
     return (

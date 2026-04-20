@@ -7,7 +7,7 @@
  * - Almost there: warm amber (getting hot!)
  * - Completed: vibrant green (achievement unlocked)
  *
- * Highlight is distinct magenta to avoid confusion with any status.
+ * Highlight is hot pink — distinct from every status color and GPS traces.
  */
 export const MAP_COLORS = {
   COMPLETED: "#10b981", // Emerald green - achievement
@@ -16,16 +16,18 @@ export const MAP_COLORS = {
   NOT_RUN: "#d1d5db", // Light gray - barely visible
   /** @deprecated Use ALMOST_THERE or IN_PROGRESS */
   PARTIAL: "#f59e0b",
-  HIGHLIGHT: "#ec4899", // Magenta - distinct, pops on any map
+  HIGHLIGHT: "#ec4899", // Hot pink - unmissable, distinct from all status colors
+  HIGHLIGHT_NEW: "#4ade80", // Bright green - matches "streets to discover" text
+  HIGHLIGHT_FINISH: "#f59e0b", // Amber - matches "streets to finish" text
   UNCOVERED: "#e5e7eb", // Very light gray for uncovered portions
 } as const;
 
 /**
- * Line weights - thinner to show street names through
+ * Line weights — same width for highlights so street labels stay readable
  */
 export const MAP_WEIGHTS = {
   DEFAULT: 3,
-  HIGHLIGHT: 2, // Ultra-thin for highlights - minimizes label coverage
+  HIGHLIGHT: 3,
 } as const;
 
 /**
@@ -49,22 +51,26 @@ export const MAP_OPACITY = {
   IN_PROGRESS: 0.7,
   NOT_RUN: 0.45,
   UNCOVERED: 0.35,
-  HIGHLIGHT: 0.75, // Reduced opacity so labels show through better
+  HIGHLIGHT: 1.0,
 } as const;
 
 /**
- * Highlight-specific styling constants
+ * Highlight-specific styling — thin white outline for contrast, no glow
  */
 export const HIGHLIGHT_STYLE = {
-  /** White outline/halo around highlight line for contrast */
   OUTLINE_COLOR: "#ffffff",
-  OUTLINE_WEIGHT: 4,
-  OUTLINE_OPACITY: 0.6,
-  /** Very subtle background glow */
-  GLOW_WEIGHT: 6,
-  GLOW_OPACITY: 0.15,
-  /** Dash pattern with longer gaps for label visibility */
-  DASH_PATTERN: "10, 6", // Longer gaps = more label visibility
+  OUTLINE_WEIGHT: 5,
+  OUTLINE_OPACITY: 0.5,
+  DASH_PATTERN: undefined as string | undefined,
+} as const;
+
+/** GPS trace polyline style (CityStrides-inspired) */
+export const GPS_TRACE_STYLE = {
+  COLOR: "#8B5CF6",
+  WEIGHT: 2,
+  OPACITY: 0.55,
+  LINE_CAP: "round" as const,
+  LINE_JOIN: "round" as const,
 } as const;
 
 /** Unified zoom levels for maps across the app */
@@ -75,6 +81,6 @@ export const MAP_ZOOM = {
   DEFAULT: 15,
   /** Zoom for project detail pages (shows project area well) */
   PROJECT_DETAIL: 16,
-  /** Maximum zoom level supported by OpenStreetMap tiles */
-  MAX: 19,
+  /** Maximum zoom level (over-zoom beyond native tile level for detail) */
+  MAX: 20,
 } as const;

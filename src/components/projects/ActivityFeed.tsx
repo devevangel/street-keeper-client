@@ -3,7 +3,7 @@
  * Compact list of recent runs: name, date, streets completed/improved. Max 5 items.
  */
 
-import { usePreferences } from "../../contexts/PreferencesContext";
+import { useFormatters } from "../../contexts/PreferencesContext";
 import type { ProjectActivityItem } from "../../types/api.types";
 
 export interface ActivityFeedProps {
@@ -17,8 +17,7 @@ export function ActivityFeed({
   maxItems = 5,
   className = "",
 }: ActivityFeedProps) {
-  const preferences = usePreferences();
-  const prefFormatDate = preferences?.formatDate ?? ((d: Date | string) => new Date(d).toLocaleDateString());
+  const { formatDate: prefFormatDate } = useFormatters();
 
   function formatDate(dateStr: string): string {
     const d = new Date(dateStr);

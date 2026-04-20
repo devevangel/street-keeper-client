@@ -4,7 +4,14 @@
  * heatmap, viewport handler, highlight fit, legend, loading overlay, click handler, marker.
  */
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useCallback,
+  type CSSProperties,
+} from "react";
 import {
   MapContainer,
   TileLayer,
@@ -17,26 +24,53 @@ import type { LatLngTuple } from "leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+const MAP_CONTAINER_STYLE: CSSProperties = {
+  height: "100%",
+  width: "100%",
+  minHeight: "400px",
+};
+
 /** Creates the "streetPane" with z-index below default overlayPane so labels show above streets */
-function StreetPane() {
+function EnsureCustomPanes() {
   const map = useMap();
   useEffect(() => {
     if (!map.getPane("streetPane")) {
       const pane = map.createPane("streetPane");
       pane.style.zIndex = "350";
     }
+    if (!map.getPane("labelsPane")) {
+      const pane = map.createPane("labelsPane");
+      pane.style.zIndex = "450";
+      pane.style.pointerEvents = "none";
+    }
   }, [map]);
   return null;
 }
 
-/** Syncs map view when center/zoom props change (including first valid values) */
-function MapViewSync({ center, zoom }: { center: { lat: number; lng: number }; zoom: number }) {
+/**
+ * Syncs map view when center/zoom props change (initial load + geolocation updates).
+ * Suppressed when highlightFocus is active so FitBoundsToHighlight controls the view.
+ */
+function MapViewSync({
+  center,
+  zoom,
+  suppressSync,
+}: {
+  center: { lat: number; lng: number };
+  zoom: number;
+  suppressSync?: boolean;
+}) {
   const map = useMap();
   const lastCenter = useRef<{ lat: number; lng: number } | null>(null);
   const lastZoom = useRef<number | null>(null);
 
   useEffect(() => {
-    // Only fly if center or zoom actually changed
+    if (suppressSync) {
+      lastCenter.current = null;
+      lastZoom.current = null;
+      return;
+    }
+
     const centerChanged =
       !lastCenter.current ||
       Math.abs(lastCenter.current.lat - center.lat) > 0.0001 ||
@@ -48,13 +82,14 @@ function MapViewSync({ center, zoom }: { center: { lat: number; lng: number }; z
       lastCenter.current = center;
       lastZoom.current = zoom;
     }
-  }, [map, center.lat, center.lng, zoom]);
+  }, [map, center.lat, center.lng, zoom, suppressSync]);
 
   return null;
 }
 import { MapInvalidateSize } from "./MapInvalidateSize";
 import { LocationMarker } from "./LocationMarker";
 import { UnifiedStreetLayer } from "./UnifiedStreetLayer";
+import { GpsTraceLayer } from "./GpsTraceLayer";
 import { DrawingToolbar } from "./DrawingToolbar";
 import { HeatmapLayer } from "./HeatmapLayer";
 import { MapViewportHandler } from "./MapViewportHandler";
@@ -65,10 +100,19 @@ import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
 import { normalizeOsmId } from "../../utils/map-utils";
 import { MapLoadingOverlay } from "./MapLoadingOverlay";
 import { MAP_ZOOM } from "./mapConstants";
-import { getMapTheme, getMapTileUrl, getMapAttribution } from "../../config/map-themes";
+import {
+  getMapTheme,
+  getMapTileUrls,
+  getMapAttribution,
+} from "../../config/map-themes";
 import { usePreferences } from "../../contexts/PreferencesContext";
 import type { ShapeData } from "./DrawingToolbar";
-import type { ProjectMapBoundary, MapStreet, ProjectMapStreet } from "../../types/api.types";
+import type {
+  ProjectMapBoundary,
+  MapStreet,
+  ProjectMapStreet,
+  GpsTrace,
+} from "../../types/api.types";
 
 export interface MapViewHighlightFocus {
   bbox?: [number, number, number, number];
@@ -85,6 +129,10 @@ export interface UnifiedMapProps {
   showUserLocationMarker?: boolean;
 
   streets?: (MapStreet | ProjectMapStreet)[];
+  /** GPS activity traces (thin polylines, rendered below streets) */
+  gpsTraces?: GpsTrace[];
+  /** Emphasize one trace; dim others */
+  highlightTraceActivityId?: string | null;
   highlightOsmIds?: string[];
 
   boundary?: ProjectMapBoundary | null;
@@ -113,6 +161,15 @@ export interface UnifiedMapProps {
   helperText?: string;
 
   showDrawnCircle?: boolean;
+
+  /** Translucent polygon overlay (convex hull of suggested streets) for cluster suggestions. */
+  areaOverlay?: {
+    polygon: [number, number][];
+  } | null;
+
+  /** Controlled legend filter (optional). When both set, homepage stats row can drive map filters. */
+  visibleStreetBins?: Set<FilterStatus>;
+  onVisibleStreetBinsChange?: (bins: Set<FilterStatus>) => void;
 }
 
 const DEFAULT_ZOOM = MAP_ZOOM.DEFAULT;
@@ -131,7 +188,12 @@ const markerIcon = L.divIcon({
   iconAnchor: [12, 12],
 });
 
-const AVAILABLE_BINS: FilterStatus[] = ["completed", "almostThere", "inProgress", "notStarted"];
+const AVAILABLE_BINS: FilterStatus[] = [
+  "completed",
+  "almostThere",
+  "inProgress",
+  "notStarted",
+];
 
 function MapContent(props: UnifiedMapProps) {
   const {
@@ -140,6 +202,8 @@ function MapContent(props: UnifiedMapProps) {
     userLocation,
     showUserLocationMarker,
     streets = [],
+    gpsTraces = [],
+    highlightTraceActivityId = null,
     highlightOsmIds = [],
     boundary,
     showBoundaryOutline,
@@ -157,7 +221,40 @@ function MapContent(props: UnifiedMapProps) {
     showLegend,
     showLegendGuide,
     showDrawnCircle,
+    areaOverlay,
+    visibleStreetBins: controlledBins,
+    onVisibleStreetBinsChange,
   } = props;
+
+  const [internalBins, setInternalBins] = useState<Set<FilterStatus>>(
+    () => new Set(AVAILABLE_BINS),
+  );
+  const isBinControlled =
+    controlledBins != null && onVisibleStreetBinsChange != null;
+  const visibleBins = isBinControlled ? controlledBins : internalBins;
+
+  const onLegendToggle = useCallback(
+    (bin: FilterStatus) => {
+      const next = new Set(visibleBins);
+      if (next.has(bin)) next.delete(bin);
+      else next.add(bin);
+      if (isBinControlled) {
+        onVisibleStreetBinsChange!(next);
+      } else {
+        setInternalBins(next);
+      }
+    },
+    [visibleBins, isBinControlled, onVisibleStreetBinsChange],
+  );
+
+  const onLegendShowAll = useCallback(() => {
+    const all = new Set(AVAILABLE_BINS);
+    if (isBinControlled) {
+      onVisibleStreetBinsChange!(all);
+    } else {
+      setInternalBins(all);
+    }
+  }, [isBinControlled, onVisibleStreetBinsChange]);
 
   // Safe center with validation
   const safeCenter = {
@@ -165,14 +262,10 @@ function MapContent(props: UnifiedMapProps) {
     lng: Number.isFinite(center?.lng) ? center.lng : -1.09,
   };
 
-  const [visibleBins, setVisibleBins] = useState<Set<FilterStatus>>(
-    () => new Set(AVAILABLE_BINS)
-  );
-
   // Create set of highlighted osmIds for quick lookup (normalized for consistent comparison)
   const highlightSet = useMemo(
     () => new Set(highlightOsmIds.map(normalizeOsmId)),
-    [highlightOsmIds]
+    [highlightOsmIds],
   );
 
   // Compute bin counts from streets
@@ -204,10 +297,15 @@ function MapContent(props: UnifiedMapProps) {
   return (
     <>
       <MapInvalidateSize />
-      <StreetPane />
-      <MapViewSync center={safeCenter} zoom={zoom} />
+      <MapViewSync center={safeCenter} zoom={zoom} suppressSync={!!highlightFocus} />
       {showUserLocationMarker && userLocation && (
         <LocationMarker position={userLocation} />
+      )}
+      {gpsTraces && gpsTraces.length > 0 && (
+        <GpsTraceLayer
+          traces={gpsTraces}
+          highlightActivityId={highlightTraceActivityId}
+        />
       )}
       {filteredStreets.length > 0 && (
         <UnifiedStreetLayer
@@ -229,7 +327,9 @@ function MapContent(props: UnifiedMapProps) {
       )}
       {showBoundaryOutline && boundary && boundary.type === "polygon" && (
         <Polygon
-          positions={boundary.coordinates.map(([lng, lat]: [number, number]) => [lat, lng] as LatLngTuple)}
+          positions={boundary.coordinates.map(
+            ([lng, lat]: [number, number]) => [lat, lng] as LatLngTuple,
+          )}
           pathOptions={{
             color: "#7c3aed",
             weight: 2,
@@ -250,6 +350,22 @@ function MapContent(props: UnifiedMapProps) {
           }}
         />
       )}
+      {areaOverlay && areaOverlay.polygon.length >= 3 && (
+        <Polygon
+          positions={areaOverlay.polygon.map(
+            ([lat, lng]) => [lat, lng] as LatLngTuple,
+          )}
+          pathOptions={{
+            color: "#ec4899",
+            weight: 2,
+            opacity: 0.4,
+            fillColor: "#ec4899",
+            fillOpacity: 0.06,
+            interactive: false,
+            dashArray: "6, 4",
+          }}
+        />
+      )}
       {drawingEnabled && onShapeChange && (
         <DrawingToolbar
           activeShape={activeShape ?? null}
@@ -260,16 +376,13 @@ function MapContent(props: UnifiedMapProps) {
       {heatmapPoints.length > 0 && (
         <HeatmapLayer points={heatmapPoints} bounds={heatmapBounds} />
       )}
-      {onViewportChange && <MapViewportHandler onViewportChange={onViewportChange} />}
+      {onViewportChange && (
+        <MapViewportHandler onViewportChange={onViewportChange} />
+      )}
       {highlightFocus?.bbox && (
         <FitBoundsToHighlight bbox={highlightFocus.bbox} />
       )}
-      {onClick && (
-        <MapClickHandler
-          enabled={true}
-          onMapClick={onClick}
-        />
-      )}
+      {onClick && <MapClickHandler enabled={true} onMapClick={onClick} />}
       {markerPosition && (
         <Marker
           position={[markerPosition.lat, markerPosition.lng]}
@@ -280,16 +393,9 @@ function MapContent(props: UnifiedMapProps) {
       {showLegend && (
         <MapLegendFilterBins
           visibleBins={visibleBins}
-          onToggle={(bin) => {
-            setVisibleBins((prev) => {
-              const next = new Set(prev);
-              if (next.has(bin)) next.delete(bin);
-              else next.add(bin);
-              return next;
-            });
-          }}
+          onToggle={onLegendToggle}
           counts={binCounts}
-          onShowAll={() => setVisibleBins(new Set(AVAILABLE_BINS))}
+          onShowAll={onLegendShowAll}
         />
       )}
       {showLegendGuide && <MapLegendGuide />}
@@ -309,9 +415,8 @@ export function UnifiedMap(props: UnifiedMapProps) {
 
   const prefsCtx = usePreferences();
   const mapTheme = getMapTheme(prefsCtx?.preferences?.mapStyle);
-  const tileUrl = getMapTileUrl(mapTheme);
+  const { base: baseTileUrl, labels: labelsTileUrl, isMapbox } = getMapTileUrls(mapTheme);
   const attribution = getMapAttribution(mapTheme);
-  const isMapbox = tileUrl.includes("mapbox.com");
 
   const safeCenter = {
     lat: Number.isFinite(center?.lat) ? center.lat : 50.8,
@@ -324,20 +429,30 @@ export function UnifiedMap(props: UnifiedMapProps) {
       <MapContainer
         center={centerTuple}
         zoom={zoom}
+        maxZoom={MAP_ZOOM.MAX}
         className="h-full w-full leaflet-map-theme leaflet-container leaflet-touch leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom"
         scrollWheelZoom
-        style={{ height: "100%", width: "100%", minHeight: "400px" }}
+        style={MAP_CONTAINER_STYLE}
       >
+        <EnsureCustomPanes />
         <TileLayer
           attribution={attribution}
-          url={tileUrl}
+          url={baseTileUrl}
+          maxNativeZoom={19}
+          maxZoom={MAP_ZOOM.MAX}
           {...(isMapbox ? { tileSize: 512, zoomOffset: -1 } : {})}
         />
         <MapContent {...props} />
+        {!isMapbox && (
+          <TileLayer
+            url={labelsTileUrl}
+            maxNativeZoom={19}
+            maxZoom={MAP_ZOOM.MAX}
+            pane="labelsPane"
+          />
+        )}
       </MapContainer>
-      {isLoading && (
-        <MapLoadingOverlay message={loadingMessage} />
-      )}
+      {isLoading && <MapLoadingOverlay message={loadingMessage} />}
       {helperText && (
         <div
           className="absolute bottom-4 left-1/2 z-[1000] -translate-x-1/2 rounded border border-border bg-bg/95 px-3 py-2 text-xs text-text shadow"

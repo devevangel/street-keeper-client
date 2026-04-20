@@ -57,13 +57,13 @@ Street Keeper does not draw the map itself. We use other services to know where 
 | **OpenStreetMap (OSM)** | A free, crowd-sourced map of the world. | Our source of truth for "what streets exist" and their shape. |
 | **Overpass API** | A search engine for OSM data. | We ask it: "Give me all streets inside this area" (a box around your run). |
 | **Mapbox Map Matching** | A paid service that corrects GPS tracks. | It "snaps" your messy points onto the road network — like autocorrect for GPS. Used only in Engine V1 when configured. |
-| **Local map-matcher (V2)** | In-process HMM/Viterbi matcher. | Uses NodeCache + WayCache (from PBF) to snap GPS to the road network and return **OSM node IDs**. No external matching service. Used in Engine V2. |
+| **Local map-matcher (V2)** | In-process node-proximity / matcher. | Uses **NodeCache**, **WayNode**, **WayTotalEdges** (filled **on demand per city** from Overpass when users create projects). No PBF required. Used in Engine V2. |
 
 **Summary:**
 
 - **Overpass** = "What streets are in this area?"
 - **Mapbox** = "Fix my wobbly GPS line and put it on the right roads" (V1, optional).
-- **Local matcher (V2)** = "Turn my GPS line into a list of map nodes I passed through" using local caches (NodeCache, WayCache); no external API.
+- **Local matcher (V2)** = "Turn my GPS line into a list of map nodes I passed through" using local caches (NodeCache, WayNode, WayTotalEdges), which are filled **on demand per city** from Overpass when you create a project; no PBF required.
 
 ---
 
@@ -295,18 +295,13 @@ flowchart LR
 
 ---
 
-## 8. PBF and WayCache — the offline shortcut
+## 8. On-demand city sync and PBF (legacy)
 
-**What is a PBF file?**  
-A **PBF** (Protocol Buffer Binary) file is a compressed download of OpenStreetMap data for a region (e.g. a country or state). It contains the same nodes, ways, and geometry we would get from Overpass, but for a whole area at once.
+**Current default — on-demand city sync:**  
+When you create a project (e.g. "London, 10 km radius"), the backend detects the city from your center point (one quick Overpass call), checks if that city is already in the cache, and if not it fetches all streets for that city from Overpass and stores them in **NodeCache**, **WayNode**, and **WayTotalEdges**. One sync per city; later projects in the same city use the stored data. No PBF file or manual seed step is required.
 
-**Why we use it:**  
-We can load that data into our **WayCache** once. Then, when Engine V2 needs to know "which way does node pair A–B belong to?", we look it up locally. We do not need to call Overpass at all. That means faster runs and the ability to work without the Overpass API (e.g. offline or in restricted environments).
-
-**How to seed it:**  
-We have a script that reads a PBF file and fills the WayCache (and related tables). After that, you can set `SKIP_OVERPASS=true` so V2 never calls Overpass.
-
-**Analogy:** Instead of asking the librarian every time you need a book, you download the whole catalog to your laptop and search there.
+**Legacy — PBF and WayCache (offline shortcut):**  
+A **PBF** file is a compressed download of OSM data for a region. You can optionally run a seed script to load it into **WayCache** and related tables so V2 can run without calling Overpass (e.g. offline). This is no longer required for normal deployment.
 
 ---
 

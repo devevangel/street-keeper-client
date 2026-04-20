@@ -1,6 +1,9 @@
 /**
  * Maps a distance in km to a motivational equivalent string.
  * Returns null when km is below the first threshold.
+ *
+ * Copy uses globally recognized running-distance terms (10k, marathon, etc.) in km;
+ * intentionally not localized to miles — revisit if product wants locale-specific phrasing.
  */
 
 const EQUIVALENTS: Array<{ minKm: number; label: string }> = [

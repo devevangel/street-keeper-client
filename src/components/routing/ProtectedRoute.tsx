@@ -1,7 +1,7 @@
 /**
  * Protected Route
  * Wraps routes that require authentication.
- * Redirects to login when not authenticated; shows loading state while checking.
+ * Renders children immediately; redirects to landing only after auth resolves as unauthenticated.
  */
 
 import { type ReactNode } from "react";
@@ -17,20 +17,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
-    return (
-      <div
-        className="flex min-h-screen items-center justify-center bg-bg text-text"
-        role="status"
-        aria-label="Loading"
-      >
-        <p className="text-text-muted">Loading...</p>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />;
+  if (!isLoading && !isAuthenticated) {
+    return <Navigate to={ROUTES.LANDING} state={{ from: location }} replace />;
   }
 
   return <>{children}</>;

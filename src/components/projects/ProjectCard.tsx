@@ -6,7 +6,7 @@
 
 import { Link } from "react-router-dom";
 import { Button, Card } from "../common";
-import { usePreferences } from "../../contexts/PreferencesContext";
+import { useFormatters } from "../../contexts/PreferencesContext";
 import type { ProjectListItem } from "../../types/api.types";
 
 export interface ProjectCardProps {
@@ -24,18 +24,18 @@ export function ProjectCard({
   onDelete,
   actionLoading,
 }: ProjectCardProps) {
-  const preferences = usePreferences();
-  const formatRadius =
-    preferences?.formatRadius ??
-    ((m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`));
-  const progressPercent = Math.round(project.progress);
+  const { formatRadius } = useFormatters();
+  const radiusMeters = project.radiusMeters;
   const isCircle =
-    project.boundaryType === "circle" && project.radiusMeters != null;
+    project.boundaryType === "circle" && radiusMeters != null;
   const areaLabel = isCircle
-    ? `${formatRadius(project.radiusMeters)} radius`
+    ? `${formatRadius(radiusMeters)} radius`
     : "Custom area";
   const totalStreets = project.totalStreetNames ?? project.totalStreets;
   const completedStreets = project.completedStreetNames ?? project.completedStreets;
+  const progressPercent = totalStreets > 0
+    ? Math.round((completedStreets / totalStreets) * 100)
+    : Math.round(project.progress);
 
   const cardContent = (
     <div className="flex flex-col gap-2">

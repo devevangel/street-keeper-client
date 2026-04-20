@@ -34,8 +34,29 @@ export const authService = {
   },
 
   logout(): void {
+    // Clear auth token
     apiClient.setAuthToken(null);
+    
+    // Clear user data
     localStorage.removeItem(USER_STORAGE_KEY);
+    localStorage.removeItem(DEV_USER_STORAGE_KEY);
+    
+    // Clear onboarding completion so user sees onboarding again on next login
+    localStorage.removeItem("onboarding_completed");
+    
+    // Clear all project welcome banner dismissals
+    const projectWelcomePrefix = "project-welcome-";
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(projectWelcomePrefix)) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((key) => localStorage.removeItem(key));
+    
+    // Clear dev user ID from API client
+    apiClient.setDevUserId(null);
   },
 
   /** Development only: bypass OAuth with a user ID */
