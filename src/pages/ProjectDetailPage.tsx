@@ -114,7 +114,7 @@ function ProjectSidePanel({
 
   if (loading && !project) {
     return (
-      <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-bg md:w-[400px] md:flex-none md:border-l-2">
+      <aside className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto border-border bg-bg md:w-[400px] md:flex-none md:border-l-2">
         <div className="space-y-4 p-4">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-24 w-full rounded-lg" />
@@ -145,7 +145,7 @@ function ProjectSidePanel({
   }, [mapData.streets]);
 
   return (
-    <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-bg md:w-[400px] md:flex-none md:border-l-2">
+    <aside className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto border-border bg-bg md:w-[400px] md:flex-none md:border-l-2">
       <div className="flex flex-col gap-3 p-3 md:p-4">
         {isEditingMetadata && (
           <Card padding="none" className="w-full p-3">

@@ -74,7 +74,7 @@ function buildRunSuggestionItems(homepage: HomepagePayload): RunScrollItem[] {
 }
 
 const ctaGradientClass =
-  "inline-flex w-full items-center justify-center rounded-card bg-gradient-to-r from-accent-from to-accent-to px-4 py-2 text-sm font-semibold text-white shadow-card transition-opacity hover:opacity-95";
+  "block w-full rounded-[var(--radius-button)] bg-gradient-to-r from-accent-from to-accent-to px-4 py-2.5 text-center text-sm font-semibold text-white no-underline shadow-card transition-all hover:brightness-95";
 
 export function HomepageDashboard({
   userLocation,
@@ -416,7 +416,7 @@ export function HomepageDashboard({
         </div>
       </div>
 
-      <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-bg md:w-[400px] md:flex-none md:border-l-2">
+      <aside className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto border-border bg-bg md:w-[400px] md:flex-none md:border-l-2">
         {showLocationAccessBanner &&
           locationErrorMessage &&
           onRetryLocation && (

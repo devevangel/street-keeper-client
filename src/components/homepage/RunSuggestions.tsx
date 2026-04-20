@@ -76,7 +76,7 @@ export function RunSuggestions({
       <SectionHeading>Next run suggestions</SectionHeading>
       <div
         ref={stripRef}
-        className="scrollbar-hide flex snap-x snap-mandatory cursor-grab select-none overflow-x-auto pb-1 active:cursor-grabbing"
+        className="scrollbar-hide flex snap-x snap-mandatory cursor-grab select-none overflow-x-auto overflow-y-hidden pb-1 active:cursor-grabbing"
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseLeave={stopDragging}
@@ -89,7 +89,6 @@ export function RunSuggestions({
           return (
             <Card
               key={`s-${s.cooldownKey}-${idx}`}
-              variant="outlined"
               padding="none"
               className="w-full min-w-full shrink-0 snap-start p-3 text-left"
             >

@@ -23,9 +23,9 @@ const paddingStyles = {
 } as const;
 
 const variantStyles = {
-  default: "bg-card-bg border border-border shadow-sm",
+  default: "bg-card-bg shadow-sm",
   outlined: "bg-transparent border border-border shadow-none",
-  elevated: "bg-card-bg border border-transparent shadow-md",
+  elevated: "bg-card-bg shadow-md",
 } as const;
 
 export function Card({
