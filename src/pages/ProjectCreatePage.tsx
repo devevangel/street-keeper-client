@@ -12,23 +12,23 @@ import {
   UniversalSearchInput,
   ProjectCreatedModal,
 } from "../components/projects";
-import { UnifiedMap, MAP_ZOOM, type ShapeData } from "../components/map";
+import { UnifiedMap, MAP_ZOOM, MapFilterCard, ALL_BINS, type ShapeData } from "../components/map";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
-import { useGeolocation, useGpsTraces } from "../hooks";
+import { useGeolocation, useGpsTraces, useMapStreets } from "../hooks";
+import type { FilterStatus } from "../utils/street-filters";
 import { ROUTES, DEFAULT_PROJECT_RADIUS_METERS } from "../config/constants";
-import { usePreferences } from "../contexts/PreferencesContext";
+import type { ProjectMapStreet } from "../types/api.types";
+import { usePreferences, useFormatters } from "../contexts/PreferencesContext";
 import { useToast } from "../contexts/ToastContext";
 import type {
   ProjectPreview,
-  ProjectMapStreet,
   BoundaryMode,
 } from "../types/api.types";
 import type { GeocodingResult } from "../types/api.types";
 
 const DEFAULT_CENTER: LatLngTuple = [50.8, -1.09];
 const AUTO_PREVIEW_DEBOUNCE_MS = 800;
-
 /** Predefined radius snap points for better UX across large range */
 const RADIUS_SNAP_POINTS = [
   100, 200, 300, 400, 500, 750,
@@ -48,22 +48,6 @@ function snapToRadiusPoints(meters: number): number {
 /** Normalize osmId to always have "way/" prefix for consistent map highlighting */
 function normalizeOsmId(osmId: string): string {
   return osmId.startsWith("way/") ? osmId : `way/${osmId}`;
-}
-
-/** Convert preview street (with geometry) to ProjectMapStreet for rendering on map */
-function previewStreetToMapStreet(
-  street: NonNullable<ProjectPreview["streets"]>[number]
-): ProjectMapStreet | null {
-  if (street.osmId == null || !street.geometry) return null;
-  return {
-    osmId: normalizeOsmId(String(street.osmId)),
-    name: street.name,
-    highwayType: street.highwayType,
-    lengthMeters: street.totalLengthMeters,
-    percentage: 0,
-    status: "not_started",
-    geometry: street.geometry,
-  };
 }
 
 /** Compute [minLat, minLng, maxLat, maxLng] from GeoJSON LineString coordinates [lng, lat][] */
@@ -95,15 +79,10 @@ const ToolIcons = {
 };
 
 export function ProjectCreatePage() {
-  const {
-    position: geoPosition,
-    requestPermission,
-    isLoading: geoLoading,
-  } = useGeolocation();
+  const { position: geoPosition, requestPermission } = useGeolocation();
   const preferences = usePreferences();
+  const { formatRadius, formatDistance } = useFormatters();
   const toast = useToast();
-  const formatRadius = preferences?.formatRadius ?? ((m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`));
-  const formatDistance = preferences?.formatDistance ?? ((m: number, p = 1) => `${(m / 1000).toFixed(p)} km`);
 
   /** Default radius from user preferences (meters), snapped to slider points. Used when placing/resetting marker. */
   const defaultRadiusMeters = useMemo(
@@ -150,6 +129,47 @@ export function ProjectCreatePage() {
   } | null>(null);
   const previewAbortRef = useRef<AbortController | null>(null);
 
+  const [showTraces, setShowTraces] = useState(false);
+  const [visibleBins, setVisibleBins] = useState<Set<FilterStatus>>(
+    () => new Set(ALL_BINS as FilterStatus[]),
+  );
+  const allBinsActive = visibleBins.size === ALL_BINS.length;
+
+  const toggleBin = useCallback((bin: FilterStatus) => {
+    setVisibleBins((prev) => {
+      const next = new Set(prev);
+      if (next.has(bin)) {
+        next.delete(bin);
+        if (next.size === 0) return new Set(ALL_BINS as FilterStatus[]);
+        return next;
+      }
+      next.add(bin);
+      return next;
+    });
+  }, []);
+
+  const { data: mapStreetsData } = useMapStreets(
+    geoPosition?.lat ?? null,
+    geoPosition?.lng ?? null,
+    1000,
+  );
+  const mapStreets = mapStreetsData?.segments ?? [];
+
+  const previewMapStreets: ProjectMapStreet[] = useMemo(() => {
+    if (!preview?.streets) return [];
+    return preview.streets
+      .filter((s) => s.geometry && s.osmId)
+      .map((s) => ({
+        osmId: s.osmId!,
+        name: s.name,
+        highwayType: s.highwayType,
+        lengthMeters: s.totalLengthMeters,
+        percentage: s.percentage ?? 0,
+        status: (s.status ?? "not_started") as ProjectMapStreet["status"],
+        geometry: s.geometry!,
+      }));
+  }, [preview?.streets]);
+
   const boundaryMode: BoundaryMode = includePartialStreets
     ? "intersects"
     : "strict";
@@ -185,16 +205,20 @@ export function ProjectCreatePage() {
 
   const hasValidShape = activeShape != null;
 
-  // Show GPS traces in the area when user has drawn a shape (context for "previously run" streets)
   const tracesRadius =
     activeShape?.type === "circle"
       ? activeShape.radiusMeters
       : activeShape?.type === "polygon"
         ? 5000
-        : 5000;
+        : 1000;
+  const tracesCenter: LatLngTuple | null = hasValidShape
+    ? mapCenter
+    : geoPosition
+      ? [geoPosition.lat, geoPosition.lng]
+      : null;
   const { traces: gpsTraces } = useGpsTraces({
-    lat: hasValidShape ? mapCenter[0] : null,
-    lng: hasValidShape ? mapCenter[1] : null,
+    lat: tracesCenter?.[0] ?? null,
+    lng: tracesCenter?.[1] ?? null,
     radius: tracesRadius,
   });
 
@@ -457,6 +481,46 @@ export function ProjectCreatePage() {
         </div>
       </div>
 
+      {preview && previewMapStreets.length > 0 ? (
+        <MapFilterCard
+          streets={previewMapStreets}
+          visibleBins={visibleBins}
+          onToggleBin={toggleBin}
+          onToggleAll={() =>
+            allBinsActive
+              ? setVisibleBins(new Set())
+              : setVisibleBins(new Set(ALL_BINS as FilterStatus[]))
+          }
+          allBinsActive={allBinsActive}
+          showTraces={showTraces}
+          onToggleTraces={() => setShowTraces((v) => !v)}
+        />
+      ) : (
+        <button
+          type="button"
+          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all ${
+            showTraces
+              ? "bg-violet-500/15 ring-1 ring-inset ring-violet-500/40 text-violet-600 dark:text-violet-400"
+              : "border border-border bg-surface text-text-muted/60 hover:bg-border/20"
+          }`}
+          onClick={() => setShowTraces((v) => !v)}
+        >
+          <span className={`flex size-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${showTraces ? "border-transparent bg-violet-500" : "border-neutral-300 dark:border-neutral-600"}`}>
+            {showTraces && (
+              <svg viewBox="0 0 16 16" className="size-3 text-white">
+                <path d="M3 8l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold leading-tight">Run traces</span>
+            <span className={`block text-[11px] leading-tight ${showTraces ? "" : "text-text-muted/50"}`}>
+              Show your Strava GPS lines on map
+            </span>
+          </span>
+        </button>
+      )}
+
       <div>
         <label
           htmlFor="geocode-search"
@@ -520,10 +584,7 @@ export function ProjectCreatePage() {
             <>
               <p className="text-text">
                 <strong>{preview.totalStreetNames}</strong> street
-                {preview.totalStreetNames !== 1 ? "s" : ""}
-                {preview.totalStreets !== preview.totalStreetNames
-                  ? ` (${preview.totalStreets} segments)`
-                  : ""}{" "}
+                {preview.totalStreetNames !== 1 ? "s" : ""}{" "}
                 ·{" "}
                 <strong>{formatDistance(preview.totalLengthMeters, 1)}</strong> total
               </p>
@@ -700,14 +761,6 @@ export function ProjectCreatePage() {
     [activeTool, handleMapClickForMarker],
   );
 
-  // Convert preview streets to map-renderable format for highlighting
-  const previewStreetsForMap = useMemo(() => {
-    if (!preview?.streets) return [];
-    return preview.streets
-      .map(previewStreetToMapStreet)
-      .filter((s): s is ProjectMapStreet => s !== null);
-  }, [preview?.streets]);
-
   const helperText =
     activeTool === "polygon"
         ? "Click to add points. Double-click to finish. ESC to cancel."
@@ -737,9 +790,11 @@ export function ProjectCreatePage() {
         zoom={mapZoom}
         userLocation={geoPosition}
         showUserLocationMarker={!!showUserLocationMarker}
-        streets={previewStreetsForMap}
-        gpsTraces={gpsTraces}
+        streets={previewMapStreets.length > 0 ? previewMapStreets : mapStreets}
+        gpsTraces={showTraces ? gpsTraces : []}
         highlightOsmIds={highlightOsmIds}
+        visibleStreetBins={previewMapStreets.length > 0 ? visibleBins : undefined}
+        onVisibleStreetBinsChange={previewMapStreets.length > 0 ? setVisibleBins : undefined}
         drawingEnabled
         activeShape={activeShape}
         onShapeChange={setActiveShape}
@@ -757,6 +812,8 @@ export function ProjectCreatePage() {
               : null
         }
         showDrawnCircle={true}
+        showLegend
+        showLegendGuide={false}
         isLoading={false}
         helperText={helperText}
         className="h-full w-full"

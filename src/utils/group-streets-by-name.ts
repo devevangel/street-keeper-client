@@ -1,5 +1,6 @@
 import type { SnapshotStreet, ProjectMapStreet } from "../types/api.types";
 import { normalizeStreetName } from "./normalize-street-name";
+import { isUnnamedStreet } from "./street-filters";
 
 export interface GroupedStreet {
   name: string;
@@ -21,9 +22,10 @@ export function groupStreetsByName(streets: SnapshotStreet[]): GroupedStreet[] {
     { streets: SnapshotStreet[]; displayName: string }
   >();
   for (const s of streets) {
-    const key = normalizeStreetName(s.name || "Unnamed");
+    if (isUnnamedStreet(s.name)) continue;
+    const key = normalizeStreetName(s.name);
     if (!byName.has(key)) {
-      byName.set(key, { streets: [], displayName: s.name || "Unnamed" });
+      byName.set(key, { streets: [], displayName: s.name });
     }
     byName.get(key)!.streets.push(s);
   }
@@ -58,9 +60,10 @@ export function groupProjectMapStreetsByName(
     { streets: ProjectMapStreet[]; displayName: string }
   >();
   for (const s of streets) {
-    const key = normalizeStreetName(s.name || "Unnamed");
+    if (isUnnamedStreet(s.name)) continue;
+    const key = normalizeStreetName(s.name);
     if (!byName.has(key)) {
-      byName.set(key, { streets: [], displayName: s.name || "Unnamed" });
+      byName.set(key, { streets: [], displayName: s.name });
     }
     byName.get(key)!.streets.push(s);
   }

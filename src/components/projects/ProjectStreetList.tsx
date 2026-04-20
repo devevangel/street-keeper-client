@@ -8,7 +8,7 @@
 import { useState, useMemo } from "react";
 import type { SnapshotStreet } from "../../types/api.types";
 import { normalizeStreetName } from "../../utils/normalize-street-name";
-import { usePreferences } from "../../contexts/PreferencesContext";
+import { useFormatters } from "../../contexts/PreferencesContext";
 import { Input } from "../common";
 
 interface ProjectStreetListProps {
@@ -79,14 +79,13 @@ function statusClass(row: GroupedStreet): string {
 
 export function ProjectStreetList({
   streets,
-  totalStreets,
+  totalStreets: _totalStreets,
   totalLengthMeters,
   overallProgressPercent,
   onStreetClick,
 }: ProjectStreetListProps) {
   const [search, setSearch] = useState("");
-  const preferences = usePreferences();
-  const formatDistance = preferences?.formatDistance ?? ((m: number, p = 1) => `${(m / 1000).toFixed(p)} km`);
+  const { formatDistance } = useFormatters();
 
   const grouped = useMemo(() => groupStreetsByName(streets), [streets]);
 

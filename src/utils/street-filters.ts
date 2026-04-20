@@ -2,6 +2,13 @@
  * Shared street filter utilities for project detail page and homepage.
  */
 
+const UNNAMED_PATTERNS = ["unnamed road", "unnamed", ""];
+
+export function isUnnamedStreet(name: string | null | undefined): boolean {
+  if (!name) return true;
+  return UNNAMED_PATTERNS.includes(name.toLowerCase().trim());
+}
+
 export type FilterStatus = "all" | "completed" | "almostThere" | "inProgress" | "notStarted";
 
 /** Get completion bin for a street based on percentage and completed flag. */

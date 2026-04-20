@@ -129,6 +129,18 @@ function UnifiedStreetPolyline({
   const statusLabel = BIN_LABELS[bin];
 
   if (highlight) {
+    const highlightColor =
+      street.percentage === 0
+        ? MAP_COLORS.HIGHLIGHT_NEW
+        : street.percentage < 100
+          ? MAP_COLORS.HIGHLIGHT_FINISH
+          : MAP_COLORS.HIGHLIGHT;
+    const highlightLabel =
+      street.percentage === 0
+        ? "New — to discover"
+        : street.percentage < 100
+          ? `${street.percentage.toFixed(0)}% — to finish`
+          : "Completed";
     return (
       <>
         <Polyline
@@ -144,7 +156,7 @@ function UnifiedStreetPolyline({
           positions={fullPositions}
           pathOptions={{
             ...PATH_OPTIONS_BASE,
-            color: MAP_COLORS.HIGHLIGHT,
+            color: highlightColor,
             weight: MAP_WEIGHTS.HIGHLIGHT,
             opacity: MAP_OPACITY.HIGHLIGHT * fade,
           }}
@@ -153,7 +165,7 @@ function UnifiedStreetPolyline({
             <div className="min-w-[140px] text-left text-neutral-800">
               <p className="font-bold text-neutral-900">{street.name}</p>
               <p className="text-sm text-neutral-600">
-                {street.percentage.toFixed(0)}% · {statusLabel}
+                {highlightLabel}
                 {street.runCount != null &&
                   street.runCount > 0 &&
                   ` · ${street.runCount} run${street.runCount !== 1 ? "s" : ""}`}

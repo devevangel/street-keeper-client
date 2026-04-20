@@ -1,6 +1,8 @@
 import { ChevronRight, Eye } from "lucide-react";
+import { useFormatters } from "../../contexts/PreferencesContext";
 import { Card, SectionHeading } from "../common";
 import type { HomepagePayload } from "../../services/homepage.service";
+import { isUnnamedStreet } from "../../utils/street-filters";
 
 function formatDaysAgo(daysAgo: number): string {
   if (daysAgo === 0) return "Today";
@@ -28,6 +30,7 @@ export interface RecentRunsProps {
 }
 
 export function RecentRuns({ lastRun, runs, onSelect }: RecentRunsProps) {
+  const { formatDistance } = useFormatters();
   const otherRuns = (runs ?? [])
     .filter((r) => r.activityId !== lastRun?.activityId)
     .slice(0, 3);
@@ -55,7 +58,8 @@ export function RecentRuns({ lastRun, runs, onSelect }: RecentRunsProps) {
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-lg font-bold leading-tight text-text">
-              {formatDaysAgo(lastRun.daysAgo)} · {lastRun.distanceKm} km
+              {formatDaysAgo(lastRun.daysAgo)} ·{" "}
+              {formatDistance(lastRun.distanceKm * 1000)}
             </p>
             <div className="flex items-center gap-1.5">
               {lastRun.newStreets > 0 && (
@@ -68,10 +72,10 @@ export function RecentRuns({ lastRun, runs, onSelect }: RecentRunsProps) {
               )}
             </div>
           </div>
-          {(lastRun.completedStreetNames?.length ||
-            lastRun.improvedStreetNames?.length) ? (
+          {(lastRun.completedStreetNames?.filter((n) => !isUnnamedStreet(n)).length ||
+            lastRun.improvedStreetNames?.filter((n) => !isUnnamedStreet(n)).length) ? (
             <div className="mt-1.5 flex flex-wrap gap-1">
-              {lastRun.completedStreetNames?.map((name) => (
+              {lastRun.completedStreetNames?.filter((n) => !isUnnamedStreet(n)).map((name) => (
                 <span
                   key={`c-${name}`}
                   className="inline-block rounded bg-success/10 px-1.5 py-0.5 text-xs font-medium text-success"
@@ -79,7 +83,7 @@ export function RecentRuns({ lastRun, runs, onSelect }: RecentRunsProps) {
                   {name}
                 </span>
               ))}
-              {lastRun.improvedStreetNames?.map((name) => (
+              {lastRun.improvedStreetNames?.filter((n) => !isUnnamedStreet(n)).map((name) => (
                 <span
                   key={`i-${name}`}
                   className="inline-block rounded bg-border/40 px-1.5 py-0.5 text-xs text-text-muted"
@@ -110,7 +114,7 @@ export function RecentRuns({ lastRun, runs, onSelect }: RecentRunsProps) {
                 <div className="min-w-0 flex-1">
                   <span className="text-sm font-medium text-text">{r.name}</span>
                   <span className="ml-1.5 text-xs text-text-muted">
-                    {r.distanceKm} km
+                    {formatDistance(r.distanceKm * 1000)}
                   </span>
                   {formatRunRecency(r.date) && (
                     <span className="ml-1.5 text-xs text-text-muted">

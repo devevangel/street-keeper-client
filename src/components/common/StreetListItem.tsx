@@ -4,7 +4,7 @@
  * Highlight is triggered only on click (not hover) so the map does not jump when moving the cursor.
  */
 
-import { usePreferences } from "../../contexts/PreferencesContext";
+import { useFormatters } from "../../contexts/PreferencesContext";
 import { getStreetStatusMessage } from "../../utils/motivational-copy";
 
 function formatLastRun(iso: string): string {
@@ -46,8 +46,7 @@ export function StreetListItem({
   onClearHighlight,
   variant = "homepage",
 }: StreetListItemProps) {
-  const preferences = usePreferences();
-  const formatDistance = preferences?.formatDistance ?? ((m: number, p = 1) => `${(m / 1000).toFixed(p)} km`);
+  const { formatDistance } = useFormatters();
 
   const handleClick = () => {
     onHighlight(street);

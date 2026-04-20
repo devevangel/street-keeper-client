@@ -5,13 +5,21 @@
 
 import { useEffect, useState } from "react";
 import { Button, Card, Select, ProgressLoader, PageHeader } from "../components/common";
-import { usePreferences } from "../contexts/PreferencesContext";
+import { useAuth } from "../contexts/AuthContext";
+import { usePreferences, useFormatters } from "../contexts/PreferencesContext";
 import { useToast } from "../contexts/ToastContext";
 import { ROUTES, DEFAULT_PROJECT_RADIUS_METERS } from "../config/constants";
 import { MAP_THEMES, DEFAULT_MAP_THEME } from "../config/map-themes";
+import { authService } from "../services/auth.service";
+
+const DEFAULT_PROJECT_RADIUS_OPTIONS_METERS = [
+  100, 200, 300, 500, 1000, 2000, 5000,
+] as const;
 
 export function PreferencesPage() {
+  const { user } = useAuth();
   const preferencesContext = usePreferences();
+  const { formatRadius } = useFormatters();
   const preferences = preferencesContext?.preferences ?? null;
   const isLoading = preferencesContext?.isLoading ?? true;
   const updatePreferencesFn = preferencesContext?.updatePreferences;
@@ -26,6 +34,7 @@ export function PreferencesPage() {
   const [defaultMapZoom, setDefaultMapZoom] = useState(15);
   const [defaultProjectRadius, setDefaultProjectRadius] = useState(DEFAULT_PROJECT_RADIUS_METERS);
   const [defaultStreetFilter, setDefaultStreetFilter] = useState("all");
+  const [autoUpdateRunDescription, setAutoUpdateRunDescription] = useState(true);
 
   useEffect(() => {
     if (preferences) {
@@ -36,6 +45,7 @@ export function PreferencesPage() {
       setDefaultMapZoom(preferences.defaultMapZoom);
       setDefaultProjectRadius(preferences.defaultProjectRadius);
       setDefaultStreetFilter(preferences.defaultStreetFilter);
+      setAutoUpdateRunDescription(preferences.autoUpdateRunDescription ?? true);
     }
   }, [preferences]);
 
@@ -51,6 +61,7 @@ export function PreferencesPage() {
         defaultMapZoom,
         defaultProjectRadius,
         defaultStreetFilter,
+        autoUpdateRunDescription,
       });
       toast?.showToast("Preferences saved.", "success");
     } catch {
@@ -173,18 +184,13 @@ export function PreferencesPage() {
             </div>
 
             <Select
-              label="Default project radius (m)"
+              label="Default project radius"
               value={String(defaultProjectRadius)}
               onChange={(e) => setDefaultProjectRadius(Number(e.target.value))}
-              options={[
-                { value: "100", label: "100 m" },
-                { value: "200", label: "200 m" },
-                { value: "300", label: "300 m" },
-                { value: "500", label: "500 m" },
-                { value: "1000", label: "1 km" },
-                { value: "2000", label: "2 km" },
-                { value: "5000", label: "5 km" },
-              ]}
+              options={DEFAULT_PROJECT_RADIUS_OPTIONS_METERS.map((meters) => ({
+                value: String(meters),
+                label: formatRadius(meters),
+              }))}
             />
 
             <Select
@@ -199,6 +205,46 @@ export function PreferencesPage() {
                 { value: "notStarted", label: "Not started" },
               ]}
             />
+          </Card>
+
+          {/* Strava integration */}
+          <Card padding="sm" className="space-y-3">
+            <h2 className="text-base font-semibold text-text">Strava</h2>
+
+            {user?.needsReauth && (
+              <div className="rounded-lg border border-warning bg-warning/10 p-3">
+                <p className="text-sm font-medium text-text">
+                  Re-authorize to enable run descriptions
+                </p>
+                <p className="mt-1 text-xs text-text-muted">
+                  Street Keeper needs updated permissions to add stats to your
+                  Strava run descriptions. Your existing data is unaffected.
+                </p>
+                <a
+                  href={authService.getStravaAuthUrl()}
+                  className="mt-2 inline-block rounded bg-primary px-3 py-1.5 text-xs font-semibold text-surface hover:opacity-90"
+                >
+                  Re-authorize with Strava
+                </a>
+              </div>
+            )}
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoUpdateRunDescription}
+                onChange={(e) => setAutoUpdateRunDescription(e.target.checked)}
+                className="h-5 w-5 rounded border-border text-primary accent-primary"
+              />
+              <div>
+                <span className="text-sm font-medium text-text">
+                  Add Street Keeper stats to run descriptions
+                </span>
+                <p className="text-xs text-text-muted mt-0.5">
+                  After each run, we&apos;ll append your street stats, a motivational message, and #StreetKeeper to your Strava description.
+                </p>
+              </div>
+            </label>
           </Card>
         </div>
     </div>

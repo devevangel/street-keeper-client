@@ -44,6 +44,8 @@ export interface AuthUser {
   stravaId?: string | null;
   garminId?: string | null;
   profilePic?: string | null;
+  /** True when user's Strava grant is missing activity:write — prompt re-authorization */
+  needsReauth?: boolean;
 }
 
 export interface AuthSuccessResponse {
@@ -207,6 +209,8 @@ export interface ProjectPreview {
       type: "LineString";
       coordinates: [number, number][];
     };
+    percentage?: number;
+    status?: "completed" | "partial" | "not_started";
   }>;
 }
 
@@ -294,6 +298,8 @@ export interface ProjectMapStats {
   completionPercentage: number;
   totalStreetNames: number;
   completedStreetNames: number;
+  partialStreetNames: number;
+  notStartedStreetNames: number;
 }
 
 export interface ProjectMapData {
@@ -352,7 +358,7 @@ export interface SuggestionsResponse {
       streetsNeeded: number;
       streets: StreetSuggestion[];
     } | null;
-    clusters: Array<{
+    clusters?: Array<{
       centroid: { lat: number; lng: number };
       streets: StreetSuggestion[];
       totalLength: number;

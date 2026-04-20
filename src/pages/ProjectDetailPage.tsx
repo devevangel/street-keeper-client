@@ -3,47 +3,118 @@
  * Map on the left, data side panel on the right.
  */
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Button, Card, ConfirmModal, ProgressBar, Skeleton } from "../components/common";
-import { UnifiedMap, type MapViewHighlightFocus } from "../components/map";
-import { ProjectStreetList } from "../components/projects/ProjectStreetList";
+import { Button, Card, ConfirmModal, Input, ProgressBar, Skeleton } from "../components/common";
+import { UnifiedMap, MapFilterCard, ALL_BINS, type MapViewHighlightFocus } from "../components/map";
 import { useGpsTraces } from "../hooks";
 import { MAP_ZOOM } from "../components/map/mapConstants";
 import { projectsService } from "../services/projects.service";
+import { getHomepageData, type HomepagePayload, type HomepageSuggestion } from "../services/homepage.service";
 import { ApiError } from "../lib/api-client";
 import { ROUTES } from "../config/constants";
 import { useToast } from "../contexts/ToastContext";
-import type { ProjectDetail, ProjectMapData, ProjectQuickWin } from "../types/api.types";
+import type { ProjectDetail, ProjectMapData, ProjectActivityItem } from "../types/api.types";
+import { isUnnamedStreet, type FilterStatus } from "../utils/street-filters";
 import { computeBoundaryBbox, projectMapCenter } from "../utils/map-utils";
+import { isValidBbox } from "../utils/homepage-map-focus";
+import { HomepageMetrics } from "../components/homepage/HomepageMetrics";
+import { RecentRuns } from "../components/homepage/RecentRuns";
+import { RunSuggestions, type ScrollItem } from "../components/homepage/RunSuggestions";
+import { useFormatters } from "../contexts/PreferencesContext";
 
 const MAP_SHELL_CENTER = { lat: 50.8, lng: -1.09 };
 const EMPTY_HIGHLIGHT_OSM_IDS: string[] = [];
+const MAX_SUGGESTIONS = 4;
 
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+function toDateInputValue(isoDate: string | null): string {
+  return isoDate ? isoDate.slice(0, 10) : "";
+}
+
+function buildRunSuggestionItems(homepage: HomepagePayload): ScrollItem[] {
+  const candidates = [
+    homepage.primarySuggestion,
+    ...homepage.alternates,
+  ].filter((s): s is HomepageSuggestion => !!s?.clusterStats);
+  return candidates.slice(0, MAX_SUGGESTIONS).map((s, i) => ({
+    kind: "suggestion" as const,
+    suggestion: s,
+    isPrimary: i === 0,
+  }));
+}
+
+interface ProjectSidePanelProps {
+  project: ProjectDetail | null;
+  mapData: ProjectMapData | null;
+  loading: boolean;
+  isEditingMetadata: boolean;
+  metadataName: string;
+  metadataDeadline: string;
+  metadataSaving: boolean;
+  metadataError: string | null;
+  onMetadataNameChange: (value: string) => void;
+  onMetadataDeadlineChange: (value: string) => void;
+  onMetadataCancel: () => void;
+  onMetadataSave: () => void;
+  showTraces: boolean;
+  onToggleTraces: () => void;
+  visibleBins: Set<FilterStatus>;
+  onToggleBin: (bin: FilterStatus) => void;
+  onToggleAll: () => void;
+  allBinsActive: boolean;
+  homepage: HomepagePayload | null;
+  activities: ProjectActivityItem[];
+  onSelectRun: (activityId: string, bbox: [number, number, number, number]) => void;
+  onViewSuggestionArea: (s: HomepageSuggestion) => void;
+}
+
+function formatActivityDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / 86_400_000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
 }
 
 function ProjectSidePanel({
   project,
   mapData,
   loading,
-  onStreetClick,
+  isEditingMetadata,
+  metadataName,
+  metadataDeadline,
+  metadataSaving,
+  metadataError,
+  onMetadataNameChange,
+  onMetadataDeadlineChange,
+  onMetadataCancel,
+  onMetadataSave,
   showTraces,
   onToggleTraces,
-}: {
-  project: ProjectDetail | null;
-  mapData: ProjectMapData | null;
-  loading: boolean;
-  onStreetClick?: (osmIds: string[], name: string) => void;
-  showTraces: boolean;
-  onToggleTraces: () => void;
-}) {
+  visibleBins,
+  onToggleBin,
+  onToggleAll,
+  allBinsActive,
+  homepage,
+  activities,
+  onSelectRun,
+  onViewSuggestionArea,
+}: ProjectSidePanelProps) {
+  const { formatDistance } = useFormatters();
+
   if (loading && !project) {
     return (
-      <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-surface md:w-[380px] md:flex-none md:border-l">
+      <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-bg md:w-[400px] md:flex-none md:border-l-2">
         <div className="space-y-4 p-4">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-24 w-full rounded-lg" />
@@ -56,13 +127,73 @@ function ProjectSidePanel({
   if (!project || !mapData) return null;
 
   const stats = mapData.stats;
-  const pStats = mapData.projectStats;
-  const pct = stats.completionPercentage;
-  const quickWins = mapData.quickWins ?? [];
+  const pct = stats.totalStreetNames > 0
+    ? (stats.completedStreetNames / stats.totalStreetNames) * 100
+    : stats.completionPercentage;
+  const runSuggestionItems = homepage ? buildRunSuggestionItems(homepage) : [];
+
+  // Deduplicate segments by street name so the filter card shows logical street counts
+  // (e.g. 17 streets, not 1595 segments). Segments share propagated status/percentage.
+  const streetsByName = useMemo(() => {
+    const seen = new Map<string, (typeof mapData.streets)[number]>();
+    for (const s of mapData.streets) {
+      if (isUnnamedStreet(s.name)) continue;
+      const key = s.name.toLowerCase().trim();
+      if (!seen.has(key)) seen.set(key, s);
+    }
+    return [...seen.values()];
+  }, [mapData.streets]);
 
   return (
-    <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-surface md:w-[380px] md:flex-none md:border-l">
-      <div className="flex flex-col gap-4 p-4">
+    <aside className="flex min-h-0 flex-1 flex-col overflow-y-auto border-border bg-bg md:w-[400px] md:flex-none md:border-l-2">
+      <div className="flex flex-col gap-3 p-3 md:p-4">
+        {isEditingMetadata && (
+          <Card padding="none" className="w-full p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Edit details
+            </h3>
+            <form
+              className="mt-2 grid gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                onMetadataSave();
+              }}
+            >
+              <Input
+                label="Project name"
+                value={metadataName}
+                onChange={(event) => onMetadataNameChange(event.target.value)}
+                maxLength={100}
+                disabled={metadataSaving}
+                required
+              />
+              <Input
+                label="Deadline"
+                type="date"
+                value={metadataDeadline}
+                onChange={(event) => onMetadataDeadlineChange(event.target.value)}
+                disabled={metadataSaving}
+              />
+              <div className="flex gap-2 justify-end">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onMetadataCancel}
+                  disabled={metadataSaving}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={metadataSaving}>
+                  {metadataSaving ? "Saving…" : "Save"}
+                </Button>
+              </div>
+            </form>
+            {metadataError && (
+              <p className="mt-2 text-sm text-danger">{metadataError}</p>
+            )}
+          </Card>
+        )}
+
         {/* Overall progress */}
         <div className="space-y-2">
           <div className="flex items-baseline justify-between">
@@ -73,154 +204,129 @@ function ProjectSidePanel({
           </div>
           <ProgressBar percentage={pct} height={6} />
           <div className="flex gap-4 text-xs text-text-muted">
-            <span>{stats.completedStreets} completed</span>
-            <span>{stats.partialStreets} in progress</span>
-            <span>{stats.notRunStreets} not started</span>
+            <span>{stats.completedStreetNames} completed</span>
+            <span>{stats.partialStreetNames} in progress</span>
+            <span>{stats.notStartedStreetNames} not started</span>
           </div>
         </div>
 
-        {/* Strava traces toggle */}
-        <button
-          type="button"
-          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all ${
-            showTraces
-              ? "bg-violet-500/15 ring-1 ring-inset ring-violet-500/40 text-violet-600 dark:text-violet-400"
-              : "bg-bg text-text-muted/60 hover:bg-bg/80"
-          }`}
-          onClick={onToggleTraces}
-        >
-          <span className={`flex size-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${showTraces ? "border-transparent bg-violet-500" : "border-neutral-300 dark:border-neutral-600"}`}>
-            {showTraces && (
-              <svg viewBox="0 0 16 16" className="size-3 text-white">
-                <path d="M3 8l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            )}
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-bold leading-tight">Run traces</span>
-            <span className={`block text-[11px] leading-tight ${showTraces ? "" : "text-text-muted/50"}`}>
-              Show Strava GPS lines on map
-            </span>
-          </span>
-        </button>
-
-        {/* Run stats */}
-        {pStats && (
-          <div className="space-y-1">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-              Run stats
-            </h3>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="font-medium text-text">{pStats.totalRuns}</p>
-                <p className="text-xs text-text-muted">runs</p>
-              </div>
-              <div>
-                <p className="font-medium text-text">{pStats.totalDistanceKm.toFixed(1)} km</p>
-                <p className="text-xs text-text-muted">total distance</p>
-              </div>
-              <div>
-                <p className="font-medium text-text">{formatDate(pStats.firstRunDate)}</p>
-                <p className="text-xs text-text-muted">first run</p>
-              </div>
-              <div>
-                <p className="font-medium text-text">{formatDate(pStats.lastRunDate)}</p>
-                <p className="text-xs text-text-muted">last run</p>
-              </div>
+        {/* Distance covered vs total */}
+        {project.totalLengthMeters > 0 && (
+          <Card padding="none" className="w-full p-3">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Distance covered
+              </span>
+              <span className="text-xs text-text-muted">
+                {((project.distanceCoveredMeters / project.totalLengthMeters) * 100).toFixed(0)}%
+              </span>
             </div>
-          </div>
-        )}
-
-        {/* Pace & projection */}
-        {project.streetsPerWeek > 0 && (
-          <div className="space-y-1">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-              Pace
-            </h3>
-            <p className="text-sm text-text">
-              <span className="font-medium">{project.streetsPerWeek.toFixed(1)}</span> streets/week
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-xl font-bold text-text">
+                {formatDistance(project.distanceCoveredMeters)}
+              </span>
+              <span className="text-sm text-text-muted">
+                / {formatDistance(project.totalLengthMeters)}
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border">
+              <div
+                className="h-full rounded-full bg-success transition-all"
+                style={{ width: `${Math.min((project.distanceCoveredMeters / project.totalLengthMeters) * 100, 100)}%` }}
+              />
+            </div>
+            <p className="mt-1.5 text-xs text-text-muted">
+              {formatDistance(project.totalLengthMeters - project.distanceCoveredMeters)} remaining
             </p>
-            {project.projectedFinishDate && (
-              <p className="text-xs text-text-muted">
-                At this pace, done by {formatDate(project.projectedFinishDate)}
+          </Card>
+        )}
+
+        {/* Total Distance / Total Runs — use project street data as primary source */}
+        <HomepageMetrics
+          totalDistanceKm={
+            project.distanceCoveredMeters > 0
+              ? Math.round((project.distanceCoveredMeters / 1000) * 100) / 100
+              : homepage?.totalDistanceKm ?? null
+          }
+          totalActivities={homepage?.totalActivities ?? null}
+        />
+
+        {/* Recent runs */}
+        {homepage && (
+          <RecentRuns
+            lastRun={homepage.lastRun}
+            runs={homepage.recentRuns}
+            onSelect={onSelectRun}
+          />
+        )}
+
+        {/* Map filters (bin toggles + traces) */}
+        <MapFilterCard
+          streets={streetsByName}
+          visibleBins={visibleBins}
+          onToggleBin={onToggleBin}
+          onToggleAll={onToggleAll}
+          allBinsActive={allBinsActive}
+          showTraces={showTraces}
+          onToggleTraces={onToggleTraces}
+        />
+
+        {/* Run suggestions */}
+        {runSuggestionItems.length > 0 && (
+          <RunSuggestions
+            items={runSuggestionItems}
+            onViewArea={onViewSuggestionArea}
+          />
+        )}
+
+        {/* Activity history */}
+        {activities.length > 0 && (
+          <Card padding="none" className="w-full p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Recent activity
+            </h3>
+            <div className="mt-2 space-y-0 divide-y divide-border">
+              {activities.slice(0, 5).map((a) => (
+                <div key={a.id} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                  <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-success/10 text-success">
+                    <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 12l4-4 3 3 5-7" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-text">{a.activityName}</p>
+                    <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-text-muted">
+                      <span>{formatActivityDate(a.date)}</span>
+                      <span>{formatDistance(a.distanceMeters)}</span>
+                      {a.durationSeconds > 0 && <span>{formatDuration(a.durationSeconds)}</span>}
+                    </div>
+                    {(a.streetsCompleted > 0 || a.streetsImproved > 0) && (
+                      <div className="mt-1 flex gap-1.5">
+                        {a.streetsCompleted > 0 && (
+                          <span className="inline-block rounded bg-success/10 px-1.5 py-0.5 text-[11px] font-medium text-success">
+                            {a.streetsCompleted} completed
+                          </span>
+                        )}
+                        {a.streetsImproved > 0 && (
+                          <span className="inline-block rounded bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                            {a.streetsImproved} improved
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {activities.length > 5 && (
+              <p className="mt-2 text-center text-xs text-text-muted">
+                +{activities.length - 5} more activities
               </p>
             )}
-          </div>
-        )}
-
-        {/* Quick wins */}
-        <QuickWinsList quickWins={quickWins} />
-
-        {/* Milestone */}
-        {project.realNextMilestone && !project.realNextMilestone.progress.isCompleted && (
-          <div className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-              Next milestone
-            </h3>
-            <div className="rounded-lg border border-border p-3">
-              <p className="text-sm font-medium text-text">{project.realNextMilestone.name}</p>
-              <div className="mt-2 flex items-center gap-2">
-                <ProgressBar
-                  percentage={project.realNextMilestone.progress.ratio * 100}
-                  height={4}
-                  className="flex-1"
-                />
-                <span className="text-xs text-text-muted">
-                  {Math.round(project.realNextMilestone.progress.ratio * 100)}%
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-text-muted">
-                {project.realNextMilestone.progress.currentValue} / {project.realNextMilestone.progress.targetValue} {project.realNextMilestone.progress.unit}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Street list */}
-        {project.streets.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-              Streets
-            </h3>
-            <ProjectStreetList
-              streets={project.streets}
-              totalStreets={project.totalStreets}
-              totalLengthMeters={project.totalLengthMeters}
-              overallProgressPercent={stats.completionPercentage}
-              onStreetClick={onStreetClick}
-            />
-          </div>
+          </Card>
         )}
       </div>
     </aside>
-  );
-}
-
-function QuickWinsList({ quickWins }: { quickWins: ProjectQuickWin[] }) {
-  if (quickWins.length === 0) return null;
-  const title =
-    quickWins[0] != null && quickWins[0].percentage >= 75
-      ? "Quick wins"
-      : "Closest to done";
-  return (
-    <div className="space-y-2">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-        {title}
-      </h3>
-      {quickWins.slice(0, 5).map((qw) => (
-        <div key={qw.osmId} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-text">{qw.name}</p>
-            <p className="text-xs text-text-muted">
-              {Math.round(qw.remainingMeters)}m left
-            </p>
-          </div>
-          <span className="ml-2 shrink-0 text-sm font-medium text-text-muted">
-            {Math.round(qw.percentage)}%
-          </span>
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -235,10 +341,25 @@ export function ProjectDetailPage() {
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [isEditingMetadata, setIsEditingMetadata] = useState(false);
+  const [metadataName, setMetadataName] = useState("");
+  const [metadataDeadline, setMetadataDeadline] = useState("");
+  const [metadataSaving, setMetadataSaving] = useState(false);
+  const [metadataError, setMetadataError] = useState<string | null>(null);
   const toast = useToast();
 
   const { traces: gpsTraces } = useGpsTraces({ projectId: id ?? null });
   const [showTraces, setShowTraces] = useState(false);
+  const [visibleBins, setVisibleBins] = useState<Set<FilterStatus>>(() => new Set(ALL_BINS));
+  const allBinsActive = visibleBins.size === ALL_BINS.length;
+
+  const [homepage, setHomepage] = useState<HomepagePayload | null>(null);
+  const [activities, setActivities] = useState<ProjectActivityItem[]>([]);
+
+  const [highlightTraceActivityId, setHighlightTraceActivityId] = useState<string | null>(null);
+  const [runFocusActive, setRunFocusActive] = useState(false);
+  const savedBinsRef = useRef<Set<FilterStatus> | null>(null);
+  const savedTracesRef = useRef<boolean | null>(null);
 
   const fetchData = useCallback(async (signal?: AbortSignal) => {
     if (!id) return;
@@ -252,6 +373,16 @@ export function ProjectDetailPage() {
       if (signal?.aborted) return;
       setProject(projectRes.project);
       setMapData(mapRes.map);
+
+      const center = projectRes.project;
+      if (center) {
+        getHomepageData({ projectId: id })
+          .then((hp) => { if (!signal?.aborted) setHomepage(hp); })
+          .catch(() => {});
+        projectsService.getActivities(id)
+          .then((res) => { if (!signal?.aborted) setActivities(res.activities ?? []); })
+          .catch(() => {});
+      }
     } catch (err) {
       if (signal?.aborted) return;
       setError(err instanceof ApiError ? err.message : "Failed to load project");
@@ -265,6 +396,12 @@ export function ProjectDetailPage() {
     fetchData(controller.signal);
     return () => controller.abort();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (!project || isEditingMetadata) return;
+    setMetadataName(project.name);
+    setMetadataDeadline(toDateInputValue(project.deadline));
+  }, [project, isEditingMetadata]);
 
   const doArchive = useCallback(async () => {
     if (!id) return;
@@ -308,27 +445,62 @@ export function ProjectDetailPage() {
     }
   }, [id, navigate, toast]);
 
-  const [expanding, setExpanding] = useState(false);
-
-  const doExpand = useCallback(async () => {
-    if (!id) return;
-    setExpanding(true);
-    try {
-      const result = await projectsService.expandStreets(id);
-      toast?.showToast(result.message, result.addedSegments > 0 ? "success" : "info");
-      if (result.addedSegments > 0) {
-        await fetchData();
-      }
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Failed to expand streets";
-      toast?.showToast(msg, "error");
-    } finally {
-      setExpanding(false);
-    }
-  }, [id, fetchData, toast]);
-
   const handleArchiveClick = () => setArchiveConfirmOpen(true);
   const handleDeleteClick = () => setDeleteConfirmOpen(true);
+  const handleEditMetadataClick = () => {
+    if (!project) return;
+    setMetadataName(project.name);
+    setMetadataDeadline(toDateInputValue(project.deadline));
+    setMetadataError(null);
+    setIsEditingMetadata(true);
+  };
+  const handleCancelEditMetadata = () => {
+    if (metadataSaving) return;
+    setMetadataError(null);
+    setIsEditingMetadata(false);
+    if (project) {
+      setMetadataName(project.name);
+      setMetadataDeadline(toDateInputValue(project.deadline));
+    }
+  };
+
+  const handleSaveMetadata = useCallback(async () => {
+    if (!id) return;
+    const trimmedName = metadataName.trim();
+    if (!trimmedName) {
+      setMetadataError("Project name is required.");
+      return;
+    }
+    setMetadataSaving(true);
+    setMetadataError(null);
+    try {
+      const result = await projectsService.updateMetadata(id, {
+        name: trimmedName,
+        deadline: metadataDeadline ? metadataDeadline : null,
+      });
+      setProject(result.project);
+      setHomepage((prev) =>
+        prev?.projectContext
+          ? {
+              ...prev,
+              projectContext: {
+                ...prev.projectContext,
+                name: result.project.name,
+              },
+            }
+          : prev
+      );
+      setIsEditingMetadata(false);
+      toast?.showToast("Project details updated", "success");
+    } catch (err) {
+      const msg =
+        err instanceof ApiError ? err.message : "Failed to update project details";
+      setMetadataError(msg);
+      toast?.showToast(msg, "error");
+    } finally {
+      setMetadataSaving(false);
+    }
+  }, [id, metadataName, metadataDeadline, toast]);
 
   const [highlightOsmIds, setHighlightOsmIds] = useState<string[]>([]);
   const [streetHighlightFocus, setStreetHighlightFocus] =
@@ -339,50 +511,91 @@ export function ProjectDetailPage() {
     [mapData],
   );
 
-  const streetBboxLookup = useMemo(() => {
-    if (!mapData) return new Map<string, [number, number, number, number]>();
-    const lookup = new Map<string, [number, number, number, number]>();
-    for (const s of mapData.streets) {
-      const coords = s.geometry.coordinates;
-      if (coords.length === 0) continue;
-      let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
-      for (const [lng, lat] of coords) {
-        if (lat < minLat) minLat = lat;
-        if (lat > maxLat) maxLat = lat;
-        if (lng < minLng) minLng = lng;
-        if (lng > maxLng) maxLng = lng;
+  const handleSelectRun = useCallback(
+    (activityId: string, bbox: [number, number, number, number]) => {
+      setHighlightOsmIds([]);
+      if (!runFocusActive) {
+        savedBinsRef.current = new Set(visibleBins);
+        savedTracesRef.current = showTraces;
       }
-      lookup.set(s.osmId, [minLat, minLng, maxLat, maxLng]);
-    }
-    return lookup;
-  }, [mapData]);
+      setVisibleBins(new Set());
+      setShowTraces(true);
+      setRunFocusActive(true);
+      setHighlightTraceActivityId(activityId);
 
-  const handleStreetClick = useCallback(
-    (osmIds: string[], _name: string) => {
-      let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
-      let found = false;
-      for (const id of osmIds) {
-        const bbox = streetBboxLookup.get(id);
-        if (bbox) {
-          found = true;
-          if (bbox[0] < minLat) minLat = bbox[0];
-          if (bbox[1] < minLng) minLng = bbox[1];
-          if (bbox[2] > maxLat) maxLat = bbox[2];
-          if (bbox[3] > maxLng) maxLng = bbox[3];
-        }
-      }
-      setHighlightOsmIds(osmIds);
-      if (found) {
-        setStreetHighlightFocus({ bbox: [minLat, minLng, maxLat, maxLng] });
+      if (isValidBbox(bbox)) {
+        const [minLat, minLng, maxLat, maxLng] = bbox;
+        const latSpan = maxLat - minLat;
+        const lngSpan = maxLng - minLng;
+        const PAD = 0.001;
+        const paddedBbox: [number, number, number, number] =
+          latSpan < 0.002 || lngSpan < 0.002
+            ? [minLat - PAD, minLng - PAD, maxLat + PAD, maxLng + PAD]
+            : bbox;
+        setStreetHighlightFocus({ bbox: paddedBbox });
+      } else {
+        setStreetHighlightFocus(null);
       }
     },
-    [streetBboxLookup],
+    [runFocusActive, visibleBins, showTraces],
   );
 
-  const resetStreetHighlight = useCallback(() => {
+  const handleViewSuggestionArea = useCallback(
+    (s: HomepageSuggestion) => {
+      setHighlightTraceActivityId(null);
+      if (runFocusActive && savedBinsRef.current) {
+        setVisibleBins(savedBinsRef.current);
+        savedBinsRef.current = null;
+      }
+      if (runFocusActive && savedTracesRef.current !== null) {
+        setShowTraces(savedTracesRef.current);
+        savedTracesRef.current = null;
+      }
+      setRunFocusActive(false);
+
+      if (isValidBbox(s.focus.bbox)) {
+        setStreetHighlightFocus({ bbox: s.focus.bbox });
+      }
+      if (s.focus.streetIds?.length) {
+        setHighlightOsmIds(s.focus.streetIds.map(String));
+      }
+    },
+    [runFocusActive],
+  );
+
+  const toggleBin = useCallback((bin: FilterStatus) => {
+    setVisibleBins((prev) => {
+      const next = new Set(prev);
+      if (next.has(bin)) {
+        next.delete(bin);
+        if (next.size === 0) return new Set(ALL_BINS);
+      } else {
+        next.add(bin);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleAllBins = useCallback(() => {
+    setVisibleBins((prev) =>
+      prev.size === ALL_BINS.length ? new Set<FilterStatus>() : new Set(ALL_BINS),
+    );
+  }, []);
+
+  const resetHighlight = useCallback(() => {
     setHighlightOsmIds([]);
     setStreetHighlightFocus(null);
-  }, []);
+    setHighlightTraceActivityId(null);
+    if (runFocusActive && savedBinsRef.current) {
+      setVisibleBins(savedBinsRef.current);
+      savedBinsRef.current = null;
+    }
+    if (runFocusActive && savedTracesRef.current !== null) {
+      setShowTraces(savedTracesRef.current);
+      savedTracesRef.current = null;
+    }
+    setRunFocusActive(false);
+  }, [runFocusActive]);
 
   if (!id) {
     return (
@@ -410,7 +623,30 @@ export function ProjectDetailPage() {
               className="h-full w-full"
             />
           </div>
-          <ProjectSidePanel project={null} mapData={null} loading showTraces={false} onToggleTraces={() => {}} />
+          <ProjectSidePanel
+            project={null}
+            mapData={null}
+            loading
+            isEditingMetadata={false}
+            metadataName=""
+            metadataDeadline=""
+            metadataSaving={false}
+            metadataError={null}
+            onMetadataNameChange={() => {}}
+            onMetadataDeadlineChange={() => {}}
+            onMetadataCancel={() => {}}
+            onMetadataSave={() => {}}
+            showTraces={false}
+            onToggleTraces={() => {}}
+            visibleBins={visibleBins}
+            onToggleBin={toggleBin}
+            onToggleAll={toggleAllBins}
+            allBinsActive={allBinsActive}
+            homepage={null}
+            activities={[]}
+            onSelectRun={() => {}}
+            onViewSuggestionArea={() => {}}
+          />
         </div>
       </div>
     );
@@ -437,7 +673,8 @@ export function ProjectDetailPage() {
     streetHighlightFocus ?? (boundaryBbox !== null ? { bbox: boundaryBbox } : null);
   const effectiveHighlightOsmIds =
     highlightOsmIds.length > 0 ? highlightOsmIds : EMPTY_HIGHLIGHT_OSM_IDS;
-  const isStreetHighlighted = highlightOsmIds.length > 0;
+  const hasAnyHighlight =
+    highlightOsmIds.length > 0 || highlightTraceActivityId != null;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -456,6 +693,9 @@ export function ProjectDetailPage() {
         <div className="flex gap-2">
           {project.isArchived ? (
             <>
+              <Button variant="secondary" size="sm" onClick={handleEditMetadataClick}>
+                Edit details
+              </Button>
               <Button variant="secondary" onClick={doRestore} disabled={restoring}>
                 {restoring ? "Restoring…" : "Restore project"}
               </Button>
@@ -465,13 +705,8 @@ export function ProjectDetailPage() {
             </>
           ) : (
             <>
-              <Button
-                variant="secondary"
-                onClick={doExpand}
-                disabled={expanding}
-                title="Find additional street segments outside the boundary"
-              >
-                {expanding ? "Expanding…" : "Expand streets"}
+              <Button variant="secondary" size="sm" onClick={handleEditMetadataClick}>
+                Edit details
               </Button>
               <Button
                 variant="secondary"
@@ -502,7 +737,7 @@ export function ProjectDetailPage() {
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
         title="Permanently delete project?"
-        message="This action cannot be undone. All project data, including progress and milestones, will be permanently deleted. Your activity data (runs) will NOT be affected."
+        message="This action cannot be undone. All project data, including progress, will be permanently deleted. Your activity data (runs) will NOT be affected."
         confirmLabel="Delete permanently"
         variant="danger"
         onConfirm={doDelete}
@@ -515,19 +750,24 @@ export function ProjectDetailPage() {
             zoom={MAP_ZOOM.PROJECT_DETAIL}
             streets={mapData.streets}
             gpsTraces={showTraces ? gpsTraces : []}
+            highlightTraceActivityId={highlightTraceActivityId}
             boundary={mapData.boundary}
             showBoundaryOutline
             highlightFocus={effectiveHighlightFocus}
             highlightOsmIds={effectiveHighlightOsmIds}
+            visibleStreetBins={visibleBins}
             showLegend
             className="h-full w-full"
           />
-          {isStreetHighlighted && (
+          {hasAnyHighlight && (
             <button
               type="button"
-              className="absolute left-3 top-3 z-[1000] rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-text shadow-md hover:opacity-90"
-              onClick={resetStreetHighlight}
+              className="absolute left-3 top-3 z-[1000] flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3.5 py-2 text-sm font-semibold text-text shadow-lg transition-colors hover:bg-card-bg"
+              onClick={resetHighlight}
             >
+              <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 8H4M4 8l3-3M4 8l3 3" />
+              </svg>
               Back to overview
             </button>
           )}
@@ -536,9 +776,25 @@ export function ProjectDetailPage() {
           project={project}
           mapData={mapData}
           loading={loading}
-          onStreetClick={handleStreetClick}
+          isEditingMetadata={isEditingMetadata}
+          metadataName={metadataName}
+          metadataDeadline={metadataDeadline}
+          metadataSaving={metadataSaving}
+          metadataError={metadataError}
+          onMetadataNameChange={setMetadataName}
+          onMetadataDeadlineChange={setMetadataDeadline}
+          onMetadataCancel={handleCancelEditMetadata}
+          onMetadataSave={() => void handleSaveMetadata()}
           showTraces={showTraces}
           onToggleTraces={() => setShowTraces((v) => !v)}
+          visibleBins={visibleBins}
+          onToggleBin={toggleBin}
+          onToggleAll={toggleAllBins}
+          allBinsActive={allBinsActive}
+          homepage={homepage}
+          activities={activities}
+          onSelectRun={handleSelectRun}
+          onViewSuggestionArea={handleViewSuggestionArea}
         />
       </div>
     </div>

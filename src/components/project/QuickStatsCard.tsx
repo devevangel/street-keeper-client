@@ -3,6 +3,7 @@
  * Project stats grid: total runs, distance, start date, last run.
  */
 
+import { useFormatters } from "../../contexts/PreferencesContext";
 import { Card } from "../common/Card";
 import type { ProjectMapProjectStats } from "../../types/api.types";
 
@@ -35,6 +36,7 @@ function formatDaysAgo(iso: string | null): string {
 }
 
 export function QuickStatsCard({ stats }: QuickStatsCardProps) {
+  const { formatDistance } = useFormatters();
   return (
     <Card className="card-hover" padding="md">
       <h3 className="text-sm font-semibold text-text-muted mb-3">Quick stats</h3>
@@ -45,7 +47,9 @@ export function QuickStatsCard({ stats }: QuickStatsCardProps) {
         </div>
         <div>
           <p className="text-text-muted">Distance</p>
-          <p className="font-semibold text-text">{stats.totalDistanceKm.toFixed(1)} km</p>
+          <p className="font-semibold text-text">
+            {formatDistance(stats.totalDistanceKm * 1000, 1)}
+          </p>
         </div>
         <div>
           <p className="text-text-muted">Started</p>

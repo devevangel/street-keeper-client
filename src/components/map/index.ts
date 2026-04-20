@@ -27,4 +27,5 @@ export { UnifiedStreetLayer } from "./UnifiedStreetLayer";
 export { GpsTraceLayer } from "./GpsTraceLayer";
 export { DrawingToolbar, type ShapeData } from "./DrawingToolbar";
 export { MapLoadingOverlay } from "./MapLoadingOverlay";
+export { MapFilterCard, ALL_BINS, type MapFilterCardProps } from "./MapFilterCard";
 export { MAP_ZOOM } from "./mapConstants";

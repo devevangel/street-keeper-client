@@ -1,8 +1,10 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useFormatters } from "../../contexts/PreferencesContext";
 import { Button, Card, SectionHeading } from "../common";
 import type {
   HomepageSuggestion,
 } from "../../services/homepage.service";
+import { isUnnamedStreet } from "../../utils/street-filters";
 
 export type ScrollItem =
   { kind: "suggestion"; suggestion: HomepageSuggestion; isPrimary: boolean };
@@ -19,9 +21,14 @@ export interface RunSuggestionsProps {
 }
 
 export function RunSuggestions({
-  items,
+  items: rawItems,
   onViewArea,
 }: RunSuggestionsProps) {
+  const { formatDistance } = useFormatters();
+  const items = useMemo(
+    () => rawItems.filter((i) => !isUnnamedStreet(i.suggestion.title)),
+    [rawItems],
+  );
   if (items.length === 0) return null;
 
   const stripRef = useRef<HTMLDivElement | null>(null);
@@ -106,8 +113,7 @@ export function RunSuggestions({
                 </div>
                 <div className="rounded-lg bg-bg px-2.5 py-2">
                   <p className="text-lg font-bold leading-tight text-text">
-                    ~{(cs.estimatedDistanceM / 1000).toFixed(1)}
-                    <span className="text-xs font-semibold"> km</span>
+                    ~{formatDistance(cs.estimatedDistanceM)}
                   </p>
                   <p className="text-[11px] leading-tight text-text-muted">
                     total distance

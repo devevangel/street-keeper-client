@@ -1,3 +1,4 @@
+import { useFormatters } from "../../contexts/PreferencesContext";
 import { Card } from "../common";
 // import { SectionHeading } from "../common/SectionHeading";
 
@@ -10,8 +11,11 @@ export function HomepageMetrics({
   totalDistanceKm,
   totalActivities,
 }: HomepageMetricsProps) {
-  const kmDisplay =
-    totalDistanceKm != null ? `${totalDistanceKm.toFixed(2)} km` : "—";
+  const { formatDistance } = useFormatters();
+  const distanceDisplay =
+    totalDistanceKm != null
+      ? formatDistance(totalDistanceKm * 1000, 2)
+      : "—";
   const runs = totalActivities != null ? String(totalActivities) : "—";
 
   return (
@@ -23,7 +27,7 @@ export function HomepageMetrics({
             Total Distance
           </p>
           <p className="mt-1 whitespace-nowrap text-xl font-bold leading-tight text-text">
-            {kmDisplay}
+            {distanceDisplay}
           </p>
         </div>
         <div className="min-w-0 flex-1">

@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "./styles/tokens.css";
-@import "./styles/confetti.css";
 @import "leaflet/dist/leaflet.css";
 
 /* Smooth opacity when suggestion focus dims non-highlighted streets */

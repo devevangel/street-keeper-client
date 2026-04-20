@@ -17,7 +17,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { activitiesService } from "../../services/activities.service";
 import { Button } from "../common";
 import { TabNav } from "./TabNav";
-import { PendingCelebrationsChecker } from "../milestones/PendingCelebrationsChecker";
 import { ROUTES } from "../../config/constants";
 
 export function AppLayout() {
@@ -38,7 +37,6 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen flex-col bg-bg text-text">
-      <PendingCelebrationsChecker />
       <header className="flex shrink-0 items-center justify-between border-b border-border bg-surface px-4 py-2">
         <h1 className="text-xl font-bold text-text">
           <span className="text-accent">Street</span> Keeper

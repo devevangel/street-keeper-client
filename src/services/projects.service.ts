@@ -7,7 +7,6 @@ import { apiClient } from "../lib/api-client";
 import type {
   ProjectsListResponse,
   ProjectDetailResponse,
-  ProjectDetail,
   ProjectPreviewResponse,
   ProjectMapResponse,
   ProjectHeatmapResponse,
@@ -157,15 +156,6 @@ export const projectsService = {
     );
   },
 
-  async expandStreets(projectId: string): Promise<{
-    success: true;
-    project: ProjectDetail;
-    addedSegments: number;
-    message: string;
-  }> {
-    return apiClient.post(`/projects/${projectId}/expand-streets`);
-  },
-
   async resize(
     projectId: string,
     radiusMeters: number,
@@ -173,6 +163,18 @@ export const projectsService = {
     return apiClient.patch<ProjectDetailResponse>(`/projects/${projectId}`, {
       radiusMeters,
     });
+  },
+
+  async updateMetadata(
+    projectId: string,
+    data: { name?: string; deadline?: string | null },
+  ): Promise<ProjectDetailResponse> {
+    const result = await apiClient.patch<ProjectDetailResponse>(
+      `/projects/${projectId}/metadata`,
+      data,
+    );
+    invalidateProjectsCacheInternal();
+    return result;
   },
 
   async getMap(projectId: string): Promise<ProjectMapResponse> {

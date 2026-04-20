@@ -3,6 +3,7 @@
  * Compact summary for the most recent run with optional map focus action.
  */
 
+import { useFormatters } from "../../contexts/PreferencesContext";
 import { Button, Card, SectionHeading } from "../common";
 import type { HomepagePayload } from "../../services/homepage.service";
 
@@ -21,13 +22,15 @@ function formatDaysAgo(daysAgo: number): string {
 }
 
 export function LastRunCard({ homepage, onShowOnMap }: LastRunCardProps) {
+  const { formatDistance } = useFormatters();
   if (!homepage.lastRun) return null;
 
   return (
     <Card padding="none" className="w-full p-3">
       <SectionHeading>Last run</SectionHeading>
       <p className="text-xl font-bold leading-tight text-text">
-        {formatDaysAgo(homepage.lastRun.daysAgo)} · {homepage.lastRun.distanceKm} km
+        {formatDaysAgo(homepage.lastRun.daysAgo)} ·{" "}
+        {formatDistance(homepage.lastRun.distanceKm * 1000)}
         {homepage.lastRun.newStreets > 0 ? ` · +${homepage.lastRun.newStreets} streets` : ""}
       </p>
       {homepage.lastRun.activityId && homepage.lastRun.bbox ? (

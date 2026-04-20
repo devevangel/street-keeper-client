@@ -28,7 +28,6 @@ import {
   ProjectCreatePage,
   ProjectSuggestionsMapPage,
   CampaignPage,
-  MilestonesPage,
   PreferencesPage,
   DocsPage,
 } from "./pages";
@@ -74,7 +73,6 @@ function App() {
               <Route path=":id" element={<ProjectDetailPage />} />
             </Route>
             <Route path="campaign" element={<CampaignPage />} />
-            <Route path="milestones" element={<MilestonesPage />} />
             <Route path="preferences" element={<PreferencesPage />} />
           </Route>
           <Route path="*" element={<Navigate to={ROUTES.LANDING} replace />} />

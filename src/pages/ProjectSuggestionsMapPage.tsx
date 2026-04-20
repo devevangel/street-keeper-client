@@ -40,7 +40,7 @@ export function ProjectSuggestionsMapPage() {
       if (suggestions.milestone) {
         for (const s of suggestions.milestone.streets) ids.add(s.osmId);
       }
-      for (const cluster of suggestions.clusters) {
+      for (const cluster of suggestions.clusters ?? []) {
         for (const s of cluster.streets) ids.add(s.osmId);
       }
       setSuggestedOsmIds(ids);

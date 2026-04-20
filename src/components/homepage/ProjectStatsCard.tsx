@@ -28,7 +28,13 @@ export function ProjectStatsCard({
         {name}
       </Link>
       <div className="mt-2 flex items-center gap-3">
-        <ProgressBar percentage={pct} height={4} className="flex-1" />
+        <ProgressBar
+          percentage={pct}
+          height={4}
+          className="flex-1"
+          fillClassName="bg-success"
+          trackClassName="bg-border/50"
+        />
         <span className="shrink-0 text-sm font-semibold text-text">{pct}%</span>
       </div>
       <p className="mt-1 text-sm text-text-muted">

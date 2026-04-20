@@ -17,6 +17,8 @@ export const MAP_COLORS = {
   /** @deprecated Use ALMOST_THERE or IN_PROGRESS */
   PARTIAL: "#f59e0b",
   HIGHLIGHT: "#ec4899", // Hot pink - unmissable, distinct from all status colors
+  HIGHLIGHT_NEW: "#4ade80", // Bright green - matches "streets to discover" text
+  HIGHLIGHT_FINISH: "#f59e0b", // Amber - matches "streets to finish" text
   UNCOVERED: "#e5e7eb", // Very light gray for uncovered portions
 } as const;
 

@@ -20,6 +20,7 @@ export interface UserPreferences {
   defaultMapZoom: number;
   defaultProjectRadius: number;
   defaultStreetFilter: string;
+  autoUpdateRunDescription: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,6 +38,7 @@ export type UpdatePreferencesInput = Partial<{
   defaultMapZoom: number;
   defaultProjectRadius: number;
   defaultStreetFilter: string;
+  autoUpdateRunDescription: boolean;
 }>;
 
 export async function getPreferences(): Promise<UserPreferences> {

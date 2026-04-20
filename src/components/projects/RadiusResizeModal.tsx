@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from "react";
 import { Modal, Button } from "../common";
-import { usePreferences } from "../../contexts/PreferencesContext";
+import { useFormatters } from "../../contexts/PreferencesContext";
 
 export interface RadiusResizeModalProps {
   isOpen: boolean;
@@ -20,8 +20,7 @@ export function RadiusResizeModal({
   currentRadiusMeters,
   onResize,
 }: RadiusResizeModalProps) {
-  const preferences = usePreferences();
-  const formatRadius = preferences?.formatRadius ?? ((m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`));
+  const { formatRadius } = useFormatters();
   const [selected, setSelected] = useState(currentRadiusMeters);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

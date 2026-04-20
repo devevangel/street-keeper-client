@@ -4,6 +4,7 @@
  * Type badge, bold street name, detail line, optional milestone progress.
  */
 
+import { useFormatters } from "../../contexts/PreferencesContext";
 import { Button } from "../common/Button";
 import { ProgressBar } from "../common/ProgressBar";
 import type { HomepagePayload } from "../../services/homepage.service";
@@ -20,10 +21,6 @@ const TYPE_LABELS: Record<string, { label: string; accent: string }> = {
     accent: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
   },
   streak_saver: { label: "Streak saver", accent: "bg-warning/15 text-warning" },
-  milestone_push: {
-    label: "Milestone push",
-    accent: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
-  },
   repeat_street: {
     label: "Keep going",
     accent: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
@@ -44,6 +41,7 @@ function getTypeBadge(type?: string) {
 }
 
 export function NextRunCard({ data, onShowOnMap }: NextRunCardProps) {
+  const { formatLength } = useFormatters();
   const suggestion = data.primarySuggestion;
   const firstStreet = data.firstStreet;
 
@@ -51,7 +49,7 @@ export function NextRunCard({ data, onShowOnMap }: NextRunCardProps) {
   const copy =
     suggestion?.shortCopy ??
     (firstStreet
-      ? `${Math.round(firstStreet.lengthMeters)}m long · ${Math.round(firstStreet.distanceFromUser)}m away from you`
+      ? `${formatLength(firstStreet.lengthMeters)} long · ${formatLength(firstStreet.distanceFromUser)} away from you`
       : "Head out and start conquering streets nearby.");
   const showButton = !!(suggestion?.focus || firstStreet);
   const badge = getTypeBadge(suggestion?.type);

@@ -3,6 +3,7 @@
  * Streets at 75%+ completion; each with progress and "Show on map".
  */
 
+import { useFormatters } from "../../contexts/PreferencesContext";
 import { Button } from "../common/Button";
 import { Card } from "../common/Card";
 import { ProgressBar } from "../common/ProgressBar";
@@ -13,12 +14,8 @@ interface QuickWinsSectionProps {
   onShowOnMap: (osmId: string) => void;
 }
 
-function formatRemaining(meters: number): string {
-  if (meters < 1000) return `~${Math.round(meters)} m to go`;
-  return `~${(meters / 1000).toFixed(1)} km to go`;
-}
-
 export function QuickWinsSection({ quickWins, onShowOnMap }: QuickWinsSectionProps) {
+  const { formatLength } = useFormatters();
   if (!quickWins.length) return null;
 
   return (
@@ -31,8 +28,10 @@ export function QuickWinsSection({ quickWins, onShowOnMap }: QuickWinsSectionPro
               <span className="text-sm font-medium text-text truncate">{qw.name}</span>
               <span className="text-xs text-text-muted shrink-0">{qw.percentage}%</span>
             </div>
-            <ProgressBar value={qw.percentage} size="sm" />
-            <p className="text-xs text-text-muted">{formatRemaining(qw.remainingMeters)}</p>
+            <ProgressBar percentage={qw.percentage} height={4} />
+            <p className="text-xs text-text-muted">
+              ~{formatLength(qw.remainingMeters)} to go
+            </p>
             <Button
               type="button"
               variant="ghost"
