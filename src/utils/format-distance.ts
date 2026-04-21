@@ -27,18 +27,21 @@ export function formatDistance(
 
 export function formatRadius(meters: number, unit: DistanceUnit): string {
   switch (unit) {
-    case "miles":
+    case "miles": {
       const miles = meters / 1609.344;
-      return miles % 1 === 0 ? `${miles} mi` : `${miles.toFixed(1)} mi`;
+      return miles >= 1 && miles % 1 === 0
+        ? `${miles} mi`
+        : `${miles.toFixed(2).replace(/\.?0+$/, "")} mi`;
+    }
     case "meters":
       return `${meters} m`;
     case "km":
-    default:
-      if (meters >= 1000) {
-        const km = meters / 1000;
-        return km % 1 === 0 ? `${km} km` : `${km.toFixed(1)} km`;
-      }
-      return `${meters} m`;
+    default: {
+      const km = meters / 1000;
+      return km >= 1 && km % 1 === 0
+        ? `${km} km`
+        : `${km.toFixed(2).replace(/\.?0+$/, "")} km`;
+    }
   }
 }
 

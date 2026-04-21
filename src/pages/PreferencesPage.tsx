@@ -6,11 +6,12 @@
 import { useEffect, useState } from "react";
 import { Button, Card, Select, ProgressLoader, PageHeader } from "../components/common";
 import { useAuth } from "../contexts/AuthContext";
-import { usePreferences, useFormatters } from "../contexts/PreferencesContext";
+import { usePreferences } from "../contexts/PreferencesContext";
 import { useToast } from "../contexts/ToastContext";
 import { ROUTES, DEFAULT_PROJECT_RADIUS_METERS } from "../config/constants";
 import { MAP_THEMES, DEFAULT_MAP_THEME } from "../config/map-themes";
 import { authService } from "../services/auth.service";
+import { formatRadius as formatRadiusUtil, type DistanceUnit } from "../utils/format-distance";
 
 const DEFAULT_PROJECT_RADIUS_OPTIONS_METERS = [
   100, 200, 300, 500, 1000, 2000, 5000,
@@ -19,7 +20,6 @@ const DEFAULT_PROJECT_RADIUS_OPTIONS_METERS = [
 export function PreferencesPage() {
   const { user } = useAuth();
   const preferencesContext = usePreferences();
-  const { formatRadius } = useFormatters();
   const preferences = preferencesContext?.preferences ?? null;
   const isLoading = preferencesContext?.isLoading ?? true;
   const updatePreferencesFn = preferencesContext?.updatePreferences;
@@ -189,7 +189,7 @@ export function PreferencesPage() {
               onChange={(e) => setDefaultProjectRadius(Number(e.target.value))}
               options={DEFAULT_PROJECT_RADIUS_OPTIONS_METERS.map((meters) => ({
                 value: String(meters),
-                label: formatRadius(meters),
+                label: formatRadiusUtil(meters, distanceUnit as DistanceUnit),
               }))}
             />
 
