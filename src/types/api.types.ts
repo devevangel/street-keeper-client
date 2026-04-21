@@ -515,7 +515,7 @@ export interface MapStreet {
   highwayType: string;
   lengthMeters: number;
   percentage: number;
-  status: "completed" | "partial";
+  status: "completed" | "partial" | "not_started";
   /** Full street geometry (GeoJSON LineString) */
   geometry: {
     type: "LineString";
