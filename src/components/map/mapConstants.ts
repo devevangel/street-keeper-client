@@ -58,6 +58,8 @@ export const MAP_OPACITY = {
  * Highlight-specific styling — thin white outline for contrast, no glow
  */
 export const HIGHLIGHT_STYLE = {
+  GLOW_WEIGHT: 12,
+  GLOW_OPACITY: 0.25,
   OUTLINE_COLOR: "#ffffff",
   OUTLINE_WEIGHT: 5,
   OUTLINE_OPACITY: 0.5,

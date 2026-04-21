@@ -187,7 +187,7 @@ function MapSizeInvalidator() {
   return null;
 }
 
-function DemoMapContent({ progress, scaledProgress, streets }: { progress: number; scaledProgress: number; streets: CachedStreet[] }) {
+function DemoMapContent({ progress: _progress, scaledProgress, streets }: { progress: number; scaledProgress: number; streets: CachedStreet[] }) {
   const total = streets.length;
   if (total === 0) return null;
   const completedCount = Math.floor(scaledProgress * total);

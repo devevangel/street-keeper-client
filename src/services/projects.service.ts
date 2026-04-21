@@ -131,13 +131,13 @@ export const projectsService = {
   },
 
   async archive(projectId: string): Promise<{ success: true; message: string }> {
-    const result = await apiClient.delete(`/projects/${projectId}`);
+    const result = await apiClient.delete<{ success: true; message: string }>(`/projects/${projectId}`);
     invalidateProjectsCacheInternal();
     return result;
   },
 
   async restore(projectId: string): Promise<{ success: true; message: string }> {
-    const result = await apiClient.post(`/projects/${projectId}/restore`);
+    const result = await apiClient.post<{ success: true; message: string }>(`/projects/${projectId}/restore`);
     invalidateProjectsCacheInternal();
     return result;
   },
@@ -145,7 +145,7 @@ export const projectsService = {
   async deletePermanently(
     projectId: string
   ): Promise<{ success: true; message: string }> {
-    const result = await apiClient.delete(`/projects/${projectId}/permanent`);
+    const result = await apiClient.delete<{ success: true; message: string }>(`/projects/${projectId}/permanent`);
     invalidateProjectsCacheInternal();
     return result;
   },

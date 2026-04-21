@@ -4,7 +4,7 @@
  * Note: For full confetti effect, install react-confetti: npm install react-confetti
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Modal } from "../common/Modal";
 import { Button } from "../common";
 

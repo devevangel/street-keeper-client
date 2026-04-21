@@ -43,7 +43,7 @@ interface StreetListItemProps {
 export function StreetListItem({
   street,
   onHighlight,
-  onClearHighlight,
+  onClearHighlight: _onClearHighlight,
   variant = "homepage",
 }: StreetListItemProps) {
   const { formatDistance } = useFormatters();

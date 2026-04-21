@@ -129,7 +129,6 @@ export function ProgressLoader({
 
   const spinnerSize = size === "sm" ? "h-6 w-6" : size === "lg" ? "h-12 w-12" : "h-10 w-10";
   const textSize = size === "sm" ? "text-xs" : size === "lg" ? "text-base" : "text-sm";
-  const dotSize = size === "sm" ? "h-1 w-1" : size === "lg" ? "h-2 w-2" : "h-1.5 w-1.5";
   const gap = size === "sm" ? "gap-2" : size === "lg" ? "gap-4" : "gap-3";
 
   const content = (

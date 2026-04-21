@@ -29,7 +29,7 @@ export function SyncBanner({
   const [completedDismissed, setCompletedDismissed] = useState(false);
   const [failedDismissed, setFailedDismissed] = useState(false);
 
-  const { status, total, processed, errors, isActive, didComplete, appearsStuck } = sync;
+  const { status, total, processed, errors, isActive: _isActive, didComplete: _didComplete, appearsStuck } = sync;
 
   // Auto-dismiss completed state after 5s
   useEffect(() => {

@@ -130,7 +130,6 @@ export function MilestonesSection({ projectId }: MilestonesSectionProps) {
                 </h3>
                 <div className="space-y-2">
                   {milestones!.completed.map((m) => {
-                    const progressPercent = 100; // Completed = 100%
                     return (
                       <div
                         key={m.id}

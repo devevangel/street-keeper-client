@@ -81,7 +81,7 @@ export function MapFilterCard({
       <div className="grid grid-cols-2 gap-1.5">
         {BIN_CONFIG.filter(({ key }) => !hiddenBins.includes(key)).map(({ key, color, activeBg, label, description }) => {
           const active = visibleBins.has(key);
-          const count = binCounts[key];
+          const count = binCounts[key as keyof typeof binCounts];
           return (
             <button
               key={key}
