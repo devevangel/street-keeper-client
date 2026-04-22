@@ -340,12 +340,14 @@ function MapContent(props: UnifiedMapProps) {
       )}
       {showDrawnCircle && activeShape?.type === "circle" && (
         <Circle
+          key={`drawn-circle-${activeShape.center.lat}-${activeShape.center.lng}-${activeShape.radiusMeters}`}
           center={[activeShape.center.lat, activeShape.center.lng]}
           radius={activeShape.radiusMeters}
           pathOptions={{
             color: "#7c3aed",
-            weight: 2,
-            fill: false,
+            weight: 3,
+            fillColor: "#7c3aed",
+            fillOpacity: 0.08,
             interactive: false,
           }}
         />
