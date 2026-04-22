@@ -575,8 +575,12 @@ export function ProjectCreatePage() {
       {hasValidShape && (
         <Card padding="sm">
           {previewLoading ? (
-            <div className="flex items-center justify-center py-2">
+            <div className="flex flex-col items-center justify-center gap-2 py-3">
               <InlineLoader className="text-text-muted text-sm" />
+              <p className="text-center text-xs leading-snug text-text-muted">
+                Loading streets for this area. The first preview in a new city can take longer while
+                we sync map data from OpenStreetMap.
+              </p>
             </div>
           ) : previewError ? (
             <p className="text-danger text-sm">{previewError}</p>

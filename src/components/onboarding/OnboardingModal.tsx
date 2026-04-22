@@ -2,7 +2,7 @@
  * OnboardingModal
  * Immersive first-time user flow over a live animated map background.
  * Mobile-first bottom-anchored cards with step indicators and smooth transitions.
- * 2 steps: Welcome → Map Legend. Strava sync runs in background workers.
+ * 2 steps: Welcome → Map Legend. Initial Strava sync is triggered after OAuth on the server.
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -52,18 +52,6 @@ export function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps) {
   }, [isOpen]);
 
   const stableComplete = useCallback(() => onComplete(), [onComplete]);
-
-  // Fire-and-forget background sync when the modal opens
-  useEffect(() => {
-    if (!isOpen) return;
-    void import("../../services/activities.service").then(
-      ({ activitiesService }) => {
-        activitiesService
-          .syncFromStrava({ background: true })
-          .catch(() => {});
-      },
-    );
-  }, [isOpen]);
 
   if (!isOpen) return null;
 

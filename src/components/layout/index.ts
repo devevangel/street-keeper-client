@@ -4,4 +4,7 @@
  */
 
 export { AppLayout } from "./AppLayout";
+export type { AppLayoutOutletContext } from "./AppLayout";
 export { TabNav } from "./TabNav";
+export { SyncStatusWidget } from "./SyncStatusWidget";
+export type { SyncStatusWidgetProps } from "./SyncStatusWidget";

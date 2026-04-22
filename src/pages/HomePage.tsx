@@ -9,10 +9,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { EmptyState } from "../components/common";
 import { HomepageDashboard } from "../components/homepage";
+import type { AppLayoutOutletContext } from "../components/layout";
 import { useAnalytics } from "../contexts/AnalyticsContext";
-import { useGeolocation, useHomepageData, useMapStreets, useGpsTraces, useSyncStatus } from "../hooks";
+import { useGeolocation, useHomepageData, useMapStreets, useGpsTraces } from "../hooks";
 import type { MapStreet, MapStreetsResponse } from "../types/api.types";
 
 const DEFAULT_RADIUS = 1000;
@@ -35,6 +37,7 @@ function haversineDistance(
 }
 
 export function HomePage() {
+  const { syncStatus } = useOutletContext<AppLayoutOutletContext>();
   const {
     position,
     error: locationError,
@@ -119,8 +122,6 @@ export function HomePage() {
     lng: fetchCenter?.lng ?? null,
     radius: DEFAULT_RADIUS,
   });
-
-  const syncStatus = useSyncStatus();
 
   // Track homepage view only once when data changes, not on every render
   const homepageTrackedRef = useRef<string | null>(null);

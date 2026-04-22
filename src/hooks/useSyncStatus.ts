@@ -25,6 +25,10 @@ export interface UseSyncStatusResult {
   errors: number;
   lastErrorMessage: string | null;
   updatedAt: string | null;
+  /** ISO time of last completed sync job (may be null if never completed). */
+  lastCompletedAt: string | null;
+  latestStoredActivityStartDate: string | null;
+  latestStoredActivityName: string | null;
   isActive: boolean;
   didComplete: boolean;
   appearsStuck: boolean;
@@ -72,6 +76,17 @@ export function useSyncStatus(): UseSyncStatusResult {
     void fetchStatus();
   }, [isAuthenticated, fetchStatus]);
 
+  // Refresh when the user returns to the tab (catch completed jobs while away)
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && isAuthenticated) {
+        void fetchStatus();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [isAuthenticated, fetchStatus]);
+
   const startPolling = useCallback(() => {
     setPolling(true);
     void fetchStatus();
@@ -114,6 +129,9 @@ export function useSyncStatus(): UseSyncStatusResult {
     errors: data?.errors ?? 0,
     lastErrorMessage: data?.lastErrorMessage ?? null,
     updatedAt: data?.updatedAt ?? null,
+    lastCompletedAt: data?.lastCompletedAt ?? null,
+    latestStoredActivityStartDate: data?.latestStoredActivityStartDate ?? null,
+    latestStoredActivityName: data?.latestStoredActivityName ?? null,
     isActive,
     didComplete,
     appearsStuck,
