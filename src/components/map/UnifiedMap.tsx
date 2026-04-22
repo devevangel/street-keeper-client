@@ -30,37 +30,52 @@ const MAP_CONTAINER_STYLE: CSSProperties = {
 };
 
 /**
- * Native Leaflet circle — bypasses react-leaflet's <Circle> which silently
- * fails to render in some production builds (Vite + PWA service worker).
+ * Native Leaflet circle (not react-leaflet). Rendered on `projectRadiusPane`
+ * so it stays above label tiles. Mounted after DrawingToolbar so Geoman layer
+ * cleanup cannot remove it on the same tick.
  */
 function NativeCircle({
   center,
   radius,
-  options,
+  outlineOnly = false,
+  lineWeight = 3,
 }: {
   center: LatLngTuple;
   radius: number;
-  options?: L.CircleMarkerOptions;
+  /** When true, stroke only (saved project boundary ring). */
+  outlineOnly?: boolean;
+  lineWeight?: number;
 }) {
   const map = useMap();
   const circleRef = useRef<L.Circle | null>(null);
 
   useEffect(() => {
-    circleRef.current = L.circle(center, {
-      radius,
-      color: "#7c3aed",
-      weight: 3,
-      fillColor: "#7c3aed",
-      fillOpacity: 0.08,
-      interactive: false,
-      ...options,
-    }).addTo(map);
+    let cancelled = false;
+
+    const mountCircle = () => {
+      if (cancelled) return;
+      circleRef.current?.remove();
+      circleRef.current = L.circle(center, {
+        pane: "projectRadiusPane",
+        radius,
+        color: "#7c3aed",
+        weight: lineWeight,
+        fill: !outlineOnly,
+        fillColor: "#7c3aed",
+        fillOpacity: outlineOnly ? 0 : 0.15,
+        opacity: 1,
+        interactive: false,
+      }).addTo(map);
+    };
+
+    map.whenReady(mountCircle);
 
     return () => {
+      cancelled = true;
       circleRef.current?.remove();
       circleRef.current = null;
     };
-  }, [map, center[0], center[1], radius]);
+  }, [map, center[0], center[1], radius, outlineOnly, lineWeight]);
 
   return null;
 }
@@ -76,6 +91,12 @@ function EnsureCustomPanes() {
     if (!map.getPane("labelsPane")) {
       const pane = map.createPane("labelsPane");
       pane.style.zIndex = "450";
+      pane.style.pointerEvents = "none";
+    }
+    // Above label tiles so project radius / boundary rings are never covered
+    if (!map.getPane("projectRadiusPane")) {
+      const pane = map.createPane("projectRadiusPane");
+      pane.style.zIndex = "560";
       pane.style.pointerEvents = "none";
     }
   }, [map]);
@@ -348,13 +369,6 @@ function MapContent(props: UnifiedMapProps) {
           highlightOsmIds={highlightOsmIds}
         />
       )}
-      {showBoundaryOutline && boundary && boundary.type === "circle" && (
-        <NativeCircle
-          center={[boundary.center.lat, boundary.center.lng]}
-          radius={boundary.radiusMeters}
-          options={{ weight: 2, fill: false }}
-        />
-      )}
       {showBoundaryOutline && boundary && boundary.type === "polygon" && (
         <Polygon
           positions={boundary.coordinates.map(
@@ -366,12 +380,6 @@ function MapContent(props: UnifiedMapProps) {
             fill: false,
             interactive: false,
           }}
-        />
-      )}
-      {showDrawnCircle && activeShape?.type === "circle" && (
-        <NativeCircle
-          center={[activeShape.center.lat, activeShape.center.lng]}
-          radius={activeShape.radiusMeters}
         />
       )}
       {areaOverlay && areaOverlay.polygon.length >= 3 && (
@@ -395,6 +403,22 @@ function MapContent(props: UnifiedMapProps) {
           activeShape={activeShape ?? null}
           onShapeChange={onShapeChange}
           polygonToolActive={activeTool === "polygon"}
+        />
+      )}
+      {/* Circles after DrawingToolbar: Geoman clears layers when switching to circle mode;
+          a native circle added earlier can be removed in the same commit. */}
+      {showBoundaryOutline && boundary && boundary.type === "circle" && (
+        <NativeCircle
+          center={[boundary.center.lat, boundary.center.lng]}
+          radius={boundary.radiusMeters}
+          outlineOnly
+          lineWeight={2}
+        />
+      )}
+      {showDrawnCircle && activeShape?.type === "circle" && (
+        <NativeCircle
+          center={[activeShape.center.lat, activeShape.center.lng]}
+          radius={activeShape.radiusMeters}
         />
       )}
       {heatmapPoints.length > 0 && (
