@@ -756,6 +756,7 @@ export function ProjectDetailPage() {
             highlightFocus={effectiveHighlightFocus}
             highlightOsmIds={effectiveHighlightOsmIds}
             visibleStreetBins={visibleBins}
+            onVisibleStreetBinsChange={setVisibleBins}
             showLegend
             className="h-full w-full"
           />
