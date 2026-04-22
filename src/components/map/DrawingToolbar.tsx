@@ -43,6 +43,7 @@ export function DrawingToolbar({
 }: DrawingToolbarProps) {
   const map = useMap();
   const pmRef = useRef<Map & { pm?: { getGeomanLayers: () => unknown[]; removeControls: () => void; disableDraw: () => void; enableDraw: (shape: string) => void } } | null>(null);
+  const suppressRemoveRef = useRef(false);
 
   useEffect(() => {
     const m = map as unknown as Map & {
@@ -82,6 +83,7 @@ export function DrawingToolbar({
     };
 
     const onRemove = () => {
+      if (suppressRemoveRef.current) return;
       onShapeChange(null);
     };
 
@@ -98,15 +100,19 @@ export function DrawingToolbar({
     };
   }, [map, onShapeChange]);
 
-  // When active shape is circle or null, clear Geoman layers so only one shape exists
+  // When active shape is circle or null, clear Geoman layers so only one shape exists.
+  // We temporarily suppress the pm:remove listener to avoid it resetting activeShape to null.
   useEffect(() => {
     if (activeShape?.type === "polygon") return;
     const m = map as unknown as { pm?: { getGeomanLayers: () => unknown[] } };
     const layers = m.pm?.getGeomanLayers?.() ?? [];
+    if (layers.length === 0) return;
+    suppressRemoveRef.current = true;
     layers.forEach((layer: unknown) => {
       const l = layer as { remove?: () => void };
       l.remove?.();
     });
+    suppressRemoveRef.current = false;
   }, [map, activeShape?.type]);
 
   // When not in polygon mode, disable drawing so map clicks go to parent (e.g. circle center)
