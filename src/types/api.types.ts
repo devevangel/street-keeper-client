@@ -211,6 +211,9 @@ export interface ProjectPreview {
     };
     percentage?: number;
     status?: "completed" | "partial" | "not_started";
+    /** Stable key grouping segments that belong to the same logical street.
+     *  Use for counting unique streets in the filter card. */
+    logicalStreetKey?: string;
   }>;
 }
 
@@ -262,6 +265,8 @@ export interface ProjectMapStreet {
   runCount?: number;
   firstRunDate?: string | null;
   lastRunDate?: string | null;
+  /** When set, segments sharing this key form one "logical street" for counting. */
+  logicalStreetKey?: string;
 }
 
 /** Quick win: street at 75%+ completion */

@@ -132,13 +132,13 @@ function ProjectSidePanel({
     : stats.completionPercentage;
   const runSuggestionItems = homepage ? buildRunSuggestionItems(homepage) : [];
 
-  // Deduplicate segments by street name so the filter card shows logical street counts
-  // (e.g. 17 streets, not 1595 segments). Segments share propagated status/percentage.
+  // Deduplicate segments by logicalStreetKey (or name fallback) so the filter
+  // card shows logical street counts, not raw segment counts.
   const streetsByName = useMemo(() => {
     const seen = new Map<string, (typeof mapData.streets)[number]>();
     for (const s of mapData.streets) {
       if (isUnnamedStreet(s.name)) continue;
-      const key = s.name.toLowerCase().trim();
+      const key = s.logicalStreetKey ?? s.name.toLowerCase().trim();
       if (!seen.has(key)) seen.set(key, s);
     }
     return [...seen.values()];

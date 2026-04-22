@@ -25,6 +25,8 @@ export const BIN_CONFIG: {
 interface StreetLike {
   status?: string;
   percentage?: number;
+  /** When set, segments sharing this key form one logical street for counting. */
+  logicalStreetKey?: string;
 }
 
 export interface MapFilterCardProps {
@@ -51,10 +53,19 @@ export function MapFilterCard({
 }: MapFilterCardProps) {
   const binCounts = useMemo(() => {
     const counts = { completed: 0, almostThere: 0, inProgress: 0, notStarted: 0 };
+    // When logicalStreetKey is present, count unique logical streets (not segments).
+    // Without it, fall back to counting each item (backwards-compatible).
+    const counted = new Set<string>();
     for (const s of streets) {
       const completed = s.status === "completed";
       const bin = getStreetBin(s.percentage ?? 0, completed);
-      if (bin !== "all") counts[bin]++;
+      if (bin === "all") continue;
+      if (s.logicalStreetKey) {
+        const dedup = `${s.logicalStreetKey}::${bin}`;
+        if (counted.has(dedup)) continue;
+        counted.add(dedup);
+      }
+      counts[bin]++;
     }
     return counts;
   }, [streets]);

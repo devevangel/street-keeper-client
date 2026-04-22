@@ -167,6 +167,7 @@ export function ProjectCreatePage() {
         percentage: s.percentage ?? 0,
         status: (s.status ?? "not_started") as ProjectMapStreet["status"],
         geometry: s.geometry!,
+        logicalStreetKey: s.logicalStreetKey,
       }));
   }, [preview?.streets]);
 
