@@ -39,6 +39,18 @@ class ApiClient {
 
   constructor() {
     this.baseUrl = API.BASE_URL;
+
+    // Restore auth token synchronously so the very first API request
+    // (even on a hard refresh) includes credentials.
+    try {
+      const stored = localStorage.getItem("street-keeper-user");
+      if (stored) {
+        const parsed = JSON.parse(stored) as { id?: string };
+        if (parsed?.id) this.authToken = parsed.id;
+      }
+    } catch {
+      // ignore parse errors
+    }
   }
 
   setAuthToken(token: string | null): void {
