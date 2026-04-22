@@ -10,7 +10,13 @@ import { UnifiedMap, MapFilterCard, ALL_BINS, type MapViewHighlightFocus } from 
 import { useGpsTraces } from "../hooks";
 import { MAP_ZOOM } from "../components/map/mapConstants";
 import { projectsService } from "../services/projects.service";
-import { getHomepageData, type HomepagePayload, type HomepageSuggestion } from "../services/homepage.service";
+import {
+  getProjectSuggestions,
+  invalidateProjectSuggestionsCache,
+  type ProjectSuggestionsPayload,
+  type HomepageSuggestion,
+} from "../services/project-suggestions.service";
+import { useSyncStatus } from "../hooks/useSyncStatus";
 import { ApiError } from "../lib/api-client";
 import { ROUTES } from "../config/constants";
 import { useToast } from "../contexts/ToastContext";
@@ -31,10 +37,12 @@ function toDateInputValue(isoDate: string | null): string {
   return isoDate ? isoDate.slice(0, 10) : "";
 }
 
-function buildRunSuggestionItems(homepage: HomepagePayload): ScrollItem[] {
+function buildRunSuggestionItems(
+  payload: Pick<ProjectSuggestionsPayload, "primarySuggestion" | "alternates">,
+): ScrollItem[] {
   const candidates = [
-    homepage.primarySuggestion,
-    ...homepage.alternates,
+    payload.primarySuggestion,
+    ...payload.alternates,
   ].filter((s): s is HomepageSuggestion => !!s?.clusterStats);
   return candidates.slice(0, MAX_SUGGESTIONS).map((s, i) => ({
     kind: "suggestion" as const,
@@ -62,7 +70,7 @@ interface ProjectSidePanelProps {
   onToggleBin: (bin: FilterStatus) => void;
   onToggleAll: () => void;
   allBinsActive: boolean;
-  homepage: HomepagePayload | null;
+  suggestions: ProjectSuggestionsPayload | null;
   activities: ProjectActivityItem[];
   onSelectRun: (activityId: string, bbox: [number, number, number, number]) => void;
   onViewSuggestionArea: (s: HomepageSuggestion) => void;
@@ -105,7 +113,7 @@ function ProjectSidePanel({
   onToggleBin,
   onToggleAll,
   allBinsActive,
-  homepage,
+  suggestions,
   activities,
   onSelectRun,
   onViewSuggestionArea,
@@ -130,7 +138,7 @@ function ProjectSidePanel({
   const pct = stats.totalStreetNames > 0
     ? (stats.completedStreetNames / stats.totalStreetNames) * 100
     : stats.completionPercentage;
-  const runSuggestionItems = homepage ? buildRunSuggestionItems(homepage) : [];
+  const runSuggestionItems = suggestions ? buildRunSuggestionItems(suggestions) : [];
 
   // Deduplicate segments by logicalStreetKey (or name fallback) so the filter
   // card shows logical street counts, not raw segment counts.
@@ -241,21 +249,21 @@ function ProjectSidePanel({
           </Card>
         )}
 
-        {/* Total Distance / Total Runs — use project street data as primary source */}
+        {/* Total Distance / Total Runs — prefer project-scoped stats from /next-runs */}
         <HomepageMetrics
           totalDistanceKm={
             project.distanceCoveredMeters > 0
               ? Math.round((project.distanceCoveredMeters / 1000) * 100) / 100
-              : homepage?.totalDistanceKm ?? null
+              : suggestions?.totalDistanceKm ?? null
           }
-          totalActivities={homepage?.totalActivities ?? null}
+          totalActivities={suggestions?.totalActivities ?? null}
         />
 
         {/* Recent runs */}
-        {homepage && (
+        {suggestions && (
           <RecentRuns
-            lastRun={homepage.lastRun}
-            runs={homepage.recentRuns}
+            lastRun={suggestions.lastRun}
+            runs={suggestions.recentRuns}
             onSelect={onSelectRun}
           />
         )}
@@ -271,13 +279,74 @@ function ProjectSidePanel({
           onToggleTraces={onToggleTraces}
         />
 
-        {/* Run suggestions */}
-        {runSuggestionItems.length > 0 && (
+        {/* Next run / lifecycle state. The backend tells us explicitly whether
+            the project is "preparing" (streets not materialized yet),
+            "completed" (progress >= 100), or "in_progress" (normal case).
+            This replaces the previous silent-empty behavior when no clusters
+            could be generated. */}
+        {suggestions?.projectState === "completed" ? (
+          <Card padding="none" className="w-full p-3">
+            <div className="flex items-start gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-success/10 text-success">
+                <svg
+                  viewBox="0 0 16 16"
+                  className="size-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M2 8l4 4 8-10" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-bold leading-snug text-text">
+                  Project complete
+                </h3>
+                <p className="mt-0.5 text-xs leading-snug text-text-muted">
+                  {suggestions.completionSummary?.completedAt
+                    ? `Finished ${formatActivityDate(suggestions.completionSummary.completedAt)}.`
+                    : "You've covered every street in this project."}
+                </p>
+                {suggestions.completionSummary && (
+                  <div className="mt-2 grid grid-cols-2 gap-1.5">
+                    <div className="rounded-lg bg-bg px-2.5 py-2">
+                      <p className="text-lg font-bold leading-tight text-success">
+                        {suggestions.completionSummary.totalStreets}
+                      </p>
+                      <p className="text-[11px] leading-tight text-text-muted">
+                        streets covered
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-bg px-2.5 py-2">
+                      <p className="text-lg font-bold leading-tight text-text">
+                        {suggestions.completionSummary.totalDistanceKm.toFixed(1)} km
+                      </p>
+                      <p className="text-[11px] leading-tight text-text-muted">
+                        total distance
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        ) : suggestions?.projectState === "preparing" ? (
+          <Card padding="none" className="w-full p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Next run
+            </h3>
+            <p className="mt-2 text-sm text-text-muted">
+              Still preparing your project streets. Suggestions will appear here shortly.
+            </p>
+          </Card>
+        ) : runSuggestionItems.length > 0 ? (
           <RunSuggestions
             items={runSuggestionItems}
             onViewArea={onViewSuggestionArea}
           />
-        )}
+        ) : null}
 
         {/* Activity history */}
         {activities.length > 0 && (
@@ -353,7 +422,7 @@ export function ProjectDetailPage() {
   const [visibleBins, setVisibleBins] = useState<Set<FilterStatus>>(() => new Set(ALL_BINS));
   const allBinsActive = visibleBins.size === ALL_BINS.length;
 
-  const [homepage, setHomepage] = useState<HomepagePayload | null>(null);
+  const [suggestions, setSuggestions] = useState<ProjectSuggestionsPayload | null>(null);
   const [activities, setActivities] = useState<ProjectActivityItem[]>([]);
 
   const [highlightTraceActivityId, setHighlightTraceActivityId] = useState<string | null>(null);
@@ -376,9 +445,11 @@ export function ProjectDetailPage() {
 
       const center = projectRes.project;
       if (center) {
-        getHomepageData({ projectId: id })
-          .then((hp) => { if (!signal?.aborted) setHomepage(hp); })
-          .catch(() => {});
+        getProjectSuggestions(id)
+          .then((payload) => { if (!signal?.aborted) setSuggestions(payload); })
+          .catch((err) => {
+            console.error("[ProjectDetail] Failed to load next-run suggestions:", err);
+          });
         projectsService.getActivities(id)
           .then((res) => { if (!signal?.aborted) setActivities(res.activities ?? []); })
           .catch(() => {});
@@ -396,6 +467,50 @@ export function ProjectDetailPage() {
     fetchData(controller.signal);
     return () => controller.abort();
   }, [fetchData]);
+
+  // When a background sync finishes, anything the user just ran may have
+  // flipped street progress / added activities / completed the project.
+  // Invalidate the per-project suggestions cache and quietly refresh the
+  // pieces of data that change on new activities, without toggling the
+  // full-page loading skeleton.
+  const syncStatus = useSyncStatus();
+  useEffect(() => {
+    if (!syncStatus.didComplete || !id) return;
+    invalidateProjectSuggestionsCache(id);
+    let aborted = false;
+    (async () => {
+      try {
+        const [projectRes, mapRes] = await Promise.all([
+          projectsService.getById(id, { includeStreets: true }),
+          projectsService.getMap(id),
+        ]);
+        if (aborted) return;
+        setProject(projectRes.project);
+        setMapData(mapRes.map);
+      } catch (err) {
+        if (!aborted) {
+          console.error("[ProjectDetail] Post-sync project refresh failed:", err);
+        }
+      }
+      try {
+        const payload = await getProjectSuggestions(id);
+        if (!aborted) setSuggestions(payload);
+      } catch (err) {
+        if (!aborted) {
+          console.error("[ProjectDetail] Post-sync suggestion refresh failed:", err);
+        }
+      }
+      try {
+        const res = await projectsService.getActivities(id);
+        if (!aborted) setActivities(res.activities ?? []);
+      } catch {
+        // non-fatal
+      }
+    })();
+    return () => {
+      aborted = true;
+    };
+  }, [syncStatus.didComplete, id]);
 
   useEffect(() => {
     if (!project || isEditingMetadata) return;
@@ -479,8 +594,10 @@ export function ProjectDetailPage() {
         deadline: metadataDeadline ? metadataDeadline : null,
       });
       setProject(result.project);
-      setHomepage((prev) =>
-        prev?.projectContext
+      // Keep the suggestions payload's cached project name in sync so the
+      // panel doesn't flash a stale name until the next /next-runs refetch.
+      setSuggestions((prev) =>
+        prev
           ? {
               ...prev,
               projectContext: {
@@ -488,7 +605,7 @@ export function ProjectDetailPage() {
                 name: result.project.name,
               },
             }
-          : prev
+          : prev,
       );
       setIsEditingMetadata(false);
       toast?.showToast("Project details updated", "success");
@@ -642,7 +759,7 @@ export function ProjectDetailPage() {
             onToggleBin={toggleBin}
             onToggleAll={toggleAllBins}
             allBinsActive={allBinsActive}
-            homepage={null}
+            suggestions={null}
             activities={[]}
             onSelectRun={() => {}}
             onViewSuggestionArea={() => {}}
@@ -792,7 +909,7 @@ export function ProjectDetailPage() {
           onToggleBin={toggleBin}
           onToggleAll={toggleAllBins}
           allBinsActive={allBinsActive}
-          homepage={homepage}
+          suggestions={suggestions}
           activities={activities}
           onSelectRun={handleSelectRun}
           onViewSuggestionArea={handleViewSuggestionArea}
