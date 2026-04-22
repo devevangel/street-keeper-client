@@ -15,7 +15,6 @@ import {
 import {
   MapContainer,
   TileLayer,
-  Circle,
   Polygon,
   Marker,
   useMap,
@@ -29,6 +28,42 @@ const MAP_CONTAINER_STYLE: CSSProperties = {
   width: "100%",
   minHeight: "400px",
 };
+
+/**
+ * Native Leaflet circle — bypasses react-leaflet's <Circle> which silently
+ * fails to render in some production builds (Vite + PWA service worker).
+ */
+function NativeCircle({
+  center,
+  radius,
+  options,
+}: {
+  center: LatLngTuple;
+  radius: number;
+  options?: L.CircleMarkerOptions;
+}) {
+  const map = useMap();
+  const circleRef = useRef<L.Circle | null>(null);
+
+  useEffect(() => {
+    circleRef.current = L.circle(center, {
+      radius,
+      color: "#7c3aed",
+      weight: 3,
+      fillColor: "#7c3aed",
+      fillOpacity: 0.08,
+      interactive: false,
+      ...options,
+    }).addTo(map);
+
+    return () => {
+      circleRef.current?.remove();
+      circleRef.current = null;
+    };
+  }, [map, center[0], center[1], radius]);
+
+  return null;
+}
 
 /** Creates the "streetPane" with z-index below default overlayPane so labels show above streets */
 function EnsureCustomPanes() {
@@ -314,15 +349,10 @@ function MapContent(props: UnifiedMapProps) {
         />
       )}
       {showBoundaryOutline && boundary && boundary.type === "circle" && (
-        <Circle
+        <NativeCircle
           center={[boundary.center.lat, boundary.center.lng]}
           radius={boundary.radiusMeters}
-          pathOptions={{
-            color: "#7c3aed",
-            weight: 2,
-            fill: false,
-            interactive: false,
-          }}
+          options={{ weight: 2, fill: false }}
         />
       )}
       {showBoundaryOutline && boundary && boundary.type === "polygon" && (
@@ -339,17 +369,9 @@ function MapContent(props: UnifiedMapProps) {
         />
       )}
       {showDrawnCircle && activeShape?.type === "circle" && (
-        <Circle
-          key={`drawn-circle-${activeShape.center.lat}-${activeShape.center.lng}-${activeShape.radiusMeters}`}
+        <NativeCircle
           center={[activeShape.center.lat, activeShape.center.lng]}
           radius={activeShape.radiusMeters}
-          pathOptions={{
-            color: "#7c3aed",
-            weight: 3,
-            fillColor: "#7c3aed",
-            fillOpacity: 0.08,
-            interactive: false,
-          }}
         />
       )}
       {areaOverlay && areaOverlay.polygon.length >= 3 && (
