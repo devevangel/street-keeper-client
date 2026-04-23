@@ -7,12 +7,25 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import type { LatLngTuple } from "leaflet";
 import { MousePointer2, Hexagon, MapPin, Trash2 } from "lucide-react";
-import { Button, Card, Input, StreetListItem, InlineLoader, type StreetListItemData } from "../components/common";
+import {
+  Button,
+  Card,
+  Input,
+  StreetListItem,
+  InlineLoader,
+  type StreetListItemData,
+} from "../components/common";
 import {
   UniversalSearchInput,
   ProjectCreatedModal,
 } from "../components/projects";
-import { UnifiedMap, MAP_ZOOM, MapFilterCard, ALL_BINS, type ShapeData } from "../components/map";
+import {
+  UnifiedMap,
+  MAP_ZOOM,
+  MapFilterCard,
+  ALL_BINS,
+  type ShapeData,
+} from "../components/map";
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
 import { useGeolocation, useGpsTraces, useMapStreets } from "../hooks";
@@ -22,19 +35,15 @@ import { ROUTES, DEFAULT_PROJECT_RADIUS_METERS } from "../config/constants";
 import type { ProjectMapStreet } from "../types/api.types";
 import { usePreferences, useFormatters } from "../contexts/PreferencesContext";
 import { useToast } from "../contexts/ToastContext";
-import type {
-  ProjectPreview,
-  BoundaryMode,
-} from "../types/api.types";
+import type { ProjectPreview, BoundaryMode } from "../types/api.types";
 import type { GeocodingResult } from "../types/api.types";
 
 const DEFAULT_CENTER: LatLngTuple = [50.8, -1.09];
 const AUTO_PREVIEW_DEBOUNCE_MS = 800;
 /** Predefined radius snap points for better UX across large range */
 const RADIUS_SNAP_POINTS = [
-  100, 200, 300, 400, 500, 750,
-  1000, 1500, 2000, 3000, 5000,
-  7500, 10000, 15000, 20000, 30000, 50000,
+  100, 200, 300, 400, 500, 750, 1000, 1500, 2000, 3000, 5000, 7500, 10000,
+  15000, 20000, 30000, 50000,
 ];
 
 /** Snap a radius (m) to the nearest RADIUS_SNAP_POINTS value so the slider and state stay in sync. */
@@ -55,8 +64,7 @@ function normalizeOsmId(osmId: string): string {
 function computeBboxFromCoords(
   coords: [number, number][],
 ): [number, number, number, number] {
-  if (coords.length === 0)
-    return [0, 0, 0, 0];
+  if (coords.length === 0) return [0, 0, 0, 0];
   let minLng = coords[0][0],
     maxLng = coords[0][0],
     minLat = coords[0][1],
@@ -83,7 +91,10 @@ function pickDominantHighwayType(
   const byType = new Map<string, number>();
   for (const s of segments) {
     if (!s.highwayType) continue;
-    byType.set(s.highwayType, (byType.get(s.highwayType) ?? 0) + s.totalLengthMeters);
+    byType.set(
+      s.highwayType,
+      (byType.get(s.highwayType) ?? 0) + s.totalLengthMeters,
+    );
   }
   let best: string | undefined;
   let bestLen = -1;
@@ -114,20 +125,23 @@ export function ProjectCreatePage() {
   const defaultRadiusMeters = useMemo(
     () =>
       snapToRadiusPoints(
-        preferences?.preferences?.defaultProjectRadius ?? DEFAULT_PROJECT_RADIUS_METERS
+        preferences?.preferences?.defaultProjectRadius ??
+          DEFAULT_PROJECT_RADIUS_METERS,
       ),
-    [preferences?.preferences?.defaultProjectRadius]
+    [preferences?.preferences?.defaultProjectRadius],
   );
 
   const [activeShape, setActiveShape] = useState<ShapeData | null>(null);
-  const [activeTool, setActiveTool] = useState<
-    "cursor" | "polygon" | "marker"
-  >("cursor");
+  const [activeTool, setActiveTool] = useState<"cursor" | "polygon" | "marker">(
+    "cursor",
+  );
   const [markerPosition, setMarkerPosition] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
-  const [markerRadius, setMarkerRadius] = useState(DEFAULT_PROJECT_RADIUS_METERS);
+  const [markerRadius, setMarkerRadius] = useState(
+    DEFAULT_PROJECT_RADIUS_METERS,
+  );
   const [highlightOsmIds, setHighlightOsmIds] = useState<string[]>([]);
   const [streetHighlightBbox, setStreetHighlightBbox] = useState<
     [number, number, number, number] | null
@@ -203,11 +217,9 @@ export function ProjectCreatePage() {
 
   const markerBbox = useMemo((): [number, number, number, number] | null => {
     if (!markerPosition || !markerRadius) return null;
-    const latDeg =
-      markerRadius / 111320;
+    const latDeg = markerRadius / 111320;
     const lngDeg =
-      markerRadius /
-      (111320 * Math.cos((markerPosition.lat * Math.PI) / 180));
+      markerRadius / (111320 * Math.cos((markerPosition.lat * Math.PI) / 180));
     return [
       markerPosition.lat - latDeg,
       markerPosition.lng - lngDeg,
@@ -316,7 +328,8 @@ export function ProjectCreatePage() {
         })
         .catch((err) => {
           // Ignore abort errors and stale responses
-          if (signal.aborted || requestId !== previewRequestIdRef.current) return;
+          if (signal.aborted || requestId !== previewRequestIdRef.current)
+            return;
           setPreviewError(
             err instanceof ApiError ? err.message : "Failed to load preview",
           );
@@ -373,12 +386,14 @@ export function ProjectCreatePage() {
           totalLengthMeters: project.totalLengthMeters ?? 0,
         });
       } else {
-        const msg = "Project was created but the response was invalid. Check your projects list.";
+        const msg =
+          "Project was created but the response was invalid. Check your projects list.";
         setCreateError(msg);
         toast?.showToast(msg, "warning");
       }
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Failed to create project";
+      const msg =
+        err instanceof ApiError ? err.message : "Failed to create project";
       setCreateError(msg);
       toast?.showToast(msg, "error");
     } finally {
@@ -440,25 +455,30 @@ export function ProjectCreatePage() {
     return { streetListItems: items, segmentsByListKey: lookup };
   }, [preview?.streets]);
 
-  const handleStreetHighlight = useCallback((streetData: StreetListItemData) => {
-    const firstId = streetData.osmIds[0];
-    if (!firstId) return;
-    const segments = segmentsByListKey.get(normalizeOsmId(firstId));
-    if (!segments || segments.length === 0) return;
+  const handleStreetHighlight = useCallback(
+    (streetData: StreetListItemData) => {
+      const firstId = streetData.osmIds[0];
+      if (!firstId) return;
+      const segments = segmentsByListKey.get(normalizeOsmId(firstId));
+      if (!segments || segments.length === 0) return;
 
-    const normalizedIds = segments
-      .map((s) => (s.osmId != null ? normalizeOsmId(String(s.osmId)) : null))
-      .filter((id): id is string => id != null);
+      const normalizedIds = segments
+        .map((s) => (s.osmId != null ? normalizeOsmId(String(s.osmId)) : null))
+        .filter((id): id is string => id != null);
 
-    const allCoords: [number, number][] = [];
-    for (const s of segments) {
-      const coords = s.geometry?.coordinates;
-      if (coords) allCoords.push(...coords);
-    }
+      const allCoords: [number, number][] = [];
+      for (const s of segments) {
+        const coords = s.geometry?.coordinates;
+        if (coords) allCoords.push(...coords);
+      }
 
-    setHighlightOsmIds(normalizedIds);
-    setStreetHighlightBbox(allCoords.length ? computeBboxFromCoords(allCoords) : null);
-  }, [segmentsByListKey]);
+      setHighlightOsmIds(normalizedIds);
+      setStreetHighlightBbox(
+        allCoords.length ? computeBboxFromCoords(allCoords) : null,
+      );
+    },
+    [segmentsByListKey],
+  );
 
   const handleStreetClear = useCallback(() => {
     setHighlightOsmIds([]);
@@ -473,7 +493,7 @@ export function ProjectCreatePage() {
       >
         Back to projects
       </Link>
-      <h2 className="text-2xl font-bold text-text">Create project</h2>
+      <h2 className="text-2xl font-bold text-text">New Run Project</h2>
 
       <div className="rounded-lg border border-border bg-surface/50 p-4">
         <p className="mb-3 text-sm font-medium uppercase tracking-wide text-text-muted">
@@ -569,16 +589,29 @@ export function ProjectCreatePage() {
           }`}
           onClick={() => setShowTraces((v) => !v)}
         >
-          <span className={`flex size-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${showTraces ? "border-transparent bg-violet-500" : "border-neutral-300 dark:border-neutral-600"}`}>
+          <span
+            className={`flex size-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${showTraces ? "border-transparent bg-violet-500" : "border-neutral-300 dark:border-neutral-600"}`}
+          >
             {showTraces && (
               <svg viewBox="0 0 16 16" className="size-3 text-white">
-                <path d="M3 8l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M3 8l3 3 7-7"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             )}
           </span>
           <span className="min-w-0">
-            <span className="block text-sm font-bold leading-tight">Run traces</span>
-            <span className={`block text-[11px] leading-tight ${showTraces ? "" : "text-text-muted/50"}`}>
+            <span className="block text-sm font-bold leading-tight">
+              Run traces
+            </span>
+            <span
+              className={`block text-[11px] leading-tight ${showTraces ? "" : "text-text-muted/50"}`}
+            >
               Show your Strava GPS lines on map
             </span>
           </span>
@@ -611,9 +644,11 @@ export function ProjectCreatePage() {
             min={0}
             max={RADIUS_SNAP_POINTS.length - 1}
             step={1}
-            value={RADIUS_SNAP_POINTS.indexOf(markerRadius) !== -1 
-              ? RADIUS_SNAP_POINTS.indexOf(markerRadius) 
-              : RADIUS_SNAP_POINTS.findIndex(p => p >= markerRadius) || 0}
+            value={
+              RADIUS_SNAP_POINTS.indexOf(markerRadius) !== -1
+                ? RADIUS_SNAP_POINTS.indexOf(markerRadius)
+                : RADIUS_SNAP_POINTS.findIndex((p) => p >= markerRadius) || 0
+            }
             onChange={(e) => {
               const index = Number(e.target.value);
               const newRadius = RADIUS_SNAP_POINTS[index];
@@ -642,8 +677,8 @@ export function ProjectCreatePage() {
             <div className="flex flex-col items-center justify-center gap-2 py-3">
               <InlineLoader className="text-text-muted text-sm" />
               <p className="text-center text-xs leading-snug text-text-muted">
-                Loading streets for this area. The first preview in a new city can take longer while
-                we sync map data from OpenStreetMap.
+                Loading streets for this area. The first preview in a new city
+                can take longer while we sync map data from OpenStreetMap.
               </p>
             </div>
           ) : previewError ? (
@@ -652,9 +687,9 @@ export function ProjectCreatePage() {
             <>
               <p className="text-text">
                 <strong>{preview.totalStreetNames}</strong> street
-                {preview.totalStreetNames !== 1 ? "s" : ""}{" "}
-                ·{" "}
-                <strong>{formatDistance(preview.totalLengthMeters, 1)}</strong> total
+                {preview.totalStreetNames !== 1 ? "s" : ""} ·{" "}
+                <strong>{formatDistance(preview.totalLengthMeters, 1)}</strong>{" "}
+                total
               </p>
               {preview?.warnings && preview.warnings.length > 0 && (
                 <ul className="mt-2 list-inside list-disc text-text-muted text-sm">
@@ -780,7 +815,8 @@ export function ProjectCreatePage() {
         <span className="text-text text-sm">
           Include previous Strava runs
           <span className="ml-2 text-text-muted text-xs block mt-1">
-            Count activities you&apos;ve already completed in this area toward your progress
+            Count activities you&apos;ve already completed in this area toward
+            your progress
           </span>
         </span>
       </label>
@@ -831,19 +867,20 @@ export function ProjectCreatePage() {
 
   const helperText =
     activeTool === "polygon"
-        ? "Click to add points. Double-click to finish. ESC to cancel."
-        : activeTool === "marker"
-          ? markerPosition
-            ? "Click elsewhere to move. Click marker to remove."
-            : "Click on the map to place a marker."
-          : activeShape
-            ? "Click a shape to edit."
-            : "Select a tool above to define your project boundary.";
+      ? "Click to add points. Double-click to finish. ESC to cancel."
+      : activeTool === "marker"
+        ? markerPosition
+          ? "Click elsewhere to move. Click marker to remove."
+          : "Click on the map to place a marker."
+        : activeShape
+          ? "Click a shape to edit."
+          : "Select a tool above to define your project boundary.";
 
   const showUserLocationMarker = geoPosition && !activeShape;
 
   // Use user location zoom when available, preference default, or fallback
-  const prefDefaultZoom = preferences?.preferences?.defaultMapZoom ?? MAP_ZOOM.DEFAULT;
+  const prefDefaultZoom =
+    preferences?.preferences?.defaultMapZoom ?? MAP_ZOOM.DEFAULT;
   const mapZoom =
     geoPosition && !activeShape
       ? MAP_ZOOM.USER_LOCATION
@@ -861,15 +898,17 @@ export function ProjectCreatePage() {
         streets={previewMapStreets.length > 0 ? previewMapStreets : mapStreets}
         gpsTraces={showTraces ? gpsTraces : []}
         highlightOsmIds={highlightOsmIds}
-        visibleStreetBins={previewMapStreets.length > 0 ? visibleBins : undefined}
-        onVisibleStreetBinsChange={previewMapStreets.length > 0 ? setVisibleBins : undefined}
+        visibleStreetBins={
+          previewMapStreets.length > 0 ? visibleBins : undefined
+        }
+        onVisibleStreetBinsChange={
+          previewMapStreets.length > 0 ? setVisibleBins : undefined
+        }
         drawingEnabled
         activeShape={activeShape}
         onShapeChange={setActiveShape}
         activeTool={activeTool}
-        onClick={
-          activeTool === "marker" ? handleMapClick : undefined
-        }
+        onClick={activeTool === "marker" ? handleMapClick : undefined}
         markerPosition={markerPosition}
         onMarkerClick={handleMarkerClick}
         highlightFocus={
