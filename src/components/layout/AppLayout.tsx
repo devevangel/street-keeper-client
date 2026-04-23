@@ -97,7 +97,7 @@ export function AppLayout() {
         <TabNav />
       </div>
 
-      <main className="min-h-0 flex-1 overflow-y-auto md:flex md:flex-col md:overflow-y-hidden">
+      <main className="min-h-0 flex-1 overflow-y-auto pb-14 md:flex md:flex-col md:overflow-y-hidden md:pb-0">
         <Outlet context={{ syncStatus } satisfies AppLayoutOutletContext} />
       </main>
     </div>

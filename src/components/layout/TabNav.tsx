@@ -18,7 +18,10 @@ const tabs = [
 
 export function TabNav() {
   return (
-    <nav className="border-b border-border bg-surface" aria-label="Main navigation">
+    <nav
+      className="fixed inset-x-0 bottom-0 z-[1100] border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:static md:z-auto md:border-b md:border-t-0 md:pb-0"
+      aria-label="Main navigation"
+    >
       <ul className="m-0 flex list-none gap-0 p-0">
         {tabs.map(({ to, label }) => (
           <li key={to} className="flex-1">
@@ -27,10 +30,10 @@ export function TabNav() {
               end={to === ROUTES.HOME}
               className={({ isActive }) =>
                 [
-                  "flex h-11 items-center justify-center border-b-2 text-sm font-semibold no-underline transition-all duration-200",
+                  "flex h-12 items-center justify-center text-sm font-semibold no-underline transition-all duration-200 md:h-11",
                   isActive
-                    ? "border-accent bg-accent/5 text-text"
-                    : "border-transparent text-text-muted hover:bg-accent/5 hover:text-text",
+                    ? "border-t-2 border-accent bg-accent/5 text-text md:border-b-2 md:border-t-0"
+                    : "border-t-2 border-transparent text-text-muted hover:bg-accent/5 hover:text-text md:border-b-2 md:border-t-0",
                 ].join(" ")
               }
             >
