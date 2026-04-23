@@ -40,9 +40,36 @@ export interface PendingCelebrationBatch {
   rollup: PendingCelebrationRollup;
 }
 
+export type CelebrationMapBucket = "completed" | "started" | "improved";
+
+export interface CelebrationMapStreetSegment {
+  osmId: string;
+  bucket: CelebrationMapBucket;
+  path: [number, number][];
+}
+
+export interface CelebrationMapRunPath {
+  activityId: string;
+  path: [number, number][];
+}
+
+export interface CelebrationMapData {
+  success: true;
+  runs: CelebrationMapRunPath[];
+  streets: CelebrationMapStreetSegment[];
+  bbox: { south: number; west: number; north: number; east: number };
+}
+
 export const celebrationsService = {
   async getPending(): Promise<PendingCelebrationBatch> {
     return apiClient.get<PendingCelebrationBatch>("/celebrations/pending");
+  },
+
+  async getMapData(eventIds: string[]): Promise<CelebrationMapData> {
+    const q = eventIds.map(encodeURIComponent).join(",");
+    return apiClient.get<CelebrationMapData>("/celebrations/map-data", {
+      eventIds: q,
+    });
   },
 
   async acknowledge(eventIds?: string[]): Promise<{ success: boolean; updated: number }> {

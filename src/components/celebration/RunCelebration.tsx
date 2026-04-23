@@ -1,11 +1,19 @@
 /**
- * Run celebration overlay — presentation only (no data fetching).
+ * Run celebration overlay — presentation only (no data fetching except optional map).
  */
 
-import { useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, Loader2, X } from "lucide-react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { CheckCircle2, ChevronDown, Loader2, Trophy, X } from "lucide-react";
 import { Button } from "../common";
-import type { PendingCelebrationBatch, PendingCelebrationEventDto } from "../../services/celebrations.service";
+import type {
+  PendingCelebrationBatch,
+  PendingCelebrationEventDto,
+  CelebrationMapData,
+} from "../../services/celebrations.service";
+import { celebrationsService } from "../../services/celebrations.service";
+import { useReducedMotion } from "../../hooks/useReducedMotion";
+
+const CelebrationMiniMap = lazy(() => import("./CelebrationMiniMap"));
 
 const HEADLINES = [
   "You just claimed new ground.",
@@ -26,7 +34,8 @@ function hashString(s: string): number {
 
 const SK_HEADER_RE = /^--- Street Keeper ---\s*\n?/m;
 const SK_HASHTAG_FOOTER = "\n\n#StreetKeeper #RunEveryStreet";
-const SK_HASHTAG_FOOTER_RE = /\n?\n?#StreetKeeper #RunEveryStreet\s*$/;
+const SK_HASHTAG_FOOTER_RE =
+  /\n?\n?#StreetKeeper #RunEveryStreet(?:\s+#[A-Za-z0-9_]+)*\s*$/u;
 
 /**
  * Mirrors backend `combineShareBodies` + wrapping so the preview matches what
@@ -52,6 +61,8 @@ export interface RunCelebrationProps {
   onShare: () => Promise<void>;
   shareState: "idle" | "sharing" | "shared" | "error";
   shareError?: string | null;
+  /** Dev: fixture map from parent. Omit in production — map is fetched here. */
+  previewMapData?: CelebrationMapData | null;
 }
 
 function StatChip({ label, value }: { label: string; value: number }) {
@@ -73,9 +84,9 @@ function StreetList({ title, names }: { title: string; names: string[] }) {
     <div className="space-y-1.5">
       <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</p>
       <ul className="flex flex-col gap-1">
-        {names.map((name) => (
+        {names.map((name, idx) => (
           <li
-            key={name}
+            key={`${title}-${idx}-${name}`}
             className="truncate rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-text"
           >
             {name}
@@ -86,25 +97,93 @@ function StreetList({ title, names }: { title: string; names: string[] }) {
   );
 }
 
-function ProjectCard({ event }: { event: PendingCelebrationEventDto }) {
+function ProgressBarRow({
+  before,
+  after,
+  completed,
+  reducedMotion,
+}: {
+  before: number;
+  after: number;
+  completed: boolean;
+  reducedMotion: boolean;
+}) {
+  const [w, setW] = useState(() => (reducedMotion ? after : before));
+
+  useEffect(() => {
+    if (reducedMotion) {
+      setW(after);
+      return;
+    }
+    setW(before);
+    const id = requestAnimationFrame(() => setW(after));
+    return () => cancelAnimationFrame(id);
+  }, [before, after, reducedMotion]);
+
+  return (
+    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-border">
+      <div
+        className={`h-full max-w-full rounded-full transition-[width] duration-[900ms] ease-out ${
+          completed
+            ? "bg-gradient-to-r from-amber-400 to-yellow-500"
+            : "bg-success"
+        }`}
+        style={{ width: `${Math.min(100, Math.max(0, w))}%` }}
+      />
+    </div>
+  );
+}
+
+function ProjectCard({
+  event,
+  reducedMotion,
+}: {
+  event: PendingCelebrationEventDto;
+  reducedMotion: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const title = event.projectName ?? "Project";
   const hasStreets =
     event.completedStreetNames.length > 0 ||
     event.startedStreetNames.length > 0 ||
     event.improvedStreetNames.length > 0;
+  const done = event.projectCompleted;
 
   return (
-    <article className="rounded-xl border border-border bg-card-bg p-4 shadow-sm">
+    <article
+      className={
+        done
+          ? "rounded-xl border border-amber-400/40 bg-card-bg p-4 shadow-[0_0_32px_-8px_rgba(251,191,36,0.35)] ring-2 ring-amber-400/50"
+          : "rounded-xl border border-border bg-card-bg p-4 shadow-sm"
+      }
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="text-base font-semibold text-text">{title}</h3>
-        <span className="shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-text-muted">
+        <h3 className="flex items-center gap-2 text-base font-semibold text-text">
+          {done ? (
+            <Trophy className="h-5 w-5 shrink-0 text-amber-400" aria-hidden />
+          ) : null}
+          {title}
+        </h3>
+        <span
+          className={
+            done
+              ? "shrink-0 rounded-full border border-amber-400/40 bg-amber-400/15 px-3 py-1 text-xs font-medium text-amber-200"
+              : "shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-text-muted"
+          }
+        >
           {event.projectProgressBefore}% → {event.projectProgressAfter}%
-          {event.projectCompleted ? (
-            <span className="ml-1 font-semibold text-success">Complete</span>
+          {done ? (
+            <span className="ml-1 font-semibold text-amber-300">Complete</span>
           ) : null}
         </span>
       </div>
+
+      <ProgressBarRow
+        before={event.projectProgressBefore}
+        after={event.projectProgressAfter}
+        completed={done}
+        reducedMotion={reducedMotion}
+      />
 
       {hasStreets ? (
         <div className="mt-3 border-t border-border pt-3">
@@ -133,20 +212,67 @@ function ProjectCard({ event }: { event: PendingCelebrationEventDto }) {
   );
 }
 
+function MapSkeleton() {
+  return (
+    <div
+      className="flex h-48 w-full animate-pulse items-center justify-center rounded-xl border border-border bg-card-bg sm:h-64"
+      aria-hidden
+    >
+      <span className="text-sm text-text-muted">Loading map…</span>
+    </div>
+  );
+}
+
 export function RunCelebration({
   batch,
   onClose,
   onShare,
   shareState,
   shareError,
+  previewMapData,
 }: RunCelebrationProps) {
+  const reducedMotion = useReducedMotion();
+  const [mapData, setMapData] = useState<CelebrationMapData | null>(null);
+  const [mapLoadFailed, setMapLoadFailed] = useState(false);
+
   const firstActivityId = batch.events[0]?.activityId ?? "";
   const headlineIndex = firstActivityId ? hashString(firstActivityId) % HEADLINES.length : 0;
   const headline = HEADLINES[headlineIndex] ?? HEADLINES[0];
 
   const stravaPreview = useMemo(() => buildStravaPreview(batch.events), [batch.events]);
 
+  const eventIdsKey = batch.events.map((e) => e.id).join(",");
+
+  useEffect(() => {
+    if (previewMapData !== undefined) {
+      setMapData(previewMapData);
+      setMapLoadFailed(false);
+      return;
+    }
+    if (!eventIdsKey) return;
+    let cancelled = false;
+    setMapLoadFailed(false);
+    const ids = eventIdsKey.split(",").filter(Boolean);
+    celebrationsService
+      .getMapData(ids)
+      .then((d) => {
+        if (!cancelled) setMapData(d);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMapData(null);
+          setMapLoadFailed(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventIdsKey, previewMapData]);
+
   const { rollup } = batch;
+
+  const showMapSlot =
+    previewMapData !== undefined ? previewMapData !== null : !mapLoadFailed && mapData !== null;
 
   return (
     <div
@@ -169,13 +295,25 @@ export function RunCelebration({
       </div>
 
       <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col px-4 pb-2">
-        <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+        <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pb-4">
           <h2
             id="run-celebration-headline"
             className="text-center text-xl font-bold leading-snug text-text sm:text-2xl"
           >
             {headline}
           </h2>
+
+          <div className="mt-4">
+            {previewMapData === undefined && mapData === null && !mapLoadFailed ? (
+              <MapSkeleton />
+            ) : null}
+            {previewMapData !== undefined && previewMapData === null ? <MapSkeleton /> : null}
+            {showMapSlot && mapData ? (
+              <Suspense fallback={<MapSkeleton />}>
+                <CelebrationMiniMap data={mapData} prefersReducedMotion={reducedMotion} />
+              </Suspense>
+            ) : null}
+          </div>
 
           <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
             <StatChip label="Completed" value={rollup.totalCompleted} />
@@ -185,7 +323,7 @@ export function RunCelebration({
 
           <div className="mt-6 space-y-4">
             {batch.events.map((event) => (
-              <ProjectCard key={event.id} event={event} />
+              <ProjectCard key={event.id} event={event} reducedMotion={reducedMotion} />
             ))}
           </div>
 
@@ -221,9 +359,13 @@ export function RunCelebration({
               disabled={shareState === "sharing" || shareState === "shared"}
             >
               {shareState === "sharing" ? (
-                <><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Sharing…</>
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Sharing…
+                </>
               ) : shareState === "shared" ? (
-                <><CheckCircle2 className="h-4 w-4" aria-hidden /> Shared</>
+                <>
+                  <CheckCircle2 className="h-4 w-4" aria-hidden /> Shared
+                </>
               ) : (
                 "Share to Strava"
               )}

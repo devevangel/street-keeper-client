@@ -12,6 +12,7 @@ import type { UseSyncStatusResult } from "../../hooks/useSyncStatus";
 import {
   celebrationsService,
   type PendingCelebrationBatch,
+  type CelebrationMapData,
 } from "../../services/celebrations.service";
 import { RunCelebration } from "./RunCelebration";
 
@@ -37,6 +38,7 @@ export function RunCelebrationController({ syncStatus }: RunCelebrationControlle
   const [batch, setBatch] = useState<PendingCelebrationBatch | null>(null);
   const [shareState, setShareState] = useState<"idle" | "sharing" | "shared" | "error">("idle");
   const [shareError, setShareError] = useState<string | null>(null);
+  const [demoMapData, setDemoMapData] = useState<CelebrationMapData | null>(null);
   const prevDevDemo = useRef(false);
   const batchKey = batch?.events.map((e) => e.id).join(",") ?? "";
 
@@ -49,7 +51,12 @@ export function RunCelebrationController({ syncStatus }: RunCelebrationControlle
   const celebrationParam = import.meta.env.DEV
     ? (() => {
         const raw = searchParams.get("__celebration");
-        return raw === "demo" || raw === "demoCompleted" ? raw : null;
+        return raw === "demo" ||
+          raw === "demoCompleted" ||
+          raw === "demoLongRun" ||
+          raw === "demoMorning"
+          ? raw
+          : null;
       })()
     : null;
   const isDevDemo = celebrationParam !== null;
@@ -76,6 +83,7 @@ export function RunCelebrationController({ syncStatus }: RunCelebrationControlle
   useEffect(() => {
     if (!isAuthenticated) {
       setBatch(null);
+      setDemoMapData(null);
       setShareState("idle");
       setShareError(null);
       return;
@@ -83,9 +91,10 @@ export function RunCelebrationController({ syncStatus }: RunCelebrationControlle
     if (isDevDemo && celebrationParam) {
       prevDevDemo.current = true;
       let cancelled = false;
-      void import("./fixtures").then(({ getDemoCelebrationFixture }) => {
+      void import("./fixtures").then(({ getDemoCelebrationFixture, getDemoMapData }) => {
         if (cancelled) return;
         setBatch(getDemoCelebrationFixture(celebrationParam));
+        setDemoMapData(getDemoMapData(celebrationParam));
       });
       setShareState("idle");
       setShareError(null);
@@ -191,6 +200,7 @@ export function RunCelebrationController({ syncStatus }: RunCelebrationControlle
       onShare={handleShare}
       shareState={shareState}
       shareError={shareError}
+      previewMapData={isDevDemo ? demoMapData : undefined}
     />
   );
 }

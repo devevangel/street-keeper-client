@@ -284,6 +284,22 @@ textarea:focus-visible {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* Thin styled scrollbar (celebration overlay, sidebars) */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 999px;
+}
+
 /* Horizontal scroll strips (e.g. run suggestions) */
 .scrollbar-hide {
   -ms-overflow-style: none;

@@ -18,7 +18,8 @@ This guide describes the base UI components in `src/components/common/`, how to 
 10. [Routing Components](#routing-components)
 11. [Map Components](#map-components)
 12. [Docs Viewer Components](#docs-viewer-components)
-13. [Accessibility Summary](#accessibility-summary)
+13. [Run celebration overlay](#run-celebration-overlay)
+14. [Accessibility Summary](#accessibility-summary)
 
 ---
 
@@ -494,6 +495,12 @@ Single street row: status dot (green = completed, yellow = partial), name, perce
 **Usage:** Usually via StreetList; can be used standalone for a single street.
 
 Accessibility: `aria-expanded`, `aria-controls`, `aria-labelledby`, `role="region"` on stats section.
+
+---
+
+## Run celebration overlay
+
+Components live under `src/components/celebration/`. **`RunCelebrationController`** belongs in the app shell (for example `AppLayout`): it fetches the pending batch from the API, handles acknowledge and Strava share, and passes data to **`RunCelebration`**. The mini-map is **`React.lazy`-loaded** as **`CelebrationMiniMap`** so Leaflet stays in a separate chunk; if map data fails to load, the rest of the overlay still works. The map is **non-interactive** (no pan or zoom); stroke reveal respects **reduced motion** via `useReducedMotion`. **Milestone** celebrations (`CelebrationModal` in `src/components/milestones/`) are a different feature.
 
 ---
 

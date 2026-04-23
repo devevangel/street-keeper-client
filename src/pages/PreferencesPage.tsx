@@ -234,12 +234,30 @@ export function PreferencesPage() {
               you confirm.
             </p>
             {import.meta.env.DEV ? (
-              <p className="text-xs text-text-muted">
+              <p className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-text-muted">
                 <Link
                   to={`${ROUTES.HOME}?__celebration=demo`}
                   className="font-semibold text-accent underline-offset-2 hover:underline"
                 >
-                  Preview run celebration (dev)
+                  Preview celebration
+                </Link>
+                <Link
+                  to={`${ROUTES.HOME}?__celebration=demoCompleted`}
+                  className="font-semibold text-accent underline-offset-2 hover:underline"
+                >
+                  Completed project
+                </Link>
+                <Link
+                  to={`${ROUTES.HOME}?__celebration=demoLongRun`}
+                  className="font-semibold text-accent underline-offset-2 hover:underline"
+                >
+                  Long run copy
+                </Link>
+                <Link
+                  to={`${ROUTES.HOME}?__celebration=demoMorning`}
+                  className="font-semibold text-accent underline-offset-2 hover:underline"
+                >
+                  Morning run copy
                 </Link>
               </p>
             ) : null}
