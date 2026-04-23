@@ -13,15 +13,25 @@ export function formatDistance(
   unit: DistanceUnit,
   precision = 1,
 ): string {
+  // Render strictly in the user-preferred unit regardless of magnitude.
+  // Auto-switching to meters when a km/miles value happens to be < 1 leads
+  // to inconsistent displays like "675 m / 9.4 km" in the same card.
   switch (unit) {
-    case "miles":
-      return `${(meters / 1609.344).toFixed(precision)} mi`;
+    case "miles": {
+      const miles = meters / 1609.344;
+      const p = miles > 0 && miles < 0.1 ? Math.max(precision, 2) : precision;
+      return `${miles.toFixed(p)} mi`;
+    }
     case "meters":
       return `${Math.round(meters)} m`;
     case "km":
-    default:
-      if (meters < 1000) return `${Math.round(meters)} m`;
-      return `${(meters / 1000).toFixed(precision)} km`;
+    default: {
+      const km = meters / 1000;
+      // Keep at least 2 decimals for sub-kilometre distances so we don't
+      // print a misleading "0.0 km" for a 30-metre street segment.
+      const p = km > 0 && km < 1 ? Math.max(precision, 2) : precision;
+      return `${km.toFixed(p)} km`;
+    }
   }
 }
 

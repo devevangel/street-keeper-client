@@ -165,6 +165,10 @@ export interface ProjectDetail extends ProjectListItem {
   projectedFinishDate: string | null;
   currentStreak: number;
   longestStreak: number;
+  /** Streets newly completed this calendar month on this project (server, user timezone) */
+  streetsThisMonth: number;
+  /** e.g. "April 2026" — month label for streetsThisMonth */
+  monthLabel: string;
   newStreetsDetected?: number;
 }
 

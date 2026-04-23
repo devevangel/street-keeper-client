@@ -16,6 +16,10 @@ export interface StatCardsProps {
   projectedFinishDate: string | null;
   completedStreets: number;
   totalStreets: number;
+  /** Streets newly completed this calendar month (user timezone) */
+  streetsThisMonth: number;
+  /** e.g. "April 2026" */
+  monthLabel: string;
 }
 
 function formatPaceAndFinish(
@@ -48,6 +52,8 @@ export function StatCards({
   projectedFinishDate,
   completedStreets,
   totalStreets,
+  streetsThisMonth,
+  monthLabel,
 }: StatCardsProps) {
   const { formatDistance } = useFormatters();
   const distanceKm = distanceCoveredMeters / 1000;
@@ -60,7 +66,16 @@ export function StatCards({
   );
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
+      <div className="rounded border-2 border-border bg-surface p-3 text-center">
+        <div className="text-xl font-bold tabular-nums text-text">
+          {streetsThisMonth}
+        </div>
+        <div className="text-[10px] leading-tight text-text-muted">
+          This month{monthLabel ? ` · ${monthLabel}` : ""}
+        </div>
+        <div className="text-xs text-text-muted">Streets completed</div>
+      </div>
       <div className="rounded border-2 border-border bg-surface p-3 text-center">
         <div className="text-xl font-bold text-text">
           {activityCount > 0 ? activityCount : "—"}

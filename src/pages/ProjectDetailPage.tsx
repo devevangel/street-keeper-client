@@ -24,7 +24,7 @@ import type { ProjectDetail, ProjectMapData, ProjectActivityItem } from "../type
 import { isUnnamedStreet, type FilterStatus } from "../utils/street-filters";
 import { computeBoundaryBbox, projectMapCenter } from "../utils/map-utils";
 import { isValidBbox } from "../utils/homepage-map-focus";
-import { HomepageMetrics } from "../components/homepage/HomepageMetrics";
+import { MetricsStrip, type MetricSlide } from "../components/homepage/MetricsStrip";
 import { RecentRuns } from "../components/homepage/RecentRuns";
 import { RunSuggestions, type ScrollItem } from "../components/homepage/RunSuggestions";
 import { useFormatters } from "../contexts/PreferencesContext";
@@ -49,6 +49,43 @@ function buildRunSuggestionItems(
     suggestion: s,
     isPrimary: i === 0,
   }));
+}
+
+function buildProjectMetricSlides({
+  project,
+  formatDistance,
+}: {
+  project: ProjectDetail;
+  formatDistance: (meters: number, precision?: number) => string;
+}): MetricSlide[] {
+  const completedStreets =
+    project.completedStreetNames ?? project.completedStreets ?? 0;
+  const monthSubtitle = project.monthLabel
+    ? `This month · ${project.monthLabel}`
+    : "This month";
+
+  return [
+    {
+      label: "Streets completed",
+      value: String(completedStreets),
+      subtitle: "In this project",
+    },
+    {
+      label: "Streets completed",
+      value: String(project.streetsThisMonth ?? 0),
+      subtitle: monthSubtitle,
+    },
+    {
+      label: "Distance covered",
+      value: formatDistance(project.distanceCoveredMeters ?? 0, 2),
+      subtitle: "In this project",
+    },
+    {
+      label: "Project runs",
+      value: String(project.activityCount ?? 0),
+      subtitle: "In this project",
+    },
+  ];
 }
 
 interface ProjectSidePanelProps {
@@ -319,15 +356,14 @@ function ProjectSidePanel({
           </Card>
         )}
 
-        {/* Total Distance / Total Runs — prefer project-scoped stats from /next-runs */}
-        <HomepageMetrics
-          totalDistanceKm={
-            project.distanceCoveredMeters > 0
-              ? Math.round((project.distanceCoveredMeters / 1000) * 100) / 100
-              : suggestions?.totalDistanceKm ?? null
-          }
-          totalActivities={suggestions?.totalActivities ?? null}
+        {/* Project metrics strip — mirrors the homepage horizontal slider. */}
+        <MetricsStrip
+          slides={buildProjectMetricSlides({
+            project,
+            formatDistance,
+          })}
         />
+
 
         {/* Recent runs */}
         {suggestions && (

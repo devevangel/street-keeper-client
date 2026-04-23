@@ -90,6 +90,11 @@ export interface HomepagePayload {
     completedStreets: number;
     progress: number;
   };
+  streetTotals: {
+    lifetimeStreetsCompleted: number;
+    streetsThisMonth: number;
+    monthLabel: string;
+  };
 }
 
 export interface SuggestionStreet {
@@ -129,6 +134,17 @@ const CACHE_MS = 60 * 1000;
 
 let cached: { payload: HomepagePayload; at: number; key: string } | null = null;
 
+function withStreetTotalsDefaults(data: HomepagePayload): HomepagePayload {
+  return {
+    ...data,
+    streetTotals: data.streetTotals ?? {
+      lifetimeStreetsCompleted: 0,
+      streetsThisMonth: 0,
+      monthLabel: "",
+    },
+  };
+}
+
 export async function getHomepageData(params: {
   lat?: number;
   lng?: number;
@@ -159,15 +175,16 @@ export async function getHomepageData(params: {
 
   if (cached && cached.key === cacheKey && cached.at > Date.now() - CACHE_MS) {
     if (import.meta.env.DEV) console.log(`[getHomepageData] Returning cached data (age: ${Date.now() - cached.at}ms)`);
-    return cached.payload;
+    return withStreetTotalsDefaults(cached.payload);
   }
   const url = query ? `/homepage?${query}` : "/homepage";
   if (import.meta.env.DEV) console.log(`[getHomepageData] Making API request to: ${url}`);
   const res = await apiClient.get<HomepageResponse>(url);
   if (!res.success || !res.data) throw new Error("Homepage request failed");
-  cached = { payload: res.data, at: Date.now(), key: cacheKey };
+  const payload = withStreetTotalsDefaults(res.data);
+  cached = { payload, at: Date.now(), key: cacheKey };
   if (import.meta.env.DEV) console.log(`[getHomepageData] API request completed, cached with key: ${cacheKey}`);
-  return res.data;
+  return payload;
 }
 
 export function invalidateHomepageCache(): void {

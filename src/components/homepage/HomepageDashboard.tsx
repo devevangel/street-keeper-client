@@ -32,7 +32,7 @@ import {
 } from "../../utils/convex-hull";
 import { normalizeOsmId } from "../../utils/map-utils";
 import { normalizeStreetName } from "../../utils/normalize-street-name";
-import { HomepageMetrics } from "./HomepageMetrics";
+import { MetricsStrip } from "./MetricsStrip";
 import { HomepageSkeleton } from "./HomepageSkeleton";
 import { RecentRuns } from "./RecentRuns";
 import { RunSuggestions, type ScrollItem } from "./RunSuggestions";
@@ -497,7 +497,8 @@ export function HomepageDashboard({
             {/* Has runs, no project */}
             {homepage?.userState === "has_runs_no_project" && (
               <>
-                <HomepageMetrics
+                <MetricsStrip
+                  streetTotals={homepage.streetTotals}
                   totalDistanceKm={homepage.totalDistanceKm}
                   totalActivities={homepage.totalActivities}
                 />
@@ -531,7 +532,8 @@ export function HomepageDashboard({
                     progress={homepage.projectContext.progress}
                   />
                 )}
-                <HomepageMetrics
+                <MetricsStrip
+                  streetTotals={homepage.streetTotals}
                   totalDistanceKm={homepage.totalDistanceKm}
                   totalActivities={homepage.totalActivities}
                 />
