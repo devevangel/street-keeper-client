@@ -53,13 +53,15 @@ export function SyncStatusWidget({ sync }: SyncStatusWidgetProps) {
     const label =
       status === "queued"
         ? appearsStuck
-          ? "Sync queued…"
-          : "Preparing sync…"
-        : `Syncing ${processed}${total > 0 ? ` / ${total}` : ""}`;
+          ? "Strava sync queued…"
+          : "Fetching Strava activities…"
+        : total > 0
+          ? `Importing Strava runs… ${processed} of ${total}`
+          : "Importing Strava runs…";
 
     return (
       <div
-        className="flex max-w-[min(100%,14rem)] items-center gap-2 text-sm text-text"
+        className="flex max-w-[min(100%,16rem)] items-center gap-2 text-sm text-text"
         role="status"
         aria-live="polite"
       >
@@ -73,10 +75,7 @@ export function SyncStatusWidget({ sync }: SyncStatusWidgetProps) {
     return (
       <div className="flex max-w-[min(100%,18rem)] items-center gap-2">
         <AlertCircle className="h-4 w-4 shrink-0 text-danger" aria-hidden />
-        <span className="truncate text-sm text-danger">
-          Sync failed
-          {errors > 0 ? ` (${errors})` : ""}
-        </span>
+        <span className="truncate text-sm text-danger">Strava sync failed</span>
         <Button type="button" variant="secondary" size="sm" onClick={handleRetry}>
           Retry
         </Button>
@@ -87,15 +86,15 @@ export function SyncStatusWidget({ sync }: SyncStatusWidgetProps) {
   const relative = formatRelativeTime(lastCompletedAt);
   return (
     <div
-      className="flex max-w-[min(100%,14rem)] items-center gap-1.5 text-sm text-text-muted"
+      className="flex max-w-[min(100%,16rem)] items-center gap-1.5 text-sm text-text-muted"
       title={
-        lastCompletedAt
-          ? `Last sync completed ${lastCompletedAt}`
-          : "Activities are up to date"
+        relative
+          ? `Strava last synced ${relative}`
+          : "Your Strava activities are up to date"
       }
     >
       <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden />
-      <span className="truncate">{relative ? `Synced ${relative}` : "Up to date"}</span>
+      <span className="truncate">{relative ? `Strava synced ${relative}` : "Strava up to date"}</span>
     </div>
   );
 }
