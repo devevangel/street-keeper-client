@@ -388,11 +388,11 @@ export function HomepageDashboard({
               </button>
               <div className="flex items-center gap-3 rounded-lg border border-border bg-surface/90 px-3 py-1.5 text-[11px] font-medium text-text-muted shadow-lg backdrop-blur-sm">
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-2.5 w-4 rounded-sm" style={{ backgroundColor: "#4ade80" }} />
+                  <span className="inline-block h-2.5 w-4 rounded-sm" style={{ backgroundColor: "#38bdf8" }} />
                   New
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-2.5 w-4 rounded-sm" style={{ backgroundColor: "#f59e0b" }} />
+                  <span className="inline-block h-2.5 w-4 rounded-sm" style={{ backgroundColor: "#fb7185" }} />
                   To finish
                 </span>
               </div>

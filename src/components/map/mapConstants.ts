@@ -16,9 +16,9 @@ export const MAP_COLORS = {
   NOT_RUN: "#d1d5db", // Light gray - barely visible
   /** @deprecated Use ALMOST_THERE or IN_PROGRESS */
   PARTIAL: "#f59e0b",
-  HIGHLIGHT: "#ec4899", // Hot pink - unmissable, distinct from all status colors
-  HIGHLIGHT_NEW: "#4ade80", // Bright green - matches "streets to discover" text
-  HIGHLIGHT_FINISH: "#f59e0b", // Amber - matches "streets to finish" text
+  HIGHLIGHT: "#7c3aed", // Violet — matches the project-radius circle; distinct from every status color
+  HIGHLIGHT_NEW: "#38bdf8", // Sky blue — "streets to discover"; avoids green (= completed)
+  HIGHLIGHT_FINISH: "#fb7185", // Rose — "streets to finish"; avoids amber (= almost done)
   UNCOVERED: "#e5e7eb", // Very light gray for uncovered portions
 } as const;
 
@@ -59,7 +59,7 @@ export const MAP_OPACITY = {
  */
 export const HIGHLIGHT_STYLE = {
   GLOW_WEIGHT: 12,
-  GLOW_OPACITY: 0.25,
+  GLOW_OPACITY: 0.3,
   OUTLINE_COLOR: "#ffffff",
   OUTLINE_WEIGHT: 5,
   OUTLINE_OPACITY: 0.5,

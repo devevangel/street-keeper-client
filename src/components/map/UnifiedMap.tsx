@@ -155,7 +155,7 @@ import { MapLegendFilterBins, MapLegendGuide } from "./MapLegend";
 import { getStreetBin, type FilterStatus } from "../../utils/street-filters";
 import { normalizeOsmId } from "../../utils/map-utils";
 import { MapLoadingOverlay } from "./MapLoadingOverlay";
-import { MAP_ZOOM } from "./mapConstants";
+import { MAP_COLORS, MAP_ZOOM } from "./mapConstants";
 import {
   getMapTheme,
   getMapTileUrls,
@@ -388,13 +388,12 @@ function MapContent(props: UnifiedMapProps) {
             ([lat, lng]) => [lat, lng] as LatLngTuple,
           )}
           pathOptions={{
-            color: "#ec4899",
-            weight: 2,
-            opacity: 0.4,
-            fillColor: "#ec4899",
-            fillOpacity: 0.06,
+            color: MAP_COLORS.HIGHLIGHT,
+            weight: 3,
+            opacity: 1,
+            fillColor: MAP_COLORS.HIGHLIGHT,
+            fillOpacity: 0.15,
             interactive: false,
-            dashArray: "6, 4",
           }}
         />
       )}

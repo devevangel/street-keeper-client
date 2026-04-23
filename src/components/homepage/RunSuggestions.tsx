@@ -95,7 +95,7 @@ export function RunSuggestions({
               <p className="text-sm font-bold leading-snug text-text">{s.title}</p>
               <div className="mt-2 grid grid-cols-2 gap-1.5">
                 <div className="rounded-lg bg-bg px-2.5 py-2">
-                  <p className="text-lg font-bold leading-tight text-success">
+                  <p className="text-lg font-bold leading-tight text-sky-400">
                     {cs.newStreets}
                   </p>
                   <p className="text-[11px] leading-tight text-text-muted">
@@ -103,7 +103,7 @@ export function RunSuggestions({
                   </p>
                 </div>
                 <div className="rounded-lg bg-bg px-2.5 py-2">
-                  <p className="text-lg font-bold leading-tight text-amber-500">
+                  <p className="text-lg font-bold leading-tight text-rose-400">
                     {cs.toFinish}
                   </p>
                   <p className="text-[11px] leading-tight text-text-muted">
