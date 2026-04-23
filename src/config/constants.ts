@@ -25,6 +25,7 @@ export const ROUTES = {
   PROJECT_DETAIL: "/projects/:id",
   PROJECT_SUGGESTIONS: "/projects/:id/suggestions",
   CAMPAIGN: "/campaign",
+  JOURNAL: "/journal",
   PREFERENCES: "/preferences",
   ACTIVITIES: "/activities",
   GPX_UPLOAD: "/gpx",

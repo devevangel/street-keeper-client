@@ -502,6 +502,10 @@ Accessibility: `aria-expanded`, `aria-controls`, `aria-labelledby`, `role="regio
 
 Components live under `src/components/celebration/`. **`RunCelebrationController`** belongs in the app shell (for example `AppLayout`): it fetches the pending batch from the API, handles acknowledge and Strava share, and passes data to **`RunCelebration`**. The mini-map is **`React.lazy`-loaded** as **`CelebrationMiniMap`** so Leaflet stays in a separate chunk; if map data fails to load, the rest of the overlay still works. The map is **non-interactive** (no pan or zoom); stroke reveal respects **reduced motion** via `useReducedMotion`. **Milestone** celebrations (`CelebrationModal` in `src/components/milestones/`) are a different feature.
 
+**`RunCelebration`** supports an optional **`readOnly`** prop. When `true`, the Share button and Strava preview are hidden and only `Close` remains — used by the Run Journal replay flow, where the event has already been acknowledged and (optionally) shared.
+
+**`CelebrationHistoryList`** is the reusable paginated list of past celebrations. It calls `celebrationsService.getHistory({ cursor, limit, projectId })` and renders one card per activity with rollup counts, project names, and a "Shared" badge when applicable. Tapping an entry assembles a `PendingCelebrationBatch` shape in memory and opens `RunCelebration` in `readOnly` mode. Accepts a `projectId` prop to scope the list (used on `ProjectDetailPage`) and custom empty-state copy. It's the data engine behind **`RunJournalPage`** at `/journal`.
+
 ---
 
 ## Docs Viewer Components

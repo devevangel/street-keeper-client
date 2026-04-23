@@ -60,9 +60,45 @@ export interface CelebrationMapData {
   bbox: { south: number; west: number; north: number; east: number };
 }
 
+export interface CelebrationHistoryEntryDto {
+  groupKey: string;
+  activityId: string;
+  activityStartDate: string;
+  activityDistanceMeters: number;
+  activityDurationSeconds: number;
+  createdAt: string;
+  acknowledged: boolean;
+  sharedToStrava: boolean;
+  rollup: {
+    totalCompleted: number;
+    totalStarted: number;
+    totalImproved: number;
+    projectCount: number;
+  };
+  events: PendingCelebrationEventDto[];
+}
+
+export interface CelebrationHistoryPage {
+  success: boolean;
+  entries: CelebrationHistoryEntryDto[];
+  nextCursor: string | null;
+}
+
 export const celebrationsService = {
   async getPending(): Promise<PendingCelebrationBatch> {
     return apiClient.get<PendingCelebrationBatch>("/celebrations/pending");
+  },
+
+  async getHistory(opts: {
+    cursor?: string | null;
+    limit?: number;
+    projectId?: string | null;
+  } = {}): Promise<CelebrationHistoryPage> {
+    const query: Record<string, string> = {};
+    if (opts.cursor) query.cursor = opts.cursor;
+    if (opts.limit != null) query.limit = String(opts.limit);
+    if (opts.projectId) query.projectId = opts.projectId;
+    return apiClient.get<CelebrationHistoryPage>("/celebrations/history", query);
   },
 
   async getMapData(eventIds: string[]): Promise<CelebrationMapData> {

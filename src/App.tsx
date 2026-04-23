@@ -30,6 +30,7 @@ import {
   CampaignPage,
   PreferencesPage,
   DocsPage,
+  RunJournalPage,
 } from "./pages";
 import { DocsLayout } from "./components/docs";
 import { ROUTES } from "./config/constants";
@@ -73,6 +74,7 @@ function App() {
               <Route path=":id" element={<ProjectDetailPage />} />
             </Route>
             <Route path="campaign" element={<CampaignPage />} />
+            <Route path="journal" element={<RunJournalPage />} />
             <Route path="preferences" element={<PreferencesPage />} />
           </Route>
           <Route path="*" element={<Navigate to={ROUTES.LANDING} replace />} />

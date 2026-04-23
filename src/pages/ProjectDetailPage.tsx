@@ -27,6 +27,7 @@ import { isValidBbox } from "../utils/homepage-map-focus";
 import { MetricsStrip, type MetricSlide } from "../components/homepage/MetricsStrip";
 import { RecentRuns } from "../components/homepage/RecentRuns";
 import { RunSuggestions, type ScrollItem } from "../components/homepage/RunSuggestions";
+import { CelebrationHistoryList } from "../components/celebration/CelebrationHistoryList";
 import { useFormatters } from "../contexts/PreferencesContext";
 
 const MAP_SHELL_CENTER = { lat: 50.8, lng: -1.09 };
@@ -500,6 +501,25 @@ function ProjectSidePanel({
             )}
           </Card>
         )}
+
+        {/* Celebrations for this project */}
+        {project?.id ? (
+          <Card padding="none" className="w-full p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Celebrations
+            </h3>
+            <p className="mt-1 text-xs text-text-muted">
+              Past runs that moved this project. Tap to replay.
+            </p>
+            <div className="mt-3">
+              <CelebrationHistoryList
+                projectId={project.id}
+                emptyTitle="No celebrations yet"
+                emptyDescription="Finish a run that touches this project and it'll show up here."
+              />
+            </div>
+          </Card>
+        ) : null}
       </div>
     </aside>
   );

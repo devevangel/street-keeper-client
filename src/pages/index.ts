@@ -14,3 +14,4 @@ export { ProjectSuggestionsMapPage } from "./ProjectSuggestionsMapPage";
 export { CampaignPage } from "./CampaignPage";
 export { PreferencesPage } from "./PreferencesPage";
 export { DocsPage } from "./DocsPage";
+export { RunJournalPage } from "./RunJournalPage";

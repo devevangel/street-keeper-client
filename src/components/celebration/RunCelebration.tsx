@@ -58,11 +58,19 @@ function buildStravaPreview(events: PendingCelebrationEventDto[]): string {
 export interface RunCelebrationProps {
   batch: PendingCelebrationBatch;
   onClose: () => void;
-  onShare: () => Promise<void>;
-  shareState: "idle" | "sharing" | "shared" | "error";
+  /** Not used in read-only replays; required for the pending-batch flow. */
+  onShare?: () => Promise<void>;
+  shareState?: "idle" | "sharing" | "shared" | "error";
   shareError?: string | null;
   /** Dev: fixture map from parent. Omit in production — map is fetched here. */
   previewMapData?: CelebrationMapData | null;
+  /**
+   * When true, the overlay is a history replay:
+   *  - share button is hidden
+   *  - onClose is expected to only dismiss local state (no acknowledge).
+   * Defaults to false (the live pending flow).
+   */
+  readOnly?: boolean;
 }
 
 function StatChip({ label, value }: { label: string; value: number }) {
@@ -227,9 +235,10 @@ export function RunCelebration({
   batch,
   onClose,
   onShare,
-  shareState,
+  shareState = "idle",
   shareError,
   previewMapData,
+  readOnly = false,
 }: RunCelebrationProps) {
   const reducedMotion = useReducedMotion();
   const [mapData, setMapData] = useState<CelebrationMapData | null>(null);
@@ -327,7 +336,7 @@ export function RunCelebration({
             ))}
           </div>
 
-          {stravaPreview ? (
+          {stravaPreview && !readOnly ? (
             <div className="mt-6 space-y-2">
               <h3 className="text-sm font-semibold text-text-muted">
                 What gets posted to Strava
@@ -344,43 +353,59 @@ export function RunCelebration({
 
       <div className="shrink-0 border-t border-border bg-surface/95 px-4 pt-3 backdrop-blur-sm pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="mx-auto w-full max-w-2xl space-y-3">
-          {shareError ? (
+          {shareError && !readOnly ? (
             <p className="text-center text-sm text-danger" role="alert">
               {shareError}
             </p>
           ) : null}
-          <div className="grid grid-cols-2 items-stretch gap-2">
+          {readOnly ? (
             <Button
               type="button"
               variant="primary"
               size="lg"
               className="h-12 w-full"
-              onClick={() => void onShare()}
-              disabled={shareState === "sharing" || shareState === "shared"}
-            >
-              {shareState === "sharing" ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Sharing…
-                </>
-              ) : shareState === "shared" ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4" aria-hidden /> Shared
-                </>
-              ) : (
-                "Share to Strava"
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="lg"
-              className="h-12 w-full"
               onClick={onClose}
-              disabled={shareState === "sharing"}
             >
               Close
             </Button>
-          </div>
+          ) : (
+            <div className="grid grid-cols-2 items-stretch gap-2">
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                className="h-12 w-full"
+                onClick={() => {
+                  if (onShare) void onShare();
+                }}
+                disabled={
+                  !onShare || shareState === "sharing" || shareState === "shared"
+                }
+              >
+                {shareState === "sharing" ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Sharing…
+                  </>
+                ) : shareState === "shared" ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" aria-hidden /> Shared
+                  </>
+                ) : (
+                  "Share to Strava"
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                className="h-12 w-full"
+                onClick={onClose}
+                disabled={shareState === "sharing"}
+              >
+                Close
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
