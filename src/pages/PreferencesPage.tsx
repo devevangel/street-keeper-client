@@ -34,7 +34,6 @@ export function PreferencesPage() {
   const [defaultMapZoom, setDefaultMapZoom] = useState(15);
   const [defaultProjectRadius, setDefaultProjectRadius] = useState(DEFAULT_PROJECT_RADIUS_METERS);
   const [defaultStreetFilter, setDefaultStreetFilter] = useState("all");
-  const [autoUpdateRunDescription, setAutoUpdateRunDescription] = useState(true);
 
   useEffect(() => {
     if (preferences) {
@@ -45,7 +44,6 @@ export function PreferencesPage() {
       setDefaultMapZoom(preferences.defaultMapZoom);
       setDefaultProjectRadius(preferences.defaultProjectRadius);
       setDefaultStreetFilter(preferences.defaultStreetFilter);
-      setAutoUpdateRunDescription(preferences.autoUpdateRunDescription ?? true);
     }
   }, [preferences]);
 
@@ -61,7 +59,6 @@ export function PreferencesPage() {
         defaultMapZoom,
         defaultProjectRadius,
         defaultStreetFilter,
-        autoUpdateRunDescription,
       });
       toast?.showToast("Preferences saved.", "success");
     } catch {
@@ -217,8 +214,8 @@ export function PreferencesPage() {
                   Re-authorize to enable run descriptions
                 </p>
                 <p className="mt-1 text-xs text-text-muted">
-                  Street Keeper needs updated permissions to add stats to your
-                  Strava run descriptions. Your existing data is unaffected.
+                  Street Keeper needs updated permissions to optionally update your
+                  Strava run descriptions when you choose to share. Your existing data is unaffected.
                 </p>
                 <a
                   href={authService.getStravaAuthUrl()}
@@ -229,22 +226,12 @@ export function PreferencesPage() {
               </div>
             )}
 
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoUpdateRunDescription}
-                onChange={(e) => setAutoUpdateRunDescription(e.target.checked)}
-                className="h-5 w-5 rounded border-border text-primary accent-primary"
-              />
-              <div>
-                <span className="text-sm font-medium text-text">
-                  Add Street Keeper stats to run descriptions
-                </span>
-                <p className="text-xs text-text-muted mt-0.5">
-                  After each run, we&apos;ll append your street stats, a motivational message, and #StreetKeeper to your Strava description.
-                </p>
-              </div>
-            </label>
+            <p className="text-xs text-text-muted">
+              When you finish a run that moves your projects forward, you&apos;ll see a celebration
+              screen where you can preview a message and choose to post it to your Strava activity
+              description — including #StreetKeeper #RunEveryStreet. Nothing is sent to Strava unless
+              you confirm.
+            </p>
           </Card>
         </div>
     </div>
