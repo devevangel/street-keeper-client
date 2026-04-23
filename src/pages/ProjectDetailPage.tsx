@@ -123,10 +123,80 @@ function ProjectSidePanel({
   if (loading && !project) {
     return (
       <aside className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto border-border bg-bg md:w-[400px] md:flex-none md:border-l-2">
-        <div className="space-y-4 p-4">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-24 w-full rounded-lg" />
-          <Skeleton className="h-20 w-full rounded-lg" />
+        <div className="flex w-full flex-col gap-3 p-3 md:p-4">
+          {/* Overall progress (percentage + bar + stats) */}
+          <div className="w-full space-y-2">
+            <div className="flex items-baseline justify-between">
+              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <Skeleton className="h-1.5 w-full rounded-full" />
+            <div className="flex gap-4">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          </div>
+
+          {/* Distance covered card */}
+          <div className="w-full rounded-lg border border-border bg-surface p-4">
+            <div className="flex items-baseline justify-between">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-3 w-10" />
+            </div>
+            <Skeleton className="mt-2 h-7 w-full" />
+            <Skeleton className="mt-2 h-1.5 w-full rounded-full" />
+            <Skeleton className="mt-2 h-3 w-36" />
+          </div>
+
+          {/* Metrics row (TOTAL DISTANCE / TOTAL RUNS) */}
+          <div className="grid w-full grid-cols-2 gap-3">
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <Skeleton className="mb-2 h-3 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <Skeleton className="mb-2 h-3 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+          </div>
+
+          {/* YOUR RUNS — last run + recent runs */}
+          <div className="w-full rounded-lg border border-border bg-surface p-4">
+            <Skeleton className="mb-3 h-3 w-24" />
+            <Skeleton className="mb-2 h-12 w-full rounded-lg" />
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full rounded-lg" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
+          </div>
+
+          {/* STREETS ON MAP — 2×2 filter bins + traces toggle */}
+          <div className="w-full rounded-lg border border-border bg-surface p-4">
+            <Skeleton className="mb-1 h-3 w-28" />
+            <Skeleton className="mb-3 h-3 w-48" />
+            <div className="grid grid-cols-2 gap-2">
+              <Skeleton className="h-14 w-full rounded-lg" />
+              <Skeleton className="h-14 w-full rounded-lg" />
+              <Skeleton className="h-14 w-full rounded-lg" />
+              <Skeleton className="h-14 w-full rounded-lg" />
+            </div>
+            <Skeleton className="mt-3 h-10 w-full rounded-lg" />
+          </div>
+
+          {/* NEXT RUN SUGGESTIONS */}
+          <div className="w-full rounded-lg border border-border bg-surface p-4">
+            <Skeleton className="mb-3 h-3 w-32" />
+            <Skeleton className="mb-3 h-5 w-full" />
+            <div className="grid grid-cols-2 gap-2">
+              <Skeleton className="h-14 w-full rounded-lg" />
+              <Skeleton className="h-14 w-full rounded-lg" />
+              <Skeleton className="h-14 w-full rounded-lg" />
+              <Skeleton className="h-14 w-full rounded-lg" />
+            </div>
+            <Skeleton className="mt-3 h-10 w-full rounded-lg" />
+          </div>
         </div>
       </aside>
     );
