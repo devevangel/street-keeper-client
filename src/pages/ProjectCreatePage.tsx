@@ -16,7 +16,8 @@ import { UnifiedMap, MAP_ZOOM, MapFilterCard, ALL_BINS, type ShapeData } from ".
 import { projectsService } from "../services/projects.service";
 import { ApiError } from "../lib/api-client";
 import { useGeolocation, useGpsTraces, useMapStreets } from "../hooks";
-import type { FilterStatus } from "../utils/street-filters";
+import { isUnnamedStreet, type FilterStatus } from "../utils/street-filters";
+import { normalizeStreetName } from "../utils/normalize-street-name";
 import { ROUTES, DEFAULT_PROJECT_RADIUS_METERS } from "../config/constants";
 import type { ProjectMapStreet } from "../types/api.types";
 import { usePreferences, useFormatters } from "../contexts/PreferencesContext";
@@ -68,6 +69,31 @@ function computeBboxFromCoords(
     if (lat > maxLat) maxLat = lat;
   }
   return [minLat, minLng, maxLat, maxLng];
+}
+
+/**
+ * Pick the dominant highway type across a group of segments (weighted by length).
+ * OSM sometimes tags variants of the same logical street differently (e.g. Albert
+ * Road has some `secondary` segments and one `residential` spur); weighting by
+ * length picks the label that best reflects how the street actually looks.
+ */
+function pickDominantHighwayType(
+  segments: ReadonlyArray<{ highwayType?: string; totalLengthMeters: number }>,
+): string | undefined {
+  const byType = new Map<string, number>();
+  for (const s of segments) {
+    if (!s.highwayType) continue;
+    byType.set(s.highwayType, (byType.get(s.highwayType) ?? 0) + s.totalLengthMeters);
+  }
+  let best: string | undefined;
+  let bestLen = -1;
+  for (const [t, len] of byType) {
+    if (len > bestLen) {
+      best = t;
+      bestLen = len;
+    }
+  }
+  return best ?? segments[0]?.highwayType;
 }
 
 /** Lucide React icons for map tools */
@@ -366,36 +392,73 @@ export function ProjectCreatePage() {
 
   type PreviewStreet = NonNullable<ProjectPreview["streets"]>[number];
 
-  // Convert preview streets to StreetListItemData with geometry lookup (key as string for number/string osmId)
-  const { streetListItems, streetGeometryLookup } = useMemo(() => {
-    if (!preview?.streets) return { streetListItems: [], streetGeometryLookup: new Map<string, PreviewStreet>() };
-    const items: StreetListItemData[] = [];
-    const lookup = new Map<string, PreviewStreet>();
-    for (const street of preview.streets) {
-      const key = String(street.osmId ?? street.name);
-      lookup.set(key, street);
-      items.push({
-        name: street.name,
-        osmIds: street.osmId != null ? [String(street.osmId)] : [],
-        lengthKm: street.totalLengthMeters / 1000,
-        highwayType: street.highwayType,
-        segmentCount: street.segmentCount,
-      });
+  // Backend emits one row per OSM segment (for clean per-way polyline rendering
+  // on the map — avoids zigzag from merging parallel carriageways), but repeats
+  // `logicalStreetKey` across rows that share a spatially-aware logical street.
+  // For the list UI we collapse to one row per logical street so the user sees
+  // "Albert Road" once, not 5×, and clicking highlights every segment at once.
+  const { streetListItems, segmentsByListKey } = useMemo(() => {
+    if (!preview?.streets) {
+      return {
+        streetListItems: [] as StreetListItemData[],
+        segmentsByListKey: new Map<string, PreviewStreet[]>(),
+      };
     }
-    return { streetListItems: items, streetGeometryLookup: lookup };
+
+    const groups = new Map<string, PreviewStreet[]>();
+    for (const s of preview.streets) {
+      if (!s.name || isUnnamedStreet(s.name)) continue;
+      if (s.osmId == null) continue;
+      const key = s.logicalStreetKey ?? normalizeStreetName(s.name);
+      let bucket = groups.get(key);
+      if (!bucket) {
+        bucket = [];
+        groups.set(key, bucket);
+      }
+      bucket.push(s);
+    }
+
+    const items: StreetListItemData[] = [];
+    // Keyed by the first (normalized) OSM id of the group. One logical street
+    // always has a stable, unique first osmId, so this avoids overloading
+    // `osmIds` with a synthetic group key.
+    const lookup = new Map<string, PreviewStreet[]>();
+    for (const segments of groups.values()) {
+      if (segments.length === 0) continue;
+      const first = segments[0];
+      const osmIds = segments.map((s) => String(s.osmId));
+      items.push({
+        name: first.name,
+        osmIds,
+        lengthKm: first.totalLengthMeters / 1000,
+        highwayType: pickDominantHighwayType(segments),
+        segmentCount: segments.length,
+      });
+      lookup.set(normalizeOsmId(osmIds[0]), segments);
+    }
+    items.sort((a, b) => a.name.localeCompare(b.name));
+    return { streetListItems: items, segmentsByListKey: lookup };
   }, [preview?.streets]);
 
   const handleStreetHighlight = useCallback((streetData: StreetListItemData) => {
-    const osmId = streetData.osmIds[0];
-    const key = osmId != null ? String(osmId) : streetData.name;
-    const street = streetGeometryLookup.get(key);
-    if (!street?.geometry) return;
-    const coords = street.geometry.coordinates;
-    const bbox = computeBboxFromCoords(coords);
-    const normalizedId = street.osmId != null ? normalizeOsmId(String(street.osmId)) : null;
-    setHighlightOsmIds(normalizedId ? [normalizedId] : []);
-    setStreetHighlightBbox(bbox);
-  }, [streetGeometryLookup]);
+    const firstId = streetData.osmIds[0];
+    if (!firstId) return;
+    const segments = segmentsByListKey.get(normalizeOsmId(firstId));
+    if (!segments || segments.length === 0) return;
+
+    const normalizedIds = segments
+      .map((s) => (s.osmId != null ? normalizeOsmId(String(s.osmId)) : null))
+      .filter((id): id is string => id != null);
+
+    const allCoords: [number, number][] = [];
+    for (const s of segments) {
+      const coords = s.geometry?.coordinates;
+      if (coords) allCoords.push(...coords);
+    }
+
+    setHighlightOsmIds(normalizedIds);
+    setStreetHighlightBbox(allCoords.length ? computeBboxFromCoords(allCoords) : null);
+  }, [segmentsByListKey]);
 
   const handleStreetClear = useCallback(() => {
     setHighlightOsmIds([]);
