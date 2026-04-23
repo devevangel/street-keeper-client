@@ -14,7 +14,6 @@ const tabs = [
   { to: ROUTES.HOME, label: "Home" },
   { to: ROUTES.PROJECTS_LIST, label: "Projects" },
   { to: ROUTES.JOURNAL, label: "Journal" },
-  { to: ROUTES.CAMPAIGN, label: "Campaign" },
 ] as const;
 
 export function TabNav() {
