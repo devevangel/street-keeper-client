@@ -267,7 +267,7 @@ export function HomePage() {
   const accumulatedSegments = Array.from(allSegments.values());
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-full flex-col md:h-full">
       <HomepageDashboard
         userLocation={position}
         mapCenter={mapCenter}

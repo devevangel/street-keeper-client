@@ -122,7 +122,7 @@ function ProjectSidePanel({
 
   if (loading && !project) {
     return (
-      <aside className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto border-border bg-bg md:w-[400px] md:flex-none md:border-l-2">
+      <aside className="flex flex-col border-border bg-bg md:min-h-0 md:w-[400px] md:flex-none md:overflow-y-auto md:border-l-2">
         <div className="flex w-full flex-col gap-3 p-3 md:p-4">
           {/* Overall progress (percentage + bar + stats) */}
           <div className="w-full space-y-2">
@@ -223,7 +223,7 @@ function ProjectSidePanel({
   }, [mapData.streets]);
 
   return (
-    <aside className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto border-border bg-bg md:w-[400px] md:flex-none md:border-l-2">
+    <aside className="flex flex-col border-border bg-bg md:min-h-0 md:w-[400px] md:flex-none md:overflow-y-auto md:border-l-2">
       <div className="flex flex-col gap-3 p-3 md:p-4">
         {isEditingMetadata && (
           <Card padding="none" className="w-full p-3">
@@ -795,12 +795,12 @@ export function ProjectDetailPage() {
 
   if (loading && !project) {
     return (
-      <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex min-h-full flex-col md:h-full md:overflow-hidden">
         <header className="flex shrink-0 items-center gap-4 border-b border-border bg-surface px-4 py-3">
           <Skeleton className="h-4 w-20" />
           <Skeleton className="h-6 w-48" />
         </header>
-        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
           <div className="relative h-[45vh] w-full shrink-0 md:h-full md:flex-1">
             <UnifiedMap
               center={MAP_SHELL_CENTER}
@@ -864,7 +864,7 @@ export function ProjectDetailPage() {
     highlightOsmIds.length > 0 || highlightTraceActivityId != null;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex min-h-full flex-col md:h-full md:overflow-hidden">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-surface px-4 py-3">
         <div className="flex items-center gap-4">
           <Link to={ROUTES.PROJECTS_LIST} className="text-sm text-text-muted hover:underline">
@@ -930,7 +930,7 @@ export function ProjectDetailPage() {
         onConfirm={doDelete}
       />
 
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+      <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
         <div className="relative h-[45vh] w-full shrink-0 md:h-full md:min-h-0 md:flex-1 md:shrink">
           <UnifiedMap
             center={center}

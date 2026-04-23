@@ -352,7 +352,7 @@ export function HomepageDashboard({
   );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden md:flex-row">
+    <div className="flex min-h-full flex-col md:h-full md:flex-row md:overflow-hidden">
       <div className="relative h-[45vh] w-full shrink-0 md:h-full md:min-h-0 md:flex-1 md:shrink">
         <div ref={mapRef} className="relative h-full w-full">
           <UnifiedMap
@@ -416,7 +416,7 @@ export function HomepageDashboard({
         </div>
       </div>
 
-      <aside className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto border-border bg-bg md:w-[400px] md:flex-none md:border-l-2">
+      <aside className="flex flex-col border-border bg-bg md:min-h-0 md:w-[400px] md:flex-none md:overflow-y-auto md:border-l-2">
         {showLocationAccessBanner &&
           locationErrorMessage &&
           onRetryLocation && (
