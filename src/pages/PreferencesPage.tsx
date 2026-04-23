@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button, Card, Select, ProgressLoader, PageHeader } from "../components/common";
 import { useAuth } from "../contexts/AuthContext";
 import { usePreferences } from "../contexts/PreferencesContext";
@@ -232,6 +233,16 @@ export function PreferencesPage() {
               description — including #StreetKeeper #RunEveryStreet. Nothing is sent to Strava unless
               you confirm.
             </p>
+            {import.meta.env.DEV ? (
+              <p className="text-xs text-text-muted">
+                <Link
+                  to={`${ROUTES.HOME}?__celebration=demo`}
+                  className="font-semibold text-accent underline-offset-2 hover:underline"
+                >
+                  Preview run celebration (dev)
+                </Link>
+              </p>
+            ) : null}
           </Card>
         </div>
     </div>

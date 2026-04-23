@@ -30,7 +30,6 @@ export function SyncStatusWidget({ sync }: SyncStatusWidgetProps) {
     status,
     total,
     processed,
-    errors,
     isActive,
     appearsStuck,
     lastCompletedAt,

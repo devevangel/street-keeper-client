@@ -23,6 +23,7 @@ import { SyncStatusWidget } from "./SyncStatusWidget";
 import { ROUTES } from "../../config/constants";
 import { useSyncStatus } from "../../hooks/useSyncStatus";
 import type { UseSyncStatusResult } from "../../hooks/useSyncStatus";
+import { RunCelebrationController } from "../celebration/RunCelebrationController";
 
 export type AppLayoutOutletContext = {
   syncStatus: UseSyncStatusResult;
@@ -100,6 +101,8 @@ export function AppLayout() {
       <main className="min-h-0 flex-1 overflow-y-auto pb-14 md:flex md:flex-col md:overflow-y-hidden md:pb-0">
         <Outlet context={{ syncStatus } satisfies AppLayoutOutletContext} />
       </main>
+
+      <RunCelebrationController syncStatus={syncStatus} />
     </div>
   );
 }
