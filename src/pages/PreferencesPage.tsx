@@ -233,34 +233,32 @@ export function PreferencesPage() {
               description — including #StreetKeeper #RunEveryStreet. Nothing is sent to Strava unless
               you confirm.
             </p>
-            {import.meta.env.DEV ? (
-              <p className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-text-muted">
-                <Link
-                  to={`${ROUTES.HOME}?__celebration=demo`}
-                  className="font-semibold text-accent underline-offset-2 hover:underline"
-                >
-                  Preview celebration
-                </Link>
-                <Link
-                  to={`${ROUTES.HOME}?__celebration=demoCompleted`}
-                  className="font-semibold text-accent underline-offset-2 hover:underline"
-                >
-                  Completed project
-                </Link>
-                <Link
-                  to={`${ROUTES.HOME}?__celebration=demoLongRun`}
-                  className="font-semibold text-accent underline-offset-2 hover:underline"
-                >
-                  Long run copy
-                </Link>
-                <Link
-                  to={`${ROUTES.HOME}?__celebration=demoMorning`}
-                  className="font-semibold text-accent underline-offset-2 hover:underline"
-                >
-                  Morning run copy
-                </Link>
-              </p>
-            ) : null}
+            <p className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-text-muted">
+              <Link
+                to={`${ROUTES.HOME}?__celebration=demo`}
+                className="font-semibold text-accent underline-offset-2 hover:underline"
+              >
+                Preview celebration
+              </Link>
+              <Link
+                to={`${ROUTES.HOME}?__celebration=demoCompleted`}
+                className="font-semibold text-accent underline-offset-2 hover:underline"
+              >
+                Completed project
+              </Link>
+              <Link
+                to={`${ROUTES.HOME}?__celebration=demoLongRun`}
+                className="font-semibold text-accent underline-offset-2 hover:underline"
+              >
+                Long run copy
+              </Link>
+              <Link
+                to={`${ROUTES.HOME}?__celebration=demoMorning`}
+                className="font-semibold text-accent underline-offset-2 hover:underline"
+              >
+                Morning run copy
+              </Link>
+            </p>
           </Card>
         </div>
     </div>

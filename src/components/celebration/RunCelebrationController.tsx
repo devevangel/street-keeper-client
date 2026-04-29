@@ -1,6 +1,6 @@
 /**
  * Run celebration — fetches pending batch, re-fetches after sync completes,
- * handles share + acknowledge. Dev URL ?__celebration=demo|demoCompleted uses fixtures.
+ * handles share + acknowledge. Optional ?__celebration=demo|demoCompleted|demoLongRun|demoMorning uses fixtures (preview-only; Strava share disabled).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -39,7 +39,7 @@ export function RunCelebrationController({ syncStatus }: RunCelebrationControlle
   const [shareState, setShareState] = useState<"idle" | "sharing" | "shared" | "error">("idle");
   const [shareError, setShareError] = useState<string | null>(null);
   const [demoMapData, setDemoMapData] = useState<CelebrationMapData | null>(null);
-  const prevDevDemo = useRef(false);
+  const prevFixtureDemo = useRef(false);
   const batchKey = batch?.events.map((e) => e.id).join(",") ?? "";
 
   useEffect(() => {
@@ -47,19 +47,16 @@ export function RunCelebrationController({ syncStatus }: RunCelebrationControlle
     setShareError(null);
   }, [batchKey]);
 
-  /** Query key and fixtures live only in dev builds (Vite drops this branch in production). */
-  const celebrationParam = import.meta.env.DEV
-    ? (() => {
-        const raw = searchParams.get("__celebration");
-        return raw === "demo" ||
-          raw === "demoCompleted" ||
-          raw === "demoLongRun" ||
-          raw === "demoMorning"
-          ? raw
-          : null;
-      })()
-    : null;
-  const isDevDemo = celebrationParam !== null;
+  const celebrationParam = (() => {
+    const raw = searchParams.get("__celebration");
+    return raw === "demo" ||
+      raw === "demoCompleted" ||
+      raw === "demoLongRun" ||
+      raw === "demoMorning"
+      ? raw
+      : null;
+  })();
+  const isFixtureDemo = celebrationParam !== null;
 
   const loadPending = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -88,8 +85,8 @@ export function RunCelebrationController({ syncStatus }: RunCelebrationControlle
       setShareError(null);
       return;
     }
-    if (isDevDemo && celebrationParam) {
-      prevDevDemo.current = true;
+    if (isFixtureDemo && celebrationParam) {
+      prevFixtureDemo.current = true;
       let cancelled = false;
       void import("./fixtures").then(({ getDemoCelebrationFixture, getDemoMapData }) => {
         if (cancelled) return;
@@ -102,28 +99,27 @@ export function RunCelebrationController({ syncStatus }: RunCelebrationControlle
         cancelled = true;
       };
     }
-    if (prevDevDemo.current && !isDevDemo) {
-      prevDevDemo.current = false;
+    if (prevFixtureDemo.current && !isFixtureDemo) {
+      prevFixtureDemo.current = false;
       runCelebrationSessionFetched = true;
       void loadPending();
     }
-  }, [isAuthenticated, isDevDemo, celebrationParam, loadPending]);
+  }, [isAuthenticated, isFixtureDemo, celebrationParam, loadPending]);
 
   useEffect(() => {
-    if (!isAuthenticated || isDevDemo) return;
+    if (!isAuthenticated || isFixtureDemo) return;
     if (!runCelebrationSessionFetched) {
       runCelebrationSessionFetched = true;
       void loadPending();
     }
-  }, [isAuthenticated, isDevDemo, loadPending]);
+  }, [isAuthenticated, isFixtureDemo, loadPending]);
 
   useEffect(() => {
-    if (!syncStatus.didComplete || !isAuthenticated || isDevDemo) return;
+    if (!syncStatus.didComplete || !isAuthenticated || isFixtureDemo) return;
     void loadPending();
-  }, [syncStatus.didComplete, isAuthenticated, isDevDemo, loadPending]);
+  }, [syncStatus.didComplete, isAuthenticated, isFixtureDemo, loadPending]);
 
   const stripDemoQuery = useCallback(() => {
-    if (!import.meta.env.DEV) return;
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete("__celebration");
@@ -134,14 +130,14 @@ export function RunCelebrationController({ syncStatus }: RunCelebrationControlle
   const handleClose = useCallback(() => {
     const current = batch;
     if (!current?.events.length) {
-      if (isDevDemo) stripDemoQuery();
+      if (isFixtureDemo) stripDemoQuery();
       setBatch(null);
       setShareState("idle");
       setShareError(null);
       return;
     }
     const eventIds = current.events.map((e) => e.id);
-    if (!isDevDemo) {
+    if (!isFixtureDemo) {
       void celebrationsService.acknowledge(eventIds).catch((err) => {
         console.warn("[RunCelebration] acknowledge on close failed:", err);
       });
@@ -151,13 +147,13 @@ export function RunCelebrationController({ syncStatus }: RunCelebrationControlle
     setBatch(null);
     setShareState("idle");
     setShareError(null);
-  }, [batch, isDevDemo, stripDemoQuery]);
+  }, [batch, isFixtureDemo, stripDemoQuery]);
 
   const handleShare = useCallback(async () => {
     if (!batch?.events.length) return;
     const eventIds = batch.events.map((e) => e.id);
 
-    if (isDevDemo) {
+    if (isFixtureDemo) {
       setShareError(
         "Preview mode — Strava share is not available. Close this screen or remove the demo URL param to use a real celebration.",
       );
@@ -188,7 +184,7 @@ export function RunCelebrationController({ syncStatus }: RunCelebrationControlle
         setShareError("Something went wrong while sharing to Strava.");
       }
     }
-  }, [batch, isDevDemo, toast]);
+  }, [batch, isFixtureDemo, toast]);
 
   if (!isAuthenticated) return null;
   if (!batch?.hasPending || batch.events.length === 0) return null;
@@ -200,7 +196,7 @@ export function RunCelebrationController({ syncStatus }: RunCelebrationControlle
       onShare={handleShare}
       shareState={shareState}
       shareError={shareError}
-      previewMapData={isDevDemo ? demoMapData : undefined}
+      previewMapData={isFixtureDemo ? demoMapData : undefined}
     />
   );
 }
