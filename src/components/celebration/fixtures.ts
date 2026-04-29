@@ -1,5 +1,5 @@
 /**
- * Dev-only fixtures for run celebration UI preview.
+ * Fixtures for run celebration UI preview.
  * Shape matches backend PendingCelebrationEventDto + batch rollup + map payload.
  */
 
@@ -7,6 +7,7 @@ import type {
   PendingCelebrationBatch,
   PendingCelebrationEventDto,
   CelebrationMapData,
+  CelebrationHistoryEntryDto,
 } from "../../services/celebrations.service";
 
 export type DemoCelebrationMode =
@@ -198,4 +199,133 @@ export function getDemoCelebrationFixture(mode: DemoCelebrationMode): PendingCel
     events,
     rollup,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Demo journal — 20 varied history entries for the /journal page    */
+/* ------------------------------------------------------------------ */
+
+const DEMO_PROJECTS = [
+  "Downtown grid",
+  "Riverside paths",
+  "University campus",
+  "Old town quarter",
+  "Industrial park loop",
+  "Harbour walk",
+  "Hilltop trails",
+  "Suburban maze",
+] as const;
+
+const DEMO_STREETS: Record<string, string[]> = {
+  completed: [
+    "Oak Avenue", "Maple Lane", "Pine Street", "Elm Drive", "Birch Road",
+    "Walnut Court", "Spruce Way", "Ash Boulevard", "Cherry Circle", "Poplar Terrace",
+  ],
+  started: [
+    "River Road", "Bridge Approach", "Canal Path", "Lake View", "Stream Lane",
+    "Creek Drive", "Pond Walk", "Falls Avenue", "Spring Court", "Delta Way",
+  ],
+  improved: [
+    "Cedar Street", "Willow Walk", "Hazel Lane", "Ivy Close", "Holly Drive",
+    "Laurel Road", "Fern Court", "Moss Way", "Reed Terrace", "Sage Boulevard",
+  ],
+};
+
+function pick<T>(arr: readonly T[], seed: number): T {
+  return arr[Math.abs(seed) % arr.length]!;
+}
+
+function slice(arr: string[], seed: number, count: number): string[] {
+  const start = Math.abs(seed) % arr.length;
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) out.push(arr[(start + i) % arr.length]!);
+  return out;
+}
+
+function demoDate(daysAgo: number, hour: number): string {
+  const d = new Date("2026-04-28T00:00:00.000Z");
+  d.setDate(d.getDate() - daysAgo);
+  d.setHours(hour, Math.floor(Math.random() * 59), 0, 0);
+  return d.toISOString();
+}
+
+function makeJournalEntry(index: number): CelebrationHistoryEntryDto {
+  const daysAgo = index * 2 + Math.floor(index / 3);
+  const hour = index % 3 === 0 ? 6 : index % 3 === 1 ? 12 : 17;
+  const date = demoDate(daysAgo, hour);
+  const distance = 4000 + index * 800 + (index % 5) * 1200;
+  const duration = Math.round(distance / 2.8);
+  const completed = index % 4 === 0 ? 3 : index % 3 === 0 ? 2 : index % 2 === 0 ? 1 : 0;
+  const started = index % 3 === 0 ? 0 : index % 2 === 0 ? 2 : 1;
+  const improved = index % 5 === 0 ? 0 : index % 2 === 0 ? 1 : 2;
+  const projectA = pick(DEMO_PROJECTS, index);
+  const projectB = pick(DEMO_PROJECTS, index + 3);
+  const projectCompleted = index === 4 || index === 15;
+  const shared = index % 3 === 0;
+
+  const progressBefore = 20 + index * 3;
+  const progressAfter = projectCompleted ? 100 : Math.min(progressBefore + completed * 3 + started + improved, 99);
+
+  const eventA: PendingCelebrationEventDto = {
+    id: `demo-journal-${String(index).padStart(3, "0")}-a`,
+    activityId: `strava-journal-${String(index).padStart(3, "0")}`,
+    projectId: `demo-proj-${String(index % DEMO_PROJECTS.length).padStart(2, "0")}`,
+    projectName: projectA,
+    completedCount: completed,
+    startedCount: started,
+    improvedCount: improved,
+    completedStreetNames: slice(DEMO_STREETS.completed, index, completed),
+    startedStreetNames: slice(DEMO_STREETS.started, index, started),
+    improvedStreetNames: slice(DEMO_STREETS.improved, index, improved),
+    projectProgressBefore: progressBefore,
+    projectProgressAfter: progressAfter,
+    projectCompleted,
+    activityDistanceMeters: distance,
+    activityDurationSeconds: duration,
+    activityStartDate: date,
+    shareMessage: null,
+    createdAt: date,
+  };
+
+  const events: PendingCelebrationEventDto[] = [eventA];
+
+  if (index % 3 === 1) {
+    events.push({
+      ...eventA,
+      id: `demo-journal-${String(index).padStart(3, "0")}-b`,
+      projectId: `demo-proj-${String((index + 3) % DEMO_PROJECTS.length).padStart(2, "0")}`,
+      projectName: projectB,
+      completedCount: Math.max(0, completed - 1),
+      startedCount: 1,
+      improvedCount: 0,
+      completedStreetNames: slice(DEMO_STREETS.completed, index + 5, Math.max(0, completed - 1)),
+      startedStreetNames: slice(DEMO_STREETS.started, index + 5, 1),
+      improvedStreetNames: [],
+      projectProgressBefore: 10 + index,
+      projectProgressAfter: 14 + index,
+      projectCompleted: false,
+    });
+  }
+
+  return {
+    groupKey: `demo-group-${String(index).padStart(3, "0")}`,
+    activityId: eventA.activityId,
+    activityStartDate: date,
+    activityDistanceMeters: distance,
+    activityDurationSeconds: duration,
+    createdAt: date,
+    acknowledged: true,
+    sharedToStrava: shared,
+    rollup: {
+      totalCompleted: events.reduce((s, e) => s + e.completedCount, 0),
+      totalStarted: events.reduce((s, e) => s + e.startedCount, 0),
+      totalImproved: events.reduce((s, e) => s + e.improvedCount, 0),
+      projectCount: events.length,
+    },
+    events,
+  };
+}
+
+export function getDemoJournalEntries(): CelebrationHistoryEntryDto[] {
+  return Array.from({ length: 20 }, (_, i) => makeJournalEntry(i));
 }

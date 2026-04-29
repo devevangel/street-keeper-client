@@ -25,6 +25,8 @@ export interface CelebrationHistoryListProps {
   /** Override the "no celebrations yet" copy. */
   emptyTitle?: string;
   emptyDescription?: string;
+  /** Show fixture data instead of hitting the API. For demo / preview URLs. */
+  demo?: boolean;
 }
 
 const PAGE_SIZE = 20;
@@ -162,6 +164,7 @@ export function CelebrationHistoryList({
   projectId,
   emptyTitle,
   emptyDescription,
+  demo = false,
 }: CelebrationHistoryListProps) {
   const [entries, setEntries] = useState<CelebrationHistoryEntryDto[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -205,8 +208,16 @@ export function CelebrationHistoryList({
   );
 
   useEffect(() => {
+    if (demo) {
+      void import("./fixtures").then(({ getDemoJournalEntries }) => {
+        setEntries(getDemoJournalEntries());
+        setNextCursor(null);
+        setInitialLoading(false);
+      });
+      return;
+    }
     void fetchPage(null, false);
-  }, [fetchPage]);
+  }, [fetchPage, demo]);
 
   const handleReplay = useCallback((entry: CelebrationHistoryEntryDto) => {
     setReplay(toReplayBatch(entry));

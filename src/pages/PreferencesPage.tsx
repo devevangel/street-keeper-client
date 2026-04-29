@@ -258,6 +258,12 @@ export function PreferencesPage() {
               >
                 Morning run copy
               </Link>
+              <Link
+                to={`${ROUTES.JOURNAL}?__journal=demo`}
+                className="font-semibold text-accent underline-offset-2 hover:underline"
+              >
+                Preview journal
+              </Link>
             </p>
           </Card>
         </div>
